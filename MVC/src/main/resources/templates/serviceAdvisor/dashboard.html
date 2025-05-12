@@ -2056,19 +2056,10 @@
                     </div>
                 </div>
 
-                <div style="margin-top: 20px; display: flex; gap: 10px; justify-content: center;">
-                    <button class="btn btn-primary" id="downloadPdfBtn">
-                        <i class="fas fa-file-pdf"></i> Download PDF
-                    </button>
-                    <button class="btn btn-success" id="sendToAdminBtn">
-                        <i class="fas fa-user-tie"></i> Send to Admin
-                    </button>
-                </div>
             </div>
         </div>
         <div class="modal-footer">
             <button class="btn btn-secondary" id="closeDetailsBtn">Close</button>
-            <button class="btn btn-primary" id="saveServiceItemsBtn">Save</button>
             <button class="btn btn-success" id="markCompleteBtn">Mark as Complete</button>
         </div>
     </div>
@@ -2308,22 +2299,6 @@
             });
         }
 
-        // Save button
-        const saveServiceItemsBtn = document.getElementById('saveServiceItemsBtn');
-        if (saveServiceItemsBtn) {
-            saveServiceItemsBtn.addEventListener('click', function() {
-                const activeTab = document.querySelector('.tab.active');
-                const tabName = activeTab.getAttribute('data-tab');
-
-                if (tabName === 'service-items') {
-                    saveServiceItems();
-                } else if (tabName === 'generate-invoice') {
-                    generateBill();
-                } else if (tabName === 'update-status') {
-                    updateServiceStatus();
-                }
-            });
-        }
 
         // Save invoice button
         const saveInvoiceBtn = document.getElementById('saveInvoiceBtn');
@@ -2345,21 +2320,7 @@
             });
         }
 
-        // Download PDF button
-        const downloadPdfBtn = document.getElementById('downloadPdfBtn');
-        if (downloadPdfBtn) {
-            downloadPdfBtn.addEventListener('click', function() {
-                downloadBillPdf();
-            });
-        }
 
-        // Send to Admin button
-        const sendToAdminBtn = document.getElementById('sendToAdminBtn');
-        if (sendToAdminBtn) {
-            sendToAdminBtn.addEventListener('click', function() {
-                sendBillToAdmin();
-            });
-        }
 
         // Mark as complete button
         const markCompleteBtn = document.getElementById('markCompleteBtn');
@@ -2425,27 +2386,15 @@
 
     // Update modal footer buttons based on active tab
     function updateModalFooterButtons() {
-        const saveServiceItemsBtn = document.getElementById('saveServiceItemsBtn');
         const markCompleteBtn = document.getElementById('markCompleteBtn');
         const activeTab = document.querySelector('.tab.active');
 
-        if (saveServiceItemsBtn && markCompleteBtn && activeTab) {
+        if (markCompleteBtn && activeTab) {
             const tabName = activeTab.getAttribute('data-tab');
 
-            if (tabName === 'service-items') {
-                saveServiceItemsBtn.style.display = 'block';
+            if (tabName === 'service-items' || tabName === 'generate-invoice') {
                 markCompleteBtn.style.display = 'block';
-                saveServiceItemsBtn.textContent = 'Save';
-            } else if (tabName === 'generate-invoice') {
-                saveServiceItemsBtn.style.display = 'block';
-                markCompleteBtn.style.display = 'block';
-                saveServiceItemsBtn.textContent = 'Finalize Bill';
-            } else if (tabName === 'update-status') {
-                saveServiceItemsBtn.style.display = 'block';
-                markCompleteBtn.style.display = 'none';
-                saveServiceItemsBtn.textContent = 'Save Status';
             } else {
-                saveServiceItemsBtn.style.display = 'none';
                 markCompleteBtn.style.display = 'none';
             }
         }
@@ -3749,7 +3698,6 @@
         }
     }
 
-    // Update service status
     function updateServiceStatus() {
         const statusSelect = document.getElementById('statusSelect');
 
@@ -3771,17 +3719,17 @@
         const token = getAuthToken();
         const headers = createAuthHeaders();
 
-        // Prepare simplified data for API call
+        // Prepare simplified data for API call - explicitly set notifyCustomer to false
         const statusData = {
             status: status,
-            notes: "",
-            notifyCustomer: false
+            notes: document.getElementById('serviceNotes')?.value || "",
+            notifyCustomer: false // Ensure this is always false
         };
 
         console.log(`Updating service ${window.currentRequestId} status to ${status}`);
 
         // Send to server using the correct endpoint
-        fetch(`/serviceAdvisor/api/service/${window.currentRequestId}/status`, {
+        return fetch(`/serviceAdvisor/api/service/${window.currentRequestId}/status`, {
             method: 'PUT',
             headers: headers,
             body: JSON.stringify(statusData)
@@ -3805,10 +3753,7 @@
                 updateStatusInTable(window.currentRequestId, status);
                 updateAllStatusBadges(status);
 
-                // Refresh service details to ensure everything is in sync
-                setTimeout(() => {
-                    openVehicleDetails(window.currentRequestId);
-                }, 1000);
+                return data;
             })
             .catch(error => {
                 console.error('Error updating service status:', error);
@@ -3816,6 +3761,8 @@
 
                 // Re-enable save button
                 if (saveButton) saveButton.disabled = false;
+
+                throw error;
             });
     }
 
@@ -4123,104 +4070,37 @@
             });
     }
 
-    // Download bill PDF
-    function downloadBillPdf() {
-        // Validate first
-        if (window.inventoryItems.length === 0 && window.laborCharges.length === 0) {
-            showNotification('No items to include in bill PDF', 'error');
-            return;
-        }
-
-        // Get service request ID
-        const requestId = window.currentRequestId;
-        if (!requestId) {
-            showNotification('Service request ID not found', 'error');
-            return;
-        }
-
-        showNotification('Preparing PDF download...', 'info');
-
-        // The URL would typically point to your PDF generation endpoint
-        const downloadUrl = `/api/bills/service-request/${requestId}/download`;
-
-        // Create a temporary anchor element to trigger the download
-        const link = document.createElement('a');
-        link.href = downloadUrl;
-        link.target = '_blank';
-        link.download = `Invoice_${window.currentInvoiceNumber || 'Service'}.pdf`;
-
-        // Add the link to the body and click it
-        document.body.appendChild(link);
-        link.click();
-
-        // Clean up
-        document.body.removeChild(link);
-
-        showNotification('PDF download initiated successfully!');
-    }
 
     // Send bill to admin for processing
-    function sendBillToAdmin() {
-        // Validate first
-        if (window.inventoryItems.length === 0 && window.laborCharges.length === 0) {
-            showNotification('No items to include in the bill', 'error');
-            return;
-        }
-
-        // Get token and headers
-        const token = getAuthToken();
-        const headers = createAuthHeaders();
-
-        // In a real implementation, you would send data to the server
-        const requestId = window.currentRequestId;
-
-        // Prepare data for sending
-        const billData = {
-            requestId: requestId,
-            materials: window.inventoryItems.map(item => ({
-                itemId: Number(item.key),
-                name: item.name,
-                quantity: Number(item.quantity),
-                unitPrice: Number(item.price),
-                total: Number(item.price * item.quantity)
-            })),
-            laborCharges: window.laborCharges.map(charge => ({
-                description: charge.description || 'Labor Charge',
-                hours: Number(charge.hours),
-                ratePerHour: Number(charge.rate),
-                total: Number(charge.hours * charge.rate)
-            })),
-            notes: document.getElementById('serviceNotes')?.value || '',
-            sendToAdmin: true
-        };
-
-        showNotification('Sending to admin for review...', 'info');
-
-        // Simulate sending to admin (in a real app, you would make an API call)
-        setTimeout(() => {
-            showNotification('Invoice sent to admin for processing!', 'success');
-        }, 1500);
-    }
 
     // Mark service as complete
     function markServiceComplete() {
-        // Update status to completed
-        const statusSelect = document.getElementById('statusSelect');
-        if (statusSelect) {
-            // Find the "Completed" option
-            for (let i = 0; i < statusSelect.options.length; i++) {
-                if (statusSelect.options[i].value.toLowerCase() === 'completed') {
-                    statusSelect.selectedIndex = i;
-                    break;
+        // First save any pending changes to service items
+        saveServiceItems().then(() => {
+            // Then update status to completed
+            const statusSelect = document.getElementById('statusSelect');
+            if (statusSelect) {
+                // Find the "Completed" option
+                for (let i = 0; i < statusSelect.options.length; i++) {
+                    if (statusSelect.options[i].value.toLowerCase() === 'completed') {
+                        statusSelect.selectedIndex = i;
+                        break;
+                    }
                 }
             }
-        }
 
-        // Preview the status update
-        updateStatusPreview('Completed');
+            // Preview the status update
+            updateStatusPreview('Completed');
 
-        // Call the update function
-        updateServiceStatus();
+            // Update bill preview if needed
+            updateBillPreview();
+
+            // Call the update function with explicit notifyCustomer: false
+            updateServiceStatus();
+
+            // Show success notification
+            showNotification('Service marked as completed!');
+        });
     }
 
     // Filter vehicles by status
@@ -4299,7 +4179,6 @@
     window.removeInventoryItem = removeInventoryItem;
     window.removeLaborCharge = removeLaborCharge;
     window.handleTabClick = handleTabClick;
-    window.downloadBillPdf = downloadBillPdf;
     window.sendBillToAdmin = sendBillToAdmin;
     window.updateBillPreview = updateBillPreview;
     window.updateInvoiceInfoFields = updateInvoiceInfoFields;
