@@ -1120,8 +1120,8 @@
             background: rgba(217, 4, 41, 0.1);
         }
 
-        /* Bill Summary */
-        .bill-summary {
+        /* Invoice Summary */
+        .invoice-summary {
             background: rgba(255, 255, 255, 0.8);
             padding: var(--spacing-lg);
             border-radius: var(--radius-md);
@@ -1130,14 +1130,14 @@
             border: 1px solid rgba(114, 47, 55, 0.15);
         }
 
-        .bill-row {
+        .invoice-row {
             display: flex;
             justify-content: space-between;
             margin-bottom: 10px;
             font-size: 0.95rem;
         }
 
-        .bill-total {
+        .invoice-total {
             display: flex;
             justify-content: space-between;
             font-size: 1.1rem;
@@ -1272,8 +1272,8 @@
             flex: 1;
         }
 
-        /* Bill Generation Modal */
-        .bill-preview {
+        /* Invoice Generation Modal */
+        .invoice-preview {
             background: var(--white);
             border-radius: var(--radius-md);
             box-shadow: var(--shadow-lg);
@@ -1281,87 +1281,87 @@
             overflow: hidden;
         }
 
-        .bill-header {
+        .invoice-header {
             background: var(--primary-color);
             color: var(--white);
             padding: var(--spacing-lg);
             text-align: center;
         }
 
-        .bill-company {
+        .invoice-company {
             font-size: 1.5rem;
             font-weight: 700;
             margin-bottom: 5px;
         }
 
-        .bill-title {
+        .invoice-title {
             font-size: 1.2rem;
             opacity: 0.9;
         }
 
-        .bill-info {
+        .invoice-info {
             display: flex;
             justify-content: space-between;
             padding: var(--spacing-lg);
             border-bottom: 1px solid var(--medium-gray);
         }
 
-        .bill-customer, .bill-service {
+        .invoice-customer, .invoice-service {
             flex: 1;
         }
 
-        .bill-section-title {
+        .invoice-section-title {
             font-weight: 600;
             margin-bottom: 10px;
             color: var(--primary-dark);
         }
 
-        .bill-detail {
+        .invoice-detail {
             margin-bottom: 5px;
             font-size: 0.9rem;
         }
 
-        .bill-detail span {
+        .invoice-detail span {
             font-weight: 500;
         }
 
-        .bill-items {
+        .invoice-items {
             padding: var(--spacing-lg);
         }
 
-        .bill-table {
+        .invoice-table {
             width: 100%;
             border-collapse: collapse;
             margin-bottom: var(--spacing-md);
         }
 
-        .bill-table th {
+        .invoice-table th {
             background-color: rgba(114, 47, 55, 0.05);
             padding: 10px;
             text-align: left;
             font-weight: 500;
         }
 
-        .bill-table td {
+        .invoice-table td {
             padding: 10px;
             border-bottom: 1px solid var(--medium-gray);
         }
 
-        .bill-table tr:last-child td {
+        .invoice-table tr:last-child td {
             border-bottom: none;
         }
 
-        .bill-totals {
+        .invoice-totals {
             padding: 0 var(--spacing-lg) var(--spacing-lg);
         }
 
-        .bill-subtotal, .bill-tax {
+        .invoice-subtotal, .invoice-tax {
             display: flex;
             justify-content: space-between;
             margin-bottom: 5px;
         }
 
-        .bill-grand-total {
+        .invoice-grand-total {
             display: flex;
             justify-content: space-between;
             font-weight: 700;
@@ -1371,7 +1371,7 @@
             border-top: 1px solid var(--medium-gray);
         }
 
-        .bill-footer {
+        .invoice-footer {
             padding: var(--spacing-lg);
             text-align: center;
             background-color: rgba(114, 47, 55, 0.05);
@@ -1489,7 +1489,7 @@
                 gap: var(--spacing-sm);
             }
 
-            .bill-summary {
+            .invoice-summary {
                 margin-bottom: var(--spacing-lg);
             }
         }
@@ -1527,7 +1527,7 @@
                 margin-bottom: 5px;
             }
 
-            .bill-info {
+            .invoice-info {
                 flex-direction: column;
                 gap: var(--spacing-md);
             }
@@ -1750,7 +1750,7 @@
                 <div class="tab active" data-tab="details">Vehicle Details</div>
                 <div class="tab" data-tab="service-items">Service Items</div>
                 <div class="tab" data-tab="update-status">Update Status</div>
-                <div class="tab" data-tab="generate-bill">Generate Bill</div>
+                <div class="tab" data-tab="generate-invoice">Generate Invoice</div>
             </div>
 
             <!-- Vehicle Details Tab -->
@@ -1920,36 +1920,36 @@
                     </div>
 
                     <div class="service-column right-column">
-                        <h4 class="section-title">Service Bill Summary</h4>
-                        <div class="bill-summary">
-                            <div class="bill-row">
+                        <h4 class="section-title">Service Invoice Summary</h4>
+                        <div class="invoice-summary">
+                            <div class="invoice-row">
                                 <span>Parts Subtotal:</span>
                                 <span id="partsSubtotal">₹0.00</span>
                             </div>
-                            <div class="bill-row">
+                            <div class="invoice-row">
                                 <span>Labor Subtotal:</span>
                                 <span id="laborSubtotal">₹0.00</span>
                             </div>
-                            <div class="bill-row">
+                            <div class="invoice-row">
                                 <span>Subtotal:</span>
                                 <span id="subtotalAmount">₹0.00</span>
                             </div>
-                            <div class="bill-row">
+                            <div class="invoice-row">
                                 <span>Tax (7%):</span>
                                 <span id="taxAmount">₹0.00</span>
                             </div>
-                            <div class="bill-total">
+                            <div class="invoice-total">
                                 <span>Total:</span>
                                 <span id="totalAmount">₹0.00</span>
                             </div>
                         </div>
 
                         <div style="margin-top: 20px; display: flex; gap: 10px;">
-                            <button class="btn btn-success" style="flex: 1;" id="saveBillBtn">
-                                <i class="fas fa-save"></i> Save Bill
+                            <button class="btn btn-success" style="flex: 1;" id="saveInvoiceBtn">
+                                <i class="fas fa-save"></i> Save Invoice
                             </button>
-                            <button class="btn btn-primary" style="flex: 1;" id="previewBillBtn">
-                                <i class="fas fa-file-invoice"></i> Preview Bill
+                            <button class="btn btn-primary" style="flex: 1;" id="previewInvoiceBtn">
+                                <i class="fas fa-file-invoice"></i> Preview Invoice
                             </button>
                         </div>
 
@@ -1994,34 +1994,34 @@
                 </div>
             </div>
 
-            <!-- Generate Bill Tab -->
-            <div class="tab-content" id="generate-bill-tab">
-                <div class="bill-preview">
-                    <div class="bill-header">
-                        <div class="bill-company">Albany Automotive Services</div>
-                        <div class="bill-title">Service Invoice</div>
+            <!-- Generate Invoice Tab -->
+            <div class="tab-content" id="generate-invoice-tab">
+                <div class="invoice-preview">
+                    <div class="invoice-header">
+                        <div class="invoice-company">Albany Automotive Services</div>
+                        <div class="invoice-title">Service Invoice</div>
                     </div>
 
-                    <div class="bill-info">
-                        <div class="bill-customer">
-                            <div class="bill-section-title">Customer Information</div>
-                            <div class="bill-detail"><span>Name:</span> John Smith</div>
-                            <div class="bill-detail"><span>Email:</span> john.smith@example.com</div>
-                            <div class="bill-detail"><span>Phone:</span> (555) 123-4567</div>
+                    <div class="invoice-info">
+                        <div class="invoice-customer">
+                            <div class="invoice-section-title">Customer Information</div>
+                            <div class="invoice-detail"><span>Name:</span> John Smith</div>
+                            <div class="invoice-detail"><span>Email:</span> john.smith@example.com</div>
+                            <div class="invoice-detail"><span>Phone:</span> (555) 123-4567</div>
                         </div>
 
-                        <div class="bill-service">
-                            <div class="bill-section-title">Service Information</div>
-                            <div class="bill-detail"><span>Vehicle:</span> Honda Civic (2020)</div>
-                            <div class="bill-detail"><span>Registration:</span> ABC-1234</div>
-                            <div class="bill-detail"><span>Invoice Date:</span> May 7, 2025</div>
-                            <div class="bill-detail"><span>Invoice #:</span> INV-2025-0034</div>
+                        <div class="invoice-service">
+                            <div class="invoice-section-title">Service Information</div>
+                            <div class="invoice-detail"><span>Vehicle:</span> Honda Civic (2020)</div>
+                            <div class="invoice-detail"><span>Registration:</span> ABC-1234</div>
+                            <div class="invoice-detail"><span>Invoice Date:</span> May 7, 2025</div>
+                            <div class="invoice-detail"><span>Invoice #:</span> INV-2025-0034</div>
                         </div>
                     </div>
 
-                    <div class="bill-items">
-                        <div class="bill-section-title">Service Items</div>
-                        <table class="bill-table">
+                    <div class="invoice-items">
+                        <div class="invoice-section-title">Service Items</div>
+                        <table class="invoice-table">
                             <thead>
                             <tr>
                                 <th>Description</th>
@@ -2030,28 +2030,28 @@
                                 <th>Amount</th>
                             </tr>
                             </thead>
-                            <tbody id="billItemsList">
+                            <tbody id="invoiceItemsList">
                             <!-- Will be populated by JavaScript -->
                             </tbody>
                         </table>
                     </div>
 
-                    <div class="bill-totals">
-                        <div class="bill-subtotal">
+                    <div class="invoice-totals">
+                        <div class="invoice-subtotal">
                             <span>Subtotal:</span>
-                            <span id="billSubtotal">₹0.00</span>
+                            <span id="invoiceSubtotal">₹0.00</span>
                         </div>
-                        <div class="bill-tax">
+                        <div class="invoice-tax">
                             <span>Tax (7%):</span>
-                            <span id="billTax">₹0.00</span>
+                            <span id="invoiceTax">₹0.00</span>
                         </div>
-                        <div class="bill-grand-total">
+                        <div class="invoice-grand-total">
                             <span>Total:</span>
-                            <span id="billTotal">₹0.00</span>
+                            <span id="invoiceTotal">₹0.00</span>
                         </div>
                     </div>
 
-                    <div class="bill-footer">
+                    <div class="invoice-footer">
                         Thank you for choosing Albany Automotive Services for your vehicle maintenance needs.
                     </div>
                 </div>
@@ -2340,22 +2340,22 @@
             });
         }
 
-        // Save bill button
-        const saveBillBtn = document.getElementById('saveBillBtn');
-        if (saveBillBtn) {
-            saveBillBtn.addEventListener('click', function() {
+        // Save invoice button
+        const saveInvoiceBtn = document.getElementById('saveInvoiceBtn');
+        if (saveInvoiceBtn) {
+            saveInvoiceBtn.addEventListener('click', function() {
                 saveServiceItems();
             });
         }
 
-        // Preview bill button
-        const previewBillBtn = document.getElementById('previewBillBtn');
-        if (previewBillBtn) {
-            previewBillBtn.addEventListener('click', function() {
-                // Switch to the generate-bill tab
-                const generateBillTab = document.querySelector('.tab[data-tab="generate-bill"]');
-                if (generateBillTab) {
-                    generateBillTab.click();
+        // Preview invoice button
+        const previewInvoiceBtn = document.getElementById('previewInvoiceBtn');
+        if (previewInvoiceBtn) {
+            previewInvoiceBtn.addEventListener('click', function() {
+                // Switch to the generate-invoice tab
+                const generateInvoiceTab = document.querySelector('.tab[data-tab="generate-invoice"]');
+                if (generateInvoiceTab) {
+                    generateInvoiceTab.click();
                 }
             });
         }
