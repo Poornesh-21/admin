@@ -2120,6 +2120,8 @@
 </div>
 
 <script>
+    // Complete JavaScript code for Service Advisor Dashboard
+
     document.addEventListener('DOMContentLoaded', function() {
         // Initialize data structures
         window.inventoryPrices = {};
@@ -2184,9 +2186,9 @@
             statusIndicator.style.marginLeft = 'auto';
             statusIndicator.style.gap = '5px';
             statusIndicator.innerHTML = `
-            <span id="status-icon" class="status-indicator" style="width: 10px; height: 10px; border-radius: 50%; background-color: #ccc;"></span>
-            <span id="status-text" style="font-size: 0.8rem; color: #666;">Checking connection...</span>
-        `;
+        <span id="status-icon" class="status-indicator" style="width: 10px; height: 10px; border-radius: 50%; background-color: #ccc;"></span>
+        <span id="status-text" style="font-size: 0.8rem; color: #666;">Checking connection...</span>
+    `;
 
             const headerTitle = header.querySelector('.header-title');
             if (headerTitle) {
@@ -2517,13 +2519,13 @@
         const tableBody = document.getElementById('vehiclesTableBody');
         if (tableBody) {
             tableBody.innerHTML = `
-            <tr>
-                <td colspan="6" style="text-align: center; padding: 20px;">
-                    <i class="fas fa-spinner fa-spin" style="font-size: 24px; margin-bottom: 10px;"></i>
-                    <p>Loading assigned vehicles...</p>
-                </td>
-            </tr>
-        `;
+        <tr>
+            <td colspan="6" style="text-align: center; padding: 20px;">
+                <i class="fas fa-spinner fa-spin" style="font-size: 24px; margin-bottom: 10px;"></i>
+                <p>Loading assigned vehicles...</p>
+            </td>
+        </tr>
+    `;
         }
 
         // Use the correct endpoint that matches the backend
@@ -2616,12 +2618,12 @@
             // No vehicles found - show empty state
             const emptyRow = document.createElement('tr');
             emptyRow.innerHTML = `
-            <td colspan="6" class="empty-state">
-                <i class="fas fa-car-alt"></i>
-                <h3>No vehicles assigned</h3>
-                <p>You don't have any active service requests assigned to you at the moment.</p>
-            </td>
-        `;
+        <td colspan="6" class="empty-state">
+            <i class="fas fa-car-alt"></i>
+            <h3>No vehicles assigned</h3>
+            <p>You don't have any active service requests assigned to you at the moment.</p>
+        </td>
+    `;
             tableBody.appendChild(emptyRow);
             return;
         }
@@ -2637,12 +2639,17 @@
             // Format date
             let formattedDate = 'N/A';
             if (vehicle.startDate) {
-                const requestDate = new Date(vehicle.startDate);
-                formattedDate = requestDate.toLocaleDateString('en-US', {
-                    month: 'short',
-                    day: 'numeric',
-                    year: 'numeric'
-                });
+                try {
+                    const requestDate = new Date(vehicle.startDate);
+                    formattedDate = requestDate.toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric'
+                    });
+                } catch (e) {
+                    console.warn('Error formatting date:', e);
+                    formattedDate = vehicle.startDate; // Use raw value as fallback
+                }
             }
 
             // Status badge class
@@ -2665,6 +2672,9 @@
                 statusText.toLowerCase() === 'new') {
                 statusClass = 'new';
                 statusText = 'New';
+            } else if (statusText.toLowerCase() === 'completed') {
+                statusClass = 'completed';
+                statusText = 'Completed';
             }
 
             // Safe access to properties with fallbacks
@@ -2677,37 +2687,37 @@
             const serviceType = vehicle.serviceType || 'General Service';
 
             row.innerHTML = `
-            <td>
-                <div class="vehicle-details">
-                    <div class="vehicle-model">${vehicleName}</div>
-                    <div class="vehicle-info">Registration: ${registrationNumber}</div>
-                </div>
-            </td>
-            <td>
-                <div class="customer-details">
-                    <div class="customer-name">${customerName}</div>
-                    <div class="customer-info">${customerEmail}</div>
-                </div>
-            </td>
-            <td>${serviceType}</td>
-            <td>${formattedDate}</td>
-            <td>
-                <span class="status-badge ${statusClass}">
-                    <i class="fas fa-circle"></i> ${statusText}
-                </span>
-            </td>
-            <td class="action-cell">
-                <button class="action-btn" onclick="openVehicleDetails(${vehicle.requestId}); event.stopPropagation();">
-                    <i class="fas fa-eye"></i> View
-                </button>
-            </td>
-        `;
+        <td>
+            <div class="vehicle-details">
+                <div class="vehicle-model">${vehicleName}</div>
+                <div class="vehicle-info">Registration: ${registrationNumber}</div>
+            </div>
+        </td>
+        <td>
+            <div class="customer-details">
+                <div class="customer-name">${customerName}</div>
+                <div class="customer-info">${customerEmail}</div>
+            </div>
+        </td>
+        <td>${serviceType}</td>
+        <td>${formattedDate}</td>
+        <td>
+            <span class="status-badge ${statusClass}">
+                <i class="fas fa-circle"></i> ${statusText}
+            </span>
+        </td>
+        <td class="action-cell">
+            <button class="action-btn" onclick="openVehicleDetails(${vehicle.requestId}); event.stopPropagation();">
+                <i class="fas fa-eye"></i> View
+            </button>
+        </td>
+    `;
 
             tableBody.appendChild(row);
         });
     }
 
-    // Open vehicle details modal
+    // Open vehicle details modal - FIXED VERSION
     function openVehicleDetails(requestId) {
         console.log('Opening details for service request ID:', requestId);
         window.currentRequestId = requestId;
@@ -2748,12 +2758,16 @@
             headers['Authorization'] = `Bearer ${token}`;
         }
 
+        // Add debug logging
+        console.log('Fetching service details with token:', token ? 'Token present' : 'No token');
+
         // Fetch vehicle details from server using proper endpoint
         fetch(`/serviceAdvisor/api/service-details/${requestId}`, {
             method: 'GET',
             headers: headers
         })
             .then(response => {
+                console.log('Service details response status:', response.status);
                 if (!response.ok) {
                     throw new Error(`Failed to fetch service details: ${response.status}`);
                 }
@@ -2785,81 +2799,100 @@
                 // Show error in the details tab
                 if (detailsTab) {
                     detailsTab.innerHTML = `
-                    <div class="empty-state">
-                        <i class="fas fa-exclamation-triangle" style="color: var(--danger);"></i>
-                        <h3>Error Loading Details</h3>
-                        <p>${error.message}</p>
-                        <button class="btn btn-primary" onclick="openVehicleDetails(${requestId})">
-                            <i class="fas fa-sync"></i> Retry
-                        </button>
-                    </div>
-                `;
+                <div class="empty-state">
+                    <i class="fas fa-exclamation-triangle" style="color: var(--danger);"></i>
+                    <h3>Error Loading Details</h3>
+                    <p>${error.message}</p>
+                    <button class="btn btn-primary" onclick="openVehicleDetails(${requestId})">
+                        <i class="fas fa-sync"></i> Retry
+                    </button>
+                </div>
+            `;
                 }
             });
     }
 
-    // Load vehicle details into the UI
+    // FIXED - Load vehicle details into the UI
     function loadVehicleDetails(data) {
         // Safety check
         if (!data) {
             console.error('No data provided to loadVehicleDetails');
+            showNotification('Error: No data received from server', 'error');
             return;
         }
 
         try {
+            console.log('Loading vehicle details with data:', data);
+
             // Create the detail cards if they don't exist yet
             createDetailCardsIfNeeded();
 
             // Vehicle Information
             const vehicleCard = document.querySelector('.detail-card:nth-of-type(1)');
             if (vehicleCard) {
+                console.log('Vehicle card found');
                 const makeModel = `${data.vehicleBrand || ''} ${data.vehicleModel || ''}`.trim();
-                setDetailValue(vehicleCard, 1, makeModel || 'Not specified');
-                setDetailValue(vehicleCard, 2, data.registrationNumber || 'Not specified');
-                setDetailValue(vehicleCard, 3, data.vehicleYear || 'Not specified');
-                setDetailValue(vehicleCard, 4, data.vehicleType || 'Not specified');
+                setDetailValueFixed(vehicleCard, 1, makeModel || 'Not specified');
+                setDetailValueFixed(vehicleCard, 2, data.registrationNumber || 'Not specified');
+                setDetailValueFixed(vehicleCard, 3, data.vehicleYear || 'Not specified');
+                setDetailValueFixed(vehicleCard, 4, data.vehicleType || 'Not specified');
+            } else {
+                console.error('Vehicle card not found in the DOM');
             }
 
             // Customer Information
             const customerCard = document.querySelector('.detail-card:nth-of-type(2)');
             if (customerCard) {
-                setDetailValue(customerCard, 1, data.customerName || 'Not specified');
-                setDetailValue(customerCard, 2, data.customerEmail || 'Not specified');
-                setDetailValue(customerCard, 3, data.customerPhone || 'Not specified');
+                console.log('Customer card found');
+                setDetailValueFixed(customerCard, 1, data.customerName || 'Not specified');
+                setDetailValueFixed(customerCard, 2, data.customerEmail || 'Not specified');
+                setDetailValueFixed(customerCard, 3, data.customerPhone || 'Not specified');
+            } else {
+                console.error('Customer card not found in the DOM');
             }
 
             // Service Request Details
             const serviceCard = document.querySelector('.detail-card:nth-of-type(3)');
             if (serviceCard) {
-                setDetailValue(serviceCard, 1, data.serviceType || 'General Service');
+                console.log('Service card found');
+                setDetailValueFixed(serviceCard, 1, data.serviceType || 'General Service');
 
                 // Format date
                 let formattedDate = 'Not specified';
                 if (data.requestDate) {
-                    const requestDate = new Date(data.requestDate);
-                    formattedDate = requestDate.toLocaleDateString('en-US', {
-                        month: 'short',
-                        day: 'numeric',
-                        year: 'numeric'
-                    });
+                    try {
+                        const requestDate = new Date(data.requestDate);
+                        formattedDate = requestDate.toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric'
+                        });
+                    } catch (e) {
+                        console.error('Error formatting date:', e);
+                        formattedDate = data.requestDate; // Use raw value as fallback
+                    }
                 }
-                setDetailValue(serviceCard, 2, formattedDate);
+                setDetailValueFixed(serviceCard, 2, formattedDate);
 
                 // Status badge
-                const statusCell = serviceCard.querySelector('.detail-value:nth-of-type(3)');
+                const statusCell = serviceCard.querySelector('.detail-card-body .detail-row:nth-child(3) .detail-value');
                 if (statusCell) {
                     const status = data.status || 'New';
                     let statusClass = getStatusClass(status);
 
                     statusCell.innerHTML = `
-                    <span class="status-badge ${statusClass}">
-                        <i class="fas fa-circle"></i> ${status}
-                    </span>
-                `;
+                <span class="status-badge ${statusClass}">
+                    <i class="fas fa-circle"></i> ${status}
+                </span>
+            `;
+                } else {
+                    console.error('Status cell not found');
                 }
 
                 // Description
-                setDetailValue(serviceCard, 4, data.additionalDescription || 'No additional description provided.');
+                setDetailValueFixed(serviceCard, 4, data.additionalDescription || 'No additional description provided.');
+            } else {
+                console.error('Service card not found in the DOM');
             }
 
             // Update vehicle summary in other tabs
@@ -2882,10 +2915,10 @@
 
             statusDisplayElements.forEach(element => {
                 element.innerHTML = `
-                <span class="status-badge ${statusClass}" id="currentStatusBadge">
-                    <i class="fas fa-circle"></i> ${status}
-                </span>
-            `;
+            <span class="status-badge ${statusClass}" id="currentStatusBadge">
+                <i class="fas fa-circle"></i> ${status}
+            </span>
+        `;
             });
 
             // Update status dropdown
@@ -2899,9 +2932,34 @@
                     }
                 }
             }
+
+            console.log('Vehicle details loaded successfully');
         } catch (error) {
             console.error('Error loading vehicle details:', error);
-            showNotification('Error displaying vehicle details', 'error');
+            showNotification('Error displaying vehicle details: ' + error.message, 'error');
+        }
+    }
+
+    // Improved detail value setter function that correctly navigates the DOM
+    function setDetailValueFixed(cardElement, index, value) {
+        try {
+            // Find specific row by index (1-based)
+            const rows = cardElement.querySelectorAll('.detail-card-body .detail-row');
+            if (rows.length >= index) {
+                const targetRow = rows[index-1];
+                const valueElement = targetRow.querySelector('.detail-value');
+
+                if (valueElement) {
+                    valueElement.textContent = value;
+                    console.log(`Set detail value at row ${index}: "${value}"`);
+                } else {
+                    console.warn(`Value element not found in row ${index}`);
+                }
+            } else {
+                console.warn(`Row ${index} not found (only ${rows.length} rows available)`);
+            }
+        } catch (error) {
+            console.error(`Error setting detail value at index ${index}:`, error);
         }
     }
 
@@ -3006,14 +3064,6 @@
         // Add row to tab
         detailsTab.innerHTML = '';
         detailsTab.appendChild(row);
-    }
-
-    // Helper function to set detail value safely
-    function setDetailValue(cardElement, index, value) {
-        const valueElement = cardElement.querySelector(`.detail-value:nth-of-type(${index})`);
-        if (valueElement) {
-            valueElement.textContent = value;
-        }
     }
 
     // Helper function to get status class based on status string
@@ -3164,7 +3214,7 @@
     function fetchInventoryItems() {
         // Get token from URL parameter or session storage
         const urlParams = new URLSearchParams(window.location.search);
-        const token = urlParams.get('token');
+        const token = urlParams.get('token') || sessionStorage.getItem('jwt-token');
 
         // Set up headers
         const headers = {};
@@ -3690,33 +3740,6 @@
         }
     }
 
-    function fetchServiceDetails(requestId) {
-        // Get token from URL parameter or session storage
-        const urlParams = new URLSearchParams(window.location.search);
-        const token = urlParams.get('token');
-
-        // Set up headers
-        const headers = {};
-        if (token) {
-            headers['Authorization'] = `Bearer ${token}`;
-        }
-
-        return fetch(`/serviceAdvisor/api/service-details/${requestId}`, {
-            method: 'GET',
-            headers: headers
-        })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`HTTP error! Status: ${response.status}`);
-                }
-                return response.json();
-            })
-            .catch(error => {
-                console.error(`Error fetching service details for ID ${requestId}:`, error);
-                throw error;
-            });
-    }
-
     // Add status history item
     function addStatusHistoryItem(status, notes) {
         const statusHistory = document.querySelector('.status-history');
@@ -4021,6 +4044,30 @@
             notification.classList.remove('show');
         }, 3000);
     }
+
+    // Additional debugging function to examine the detail cards structure
+    function debugDetailCards() {
+        const detailCards = document.querySelectorAll('.detail-card');
+        console.log(`Found ${detailCards.length} detail cards`);
+
+        detailCards.forEach((card, cardIndex) => {
+            console.log(`Card ${cardIndex + 1} structure:`);
+
+            const header = card.querySelector('.detail-card-header');
+            console.log(`- Header: ${header ? header.textContent : 'Not found'}`);
+
+            const rows = card.querySelectorAll('.detail-row');
+            console.log(`- Contains ${rows.length} detail rows`);
+
+            rows.forEach((row, rowIndex) => {
+                const label = row.querySelector('.detail-label');
+                const value = row.querySelector('.detail-value');
+
+                console.log(`  - Row ${rowIndex + 1}: Label="${label ? label.textContent : 'Not found'}", Value="${value ? value.textContent : 'Not found'}"`);
+            });
+        });
+    }
 </script>
+
 </body>
 </html>
