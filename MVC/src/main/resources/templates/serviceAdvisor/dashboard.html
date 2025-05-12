@@ -1897,20 +1897,16 @@
                             </table>
                         </div>
 
-                        <!-- Labor Charges Section -->
+                        <!-- Labor Charges Section - MODIFIED: Removed description field -->
                         <div class="labor-section">
                             <h4 class="section-title">Labor Charges</h4>
                             <div class="labor-form">
-                                <div class="form-group" style="flex: 2;">
-                                    <label class="form-label" for="laborDescription">Description:</label>
-                                    <input type="text" class="form-control" id="laborDescription" placeholder="E.g., Oil Change Labor">
-                                </div>
                                 <div class="form-group" style="flex: 1;">
                                     <label class="form-label" for="laborHours">Hours:</label>
                                     <input type="number" class="form-control" id="laborHours" value="1" min="0.5" step="0.5">
                                 </div>
                                 <div class="form-group" style="flex: 1;">
-                                    <label class="form-label" for="laborRate">Rate ($/hr):</label>
+                                    <label class="form-label" for="laborRate">Rate (₹/hr):</label>
                                     <input type="number" class="form-control" id="laborRate" value="65" min="1">
                                 </div>
                                 <button class="btn btn-primary" id="addLaborBtn">
@@ -1928,23 +1924,23 @@
                         <div class="bill-summary">
                             <div class="bill-row">
                                 <span>Parts Subtotal:</span>
-                                <span id="partsSubtotal">$0.00</span>
+                                <span id="partsSubtotal">₹0.00</span>
                             </div>
                             <div class="bill-row">
                                 <span>Labor Subtotal:</span>
-                                <span id="laborSubtotal">$0.00</span>
+                                <span id="laborSubtotal">₹0.00</span>
                             </div>
                             <div class="bill-row">
                                 <span>Subtotal:</span>
-                                <span id="subtotalAmount">$0.00</span>
+                                <span id="subtotalAmount">₹0.00</span>
                             </div>
                             <div class="bill-row">
                                 <span>Tax (7%):</span>
-                                <span id="taxAmount">$0.00</span>
+                                <span id="taxAmount">₹0.00</span>
                             </div>
                             <div class="bill-total">
                                 <span>Total:</span>
-                                <span id="totalAmount">$0.00</span>
+                                <span id="totalAmount">₹0.00</span>
                             </div>
                         </div>
 
@@ -1967,7 +1963,7 @@
                 </div>
             </div>
 
-            <!-- Status Update Tab -->
+            <!-- Update Status Tab - MODIFIED: Simplified with just status selection -->
             <div class="tab-content" id="update-status-tab">
                 <div class="vehicle-summary">
                     <div class="vehicle-info-summary">
@@ -1990,44 +1986,9 @@
                             <label class="form-label" for="statusSelect">New Status:</label>
                             <select class="form-control" id="statusSelect">
                                 <option value="Diagnosis">Diagnosis</option>
-                                <option value="repair">Repair</option>
-                                <option value="completed">Completed</option>
+                                <option value="Repair">Repair</option>
+                                <option value="Completed">Completed</option>
                             </select>
-                        </div>
-
-                        <div class="form-group">
-                            <label class="form-label" for="statusNotes">Status Notes:</label>
-                            <textarea class="form-control" id="statusNotes" rows="4" placeholder="Enter details about this status change..."></textarea>
-                        </div>
-
-                        <div class="form-group">
-                            <label class="form-label" for="notifyCustomer">Notification:</label>
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" id="notifyCustomer" checked>
-                                <label class="form-check-label" for="notifyCustomer">
-                                    Send status update notification to customer
-                                </label>
-                            </div>
-                        </div>
-
-                        <div class="form-group">
-                            <label class="form-label">Status History:</label>
-                            <div class="status-history">
-                                <div class="status-history-item">
-                                    <div class="status-history-badge new">New</div>
-                                    <div class="status-history-details">
-                                        <div class="status-history-date">May 5, 2025 - 10:23 AM</div>
-                                        <div class="status-history-user">Created by: System</div>
-                                        <div class="status-history-notes">Service request created</div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div style="text-align: center; margin-top: 20px;">
-                            <button class="btn btn-primary" id="updateStatusBtn">
-                                <i class="fas fa-save"></i> Update Status
-                            </button>
                         </div>
                     </div>
                 </div>
@@ -2078,15 +2039,15 @@
                     <div class="bill-totals">
                         <div class="bill-subtotal">
                             <span>Subtotal:</span>
-                            <span id="billSubtotal">$0.00</span>
+                            <span id="billSubtotal">₹0.00</span>
                         </div>
                         <div class="bill-tax">
                             <span>Tax (7%):</span>
-                            <span id="billTax">$0.00</span>
+                            <span id="billTax">₹0.00</span>
                         </div>
                         <div class="bill-grand-total">
                             <span>Total:</span>
-                            <span id="billTotal">$0.00</span>
+                            <span id="billTotal">₹0.00</span>
                         </div>
                     </div>
 
@@ -2186,9 +2147,9 @@
             statusIndicator.style.marginLeft = 'auto';
             statusIndicator.style.gap = '5px';
             statusIndicator.innerHTML = `
-        <span id="status-icon" class="status-indicator" style="width: 10px; height: 10px; border-radius: 50%; background-color: #ccc;"></span>
-        <span id="status-text" style="font-size: 0.8rem; color: #666;">Checking connection...</span>
-    `;
+    <span id="status-icon" class="status-indicator" style="width: 10px; height: 10px; border-radius: 50%; background-color: #ccc;"></span>
+    <span id="status-text" style="font-size: 0.8rem; color: #666;">Checking connection...</span>
+`;
 
             const headerTitle = header.querySelector('.header-title');
             if (headerTitle) {
@@ -2345,15 +2306,14 @@
         const addLaborBtn = document.getElementById('addLaborBtn');
         if (addLaborBtn) {
             addLaborBtn.addEventListener('click', function() {
-                const description = document.getElementById('laborDescription').value;
                 const hours = parseFloat(document.getElementById('laborHours').value) || 0;
                 const rate = parseFloat(document.getElementById('laborRate').value) || 0;
 
-                if (description && hours > 0 && rate > 0) {
-                    addLaborCharge(description, hours, rate);
+                if (hours > 0 && rate > 0) {
+                    // Using a default description since we removed the description field
+                    addLaborCharge("Labor Charge", hours, rate);
 
                     // Reset form
-                    document.getElementById('laborDescription').value = '';
                     document.getElementById('laborHours').value = '1';
                     document.getElementById('laborRate').value = '65';
                 }
@@ -2519,13 +2479,13 @@
         const tableBody = document.getElementById('vehiclesTableBody');
         if (tableBody) {
             tableBody.innerHTML = `
-        <tr>
-            <td colspan="6" style="text-align: center; padding: 20px;">
-                <i class="fas fa-spinner fa-spin" style="font-size: 24px; margin-bottom: 10px;"></i>
-                <p>Loading assigned vehicles...</p>
-            </td>
-        </tr>
-    `;
+    <tr>
+        <td colspan="6" style="text-align: center; padding: 20px;">
+            <i class="fas fa-spinner fa-spin" style="font-size: 24px; margin-bottom: 10px;"></i>
+            <p>Loading assigned vehicles...</p>
+        </td>
+    </tr>
+`;
         }
 
         // Use the correct endpoint that matches the backend
@@ -2618,12 +2578,12 @@
             // No vehicles found - show empty state
             const emptyRow = document.createElement('tr');
             emptyRow.innerHTML = `
-        <td colspan="6" class="empty-state">
-            <i class="fas fa-car-alt"></i>
-            <h3>No vehicles assigned</h3>
-            <p>You don't have any active service requests assigned to you at the moment.</p>
-        </td>
-    `;
+    <td colspan="6" class="empty-state">
+        <i class="fas fa-car-alt"></i>
+        <h3>No vehicles assigned</h3>
+        <p>You don't have any active service requests assigned to you at the moment.</p>
+    </td>
+`;
             tableBody.appendChild(emptyRow);
             return;
         }
@@ -2687,31 +2647,32 @@
             const serviceType = vehicle.serviceType || 'General Service';
 
             row.innerHTML = `
-        <td>
-            <div class="vehicle-details">
-                <div class="vehicle-model">${vehicleName}</div>
-                <div class="vehicle-info">Registration: ${registrationNumber}</div>
-            </div>
-        </td>
-        <td>
-            <div class="customer-details">
-                <div class="customer-name">${customerName}</div>
-                <div class="customer-info">${customerEmail}</div>
-            </div>
-        </td>
-        <td>${serviceType}</td>
-        <td>${formattedDate}</td>
-        <td>
-            <span class="status-badge ${statusClass}">
-                <i class="fas fa-circle"></i> ${statusText}
-            </span>
-        </td>
-        <td class="action-cell">
-            <button class="action-btn" onclick="openVehicleDetails(${vehicle.requestId}); event.stopPropagation();">
-                <i class="fas fa-eye"></i> View
-            </button>
-        </td>
-    `;
+    <td>
+        <div class="vehicle-details">
+            <div class="vehicle-model">${vehicleName}</div>
+            <div class="vehicle-info">Registration: ${registrationNumber}</div>
+        </div>
+    </td>
+    <td>
+        <div class="customer-details">
+            <div class="customer-name">${customerName}</div>
+            <div class="customer-info">${customerEmail}</div>
+        </div>
+    </td>
+    <td>${serviceType}</td>
+    <td>${formattedDate}</td>
+    <td>
+        <span class="status-badge ${statusClass}">
+            <i class="fas fa-circle"></i> ${statusText}
+        </span>
+    </td>
+    <td class="action-cell">
+        <button class="action-btn" onclick="openVehicleDetails(${vehicle.requestId}); event.stopPropagation();">
+            <i class="fas fa-eye"></i> View
+        </button>
+    </td>
+</tr>
+`;
 
             tableBody.appendChild(row);
         });
@@ -2729,11 +2690,11 @@
         const detailsTab = document.getElementById('details-tab');
         if (detailsTab) {
             detailsTab.innerHTML = `
-            <div style="text-align: center; padding: 50px;">
-                <i class="fas fa-spinner fa-spin" style="font-size: 32px; margin-bottom: 20px;"></i>
-                <p>Loading service details...</p>
-            </div>
-        `;
+        <div style="text-align: center; padding: 50px;">
+            <i class="fas fa-spinner fa-spin" style="font-size: 32px; margin-bottom: 20px;"></i>
+            <p>Loading service details...</p>
+        </div>
+    `;
         }
 
         // Reset tab to details tab
@@ -2784,11 +2745,6 @@
                     loadCurrentBill(data.currentBill);
                 }
 
-                // Load service history if available
-                if (data.serviceHistory) {
-                    loadServiceHistory(data.serviceHistory);
-                }
-
                 // Load and populate inventory items dropdown
                 fetchInventoryItems();
             })
@@ -2799,15 +2755,15 @@
                 // Show error in the details tab
                 if (detailsTab) {
                     detailsTab.innerHTML = `
-                <div class="empty-state">
-                    <i class="fas fa-exclamation-triangle" style="color: var(--danger);"></i>
-                    <h3>Error Loading Details</h3>
-                    <p>${error.message}</p>
-                    <button class="btn btn-primary" onclick="openVehicleDetails(${requestId})">
-                        <i class="fas fa-sync"></i> Retry
-                    </button>
-                </div>
-            `;
+            <div class="empty-state">
+                <i class="fas fa-exclamation-triangle" style="color: var(--danger);"></i>
+                <h3>Error Loading Details</h3>
+                <p>${error.message}</p>
+                <button class="btn btn-primary" onclick="openVehicleDetails(${requestId})">
+                    <i class="fas fa-sync"></i> Retry
+                </button>
+            </div>
+        `;
                 }
             });
     }
@@ -2881,10 +2837,10 @@
                     let statusClass = getStatusClass(status);
 
                     statusCell.innerHTML = `
-                <span class="status-badge ${statusClass}">
-                    <i class="fas fa-circle"></i> ${status}
-                </span>
-            `;
+            <span class="status-badge ${statusClass}">
+                <i class="fas fa-circle"></i> ${status}
+            </span>
+        `;
                 } else {
                     console.error('Status cell not found');
                 }
@@ -2915,10 +2871,10 @@
 
             statusDisplayElements.forEach(element => {
                 element.innerHTML = `
-            <span class="status-badge ${statusClass}" id="currentStatusBadge">
-                <i class="fas fa-circle"></i> ${status}
-            </span>
-        `;
+        <span class="status-badge ${statusClass}" id="currentStatusBadge">
+            <i class="fas fa-circle"></i> ${status}
+        </span>
+    `;
             });
 
             // Update status dropdown
@@ -2979,82 +2935,82 @@
         const vehicleCard = document.createElement('div');
         vehicleCard.className = 'detail-card';
         vehicleCard.innerHTML = `
-        <div class="detail-card-header">
-            Vehicle Information
+    <div class="detail-card-header">
+        Vehicle Information
+    </div>
+    <div class="detail-card-body">
+        <div class="detail-row">
+            <div class="detail-label">Make/Model:</div>
+            <div class="detail-value">Loading...</div>
         </div>
-        <div class="detail-card-body">
-            <div class="detail-row">
-                <div class="detail-label">Make/Model:</div>
-                <div class="detail-value">Loading...</div>
-            </div>
-            <div class="detail-row">
-                <div class="detail-label">Registration:</div>
-                <div class="detail-value">Loading...</div>
-            </div>
-            <div class="detail-row">
-                <div class="detail-label">Year:</div>
-                <div class="detail-value">Loading...</div>
-            </div>
-            <div class="detail-row">
-                <div class="detail-label">Type:</div>
-                <div class="detail-value">Loading...</div>
-            </div>
+        <div class="detail-row">
+            <div class="detail-label">Registration:</div>
+            <div class="detail-value">Loading...</div>
         </div>
-    `;
+        <div class="detail-row">
+            <div class="detail-label">Year:</div>
+            <div class="detail-value">Loading...</div>
+        </div>
+        <div class="detail-row">
+            <div class="detail-label">Type:</div>
+            <div class="detail-value">Loading...</div>
+        </div>
+    </div>
+`;
 
         // Customer Information Card
         const customerCard = document.createElement('div');
         customerCard.className = 'detail-card';
         customerCard.innerHTML = `
-        <div class="detail-card-header">
-            Customer Information
+    <div class="detail-card-header">
+        Customer Information
+    </div>
+    <div class="detail-card-body">
+        <div class="detail-row">
+            <div class="detail-label">Name:</div>
+            <div class="detail-value">Loading...</div>
         </div>
-        <div class="detail-card-body">
-            <div class="detail-row">
-                <div class="detail-label">Name:</div>
-                <div class="detail-value">Loading...</div>
-            </div>
-            <div class="detail-row">
-                <div class="detail-label">Email:</div>
-                <div class="detail-value">Loading...</div>
-            </div>
-            <div class="detail-row">
-                <div class="detail-label">Phone:</div>
-                <div class="detail-value">Loading...</div>
-            </div>
+        <div class="detail-row">
+            <div class="detail-label">Email:</div>
+            <div class="detail-value">Loading...</div>
         </div>
-    `;
+        <div class="detail-row">
+            <div class="detail-label">Phone:</div>
+            <div class="detail-value">Loading...</div>
+        </div>
+    </div>
+`;
 
         // Service Request Card
         const serviceCard = document.createElement('div');
         serviceCard.className = 'detail-card';
         serviceCard.innerHTML = `
-        <div class="detail-card-header">
-            Service Request Details
+    <div class="detail-card-header">
+        Service Request Details
+    </div>
+    <div class="detail-card-body">
+        <div class="detail-row">
+            <div class="detail-label">Service Type:</div>
+            <div class="detail-value">Loading...</div>
         </div>
-        <div class="detail-card-body">
-            <div class="detail-row">
-                <div class="detail-label">Service Type:</div>
-                <div class="detail-value">Loading...</div>
-            </div>
-            <div class="detail-row">
-                <div class="detail-label">Request Date:</div>
-                <div class="detail-value">Loading...</div>
-            </div>
-            <div class="detail-row">
-                <div class="detail-label">Status:</div>
-                <div class="detail-value">
-                    <span class="status-badge new">
-                        <i class="fas fa-circle"></i> Loading...
-                    </span>
-                </div>
-            </div>
-            <div class="detail-row">
-                <div class="detail-label">Description:</div>
-                <div class="detail-value">Loading...</div>
+        <div class="detail-row">
+            <div class="detail-label">Request Date:</div>
+            <div class="detail-value">Loading...</div>
+        </div>
+        <div class="detail-row">
+            <div class="detail-label">Status:</div>
+            <div class="detail-value">
+                <span class="status-badge new">
+                    <i class="fas fa-circle"></i> Loading...
+                </span>
             </div>
         </div>
-    `;
+        <div class="detail-row">
+            <div class="detail-label">Description:</div>
+            <div class="detail-value">Loading...</div>
+        </div>
+    </div>
+`;
 
         // Add cards to row
         row.appendChild(vehicleCard);
@@ -3075,72 +3031,6 @@
             return 'in-progress';
         } else {
             return 'new';
-        }
-    }
-
-    // Load service history
-    function loadServiceHistory(history) {
-        const historyContainer = document.querySelector('.status-history');
-        if (!historyContainer) return;
-
-        historyContainer.innerHTML = '';
-
-        if (!history || history.length === 0) {
-            historyContainer.innerHTML = '<div class="empty-state">No status history available</div>';
-            return;
-        }
-
-        try {
-            // Sort history by timestamp (newest first)
-            history.sort((a, b) => {
-                // Handle potential invalid dates gracefully
-                let dateA = new Date(a.timestamp || 0);
-                let dateB = new Date(b.timestamp || 0);
-                return dateB - dateA;
-            });
-
-            history.forEach(item => {
-                // Default values if data is missing
-                const status = item.status || 'Unknown';
-                const updatedBy = item.updatedBy || 'System';
-                const notes = item.workDescription || 'No notes provided';
-
-                let formattedDate = 'Unknown date';
-                try {
-                    if (item.timestamp) {
-                        const timestamp = new Date(item.timestamp);
-                        formattedDate = timestamp.toLocaleDateString('en-US', {
-                            month: 'short',
-                            day: 'numeric',
-                            year: 'numeric',
-                            hour: 'numeric',
-                            minute: '2-digit',
-                            hour12: true
-                        });
-                    }
-                } catch (e) {
-                    console.warn('Invalid date format in history:', item.timestamp);
-                }
-
-                // Status badge class
-                let statusClass = getStatusClass(status);
-
-                const historyItem = document.createElement('div');
-                historyItem.className = 'status-history-item';
-                historyItem.innerHTML = `
-                <div class="status-history-badge ${statusClass}">${status}</div>
-                <div class="status-history-details">
-                    <div class="status-history-date">${formattedDate}</div>
-                    <div class="status-history-user">Updated by: ${updatedBy}</div>
-                    <div class="status-history-notes">${notes}</div>
-                </div>
-            `;
-
-                historyContainer.appendChild(historyItem);
-            });
-        } catch (error) {
-            console.error('Error loading service history:', error);
-            historyContainer.innerHTML = '<div class="empty-state">Error loading history data</div>';
         }
     }
 
@@ -3190,7 +3080,7 @@
             // Update bill summary with safe parsing
             const formatCurrency = (value) => {
                 const num = parseFloat(value) || 0;
-                return `$${num.toFixed(2)}`;
+                return `₹${num.toFixed(2)}`;
             };
 
             document.getElementById('partsSubtotal').textContent = formatCurrency(billData.partsSubtotal);
@@ -3270,7 +3160,7 @@
         items.forEach(item => {
             const option = document.createElement('option');
             option.value = item.itemId;
-            option.textContent = `${item.name} - $${item.unitPrice.toFixed(2)} (${item.currentStock} in stock)`;
+            option.textContent = `${item.name} - ₹${item.unitPrice.toFixed(2)} (${item.currentStock} in stock)`;
             inventorySelect.appendChild(option);
 
             // Store price in inventory prices map
@@ -3369,10 +3259,10 @@
         if (window.inventoryItems.length === 0) {
             const emptyRow = document.createElement('tr');
             emptyRow.innerHTML = `
-            <td colspan="5" style="text-align: center; padding: 20px;">
-                No inventory items added yet.
-            </td>
-        `;
+        <td colspan="5" style="text-align: center; padding: 20px;">
+            No inventory items added yet.
+        </td>
+    `;
             inventoryItemsList.appendChild(emptyRow);
             return;
         }
@@ -3382,22 +3272,22 @@
             const total = item.price * item.quantity;
 
             row.innerHTML = `
-            <td>${item.name}</td>
-            <td>$${item.price.toFixed(2)}</td>
-            <td>
-                <div class="quantity-control">
-                    <button class="quantity-btn" onclick="decrementInventoryQuantity(${index})">-</button>
-                    <input type="number" class="quantity-input" value="${item.quantity}" min="1" data-index="${index}" onchange="updateInventoryQuantity(this)">
-                    <button class="quantity-btn" onclick="incrementInventoryQuantity(${index})">+</button>
-                </div>
-            </td>
-            <td>$${total.toFixed(2)}</td>
-            <td style="text-align: center;">
-                <button class="btn-remove" onclick="removeInventoryItem(${index})">
-                    <i class="fas fa-times"></i>
-                </button>
-            </td>
-        `;
+        <td>${item.name}</td>
+        <td>₹${item.price.toFixed(2)}</td>
+        <td>
+            <div class="quantity-control">
+                <button class="quantity-btn" onclick="decrementInventoryQuantity(${index})">-</button>
+                <input type="number" class="quantity-input" value="${item.quantity}" min="1" data-index="${index}" onchange="updateInventoryQuantity(this)">
+                <button class="quantity-btn" onclick="incrementInventoryQuantity(${index})">+</button>
+            </div>
+        </td>
+        <td>₹${total.toFixed(2)}</td>
+        <td style="text-align: center;">
+            <button class="btn-remove" onclick="removeInventoryItem(${index})">
+                <i class="fas fa-times"></i>
+            </button>
+        </td>
+    `;
 
             inventoryItemsList.appendChild(row);
         });
@@ -3438,10 +3328,10 @@
         updateBillSummary();
     }
 
-    // Add labor charge
+    // Add labor charge - MODIFIED: Uses default description
     function addLaborCharge(description, hours, rate) {
         window.laborCharges.push({
-            description: description,
+            description: "Labor Charge",
             hours: hours,
             rate: rate
         });
@@ -3450,7 +3340,7 @@
         updateBillSummary();
     }
 
-    // Render labor charges
+    // Render labor charges - MODIFIED: Simplified labor item display
     function renderLaborCharges() {
         const laborChargesList = document.getElementById('laborChargesList');
         if (!laborChargesList) return;
@@ -3469,17 +3359,17 @@
             const total = charge.hours * charge.rate;
 
             laborItem.innerHTML = `
-            <div class="labor-details">
-                <div class="labor-title">${charge.description}</div>
-                <div class="labor-subtitle">${charge.hours} hours @ $${charge.rate.toFixed(2)}/hr</div>
-            </div>
-            <div class="labor-price">$${total.toFixed(2)}</div>
-            <div class="labor-actions">
-                <button class="btn-remove" onclick="removeLaborCharge(${index})">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-        `;
+        <div class="labor-details">
+            <div class="labor-title">Labor Charge</div>
+            <div class="labor-subtitle">${charge.hours} hours @ ₹${charge.rate.toFixed(2)}/hr</div>
+        </div>
+        <div class="labor-price">₹${total.toFixed(2)}</div>
+        <div class="labor-actions">
+            <button class="btn-remove" onclick="removeLaborCharge(${index})">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    `;
 
             laborChargesList.appendChild(laborItem);
         });
@@ -3512,11 +3402,11 @@
         const total = subtotal + tax;
 
         // Update the display
-        document.getElementById('partsSubtotal').textContent = `$${partsSubtotal.toFixed(2)}`;
-        document.getElementById('laborSubtotal').textContent = `$${laborSubtotal.toFixed(2)}`;
-        document.getElementById('subtotalAmount').textContent = `$${subtotal.toFixed(2)}`;
-        document.getElementById('taxAmount').textContent = `$${tax.toFixed(2)}`;
-        document.getElementById('totalAmount').textContent = `$${total.toFixed(2)}`;
+        document.getElementById('partsSubtotal').textContent = `₹${partsSubtotal.toFixed(2)}`;
+        document.getElementById('laborSubtotal').textContent = `₹${laborSubtotal.toFixed(2)}`;
+        document.getElementById('subtotalAmount').textContent = `₹${subtotal.toFixed(2)}`;
+        document.getElementById('taxAmount').textContent = `₹${tax.toFixed(2)}`;
+        document.getElementById('totalAmount').textContent = `₹${total.toFixed(2)}`;
     }
 
     // Update bill preview
@@ -3533,11 +3423,11 @@
             const total = item.price * item.quantity;
 
             row.innerHTML = `
-            <td>${item.name} (Parts)</td>
-            <td>${item.quantity}</td>
-            <td>$${item.price.toFixed(2)}</td>
-            <td>$${total.toFixed(2)}</td>
-        `;
+        <td>${item.name} (Parts)</td>
+        <td>${item.quantity}</td>
+        <td>₹${item.price.toFixed(2)}</td>
+        <td>₹${total.toFixed(2)}</td>
+    `;
 
             billItemsList.appendChild(row);
         });
@@ -3548,11 +3438,11 @@
             const total = charge.hours * charge.rate;
 
             row.innerHTML = `
-            <td>${charge.description} (Labor)</td>
-            <td>${charge.hours} hrs</td>
-            <td>$${charge.rate.toFixed(2)}/hr</td>
-            <td>$${total.toFixed(2)}</td>
-        `;
+        <td>Labor Charge</td>
+        <td>${charge.hours} hrs</td>
+        <td>₹${charge.rate.toFixed(2)}/hr</td>
+        <td>₹${total.toFixed(2)}</td>
+    `;
 
             billItemsList.appendChild(row);
         });
@@ -3561,10 +3451,10 @@
         if (window.inventoryItems.length === 0 && window.laborCharges.length === 0) {
             const row = document.createElement('tr');
             row.innerHTML = `
-            <td colspan="4" style="text-align: center; padding: 20px;">
-                No service items added yet.
-            </td>
-        `;
+        <td colspan="4" style="text-align: center; padding: 20px;">
+            No service items added yet.
+        </td>
+    `;
             billItemsList.appendChild(row);
         }
 
@@ -3582,20 +3472,13 @@
         const total = subtotal + tax;
 
         // Update the bill totals
-        document.getElementById('billSubtotal').textContent = `$${subtotal.toFixed(2)}`;
-        document.getElementById('billTax').textContent = `$${tax.toFixed(2)}`;
-        document.getElementById('billTotal').textContent = `$${total.toFixed(2)}`;
+        document.getElementById('billSubtotal').textContent = `₹${subtotal.toFixed(2)}`;
+        document.getElementById('billTax').textContent = `₹${tax.toFixed(2)}`;
+        document.getElementById('billTotal').textContent = `₹${total.toFixed(2)}`;
     }
 
     // Initialize status update events
     function initializeStatusEvents() {
-        const updateStatusBtn = document.getElementById('updateStatusBtn');
-        if (updateStatusBtn) {
-            updateStatusBtn.addEventListener('click', function() {
-                updateServiceStatus();
-            });
-        }
-
         const statusSelect = document.getElementById('statusSelect');
         if (statusSelect) {
             statusSelect.addEventListener('change', function() {
@@ -3628,20 +3511,19 @@
         }
     }
 
-    // Update service status
+    // Update service status - MODIFIED: Simplified with no notes/notification
     function updateServiceStatus() {
         const statusSelect = document.getElementById('statusSelect');
-        const statusNotes = document.getElementById('statusNotes');
-        const notifyCustomer = document.getElementById('notifyCustomer');
 
-        if (!statusSelect || !statusNotes || !notifyCustomer) {
-            console.error('Status update form elements not found');
+        if (!statusSelect) {
+            console.error('Status select element not found');
             return;
         }
 
         const status = statusSelect.value;
-        const notes = statusNotes.value;
-        const shouldNotify = notifyCustomer.checked;
+
+        // Show a saving indicator
+        showNotification('Updating status...', 'info');
 
         // Get token from URL or session
         const urlParams = new URLSearchParams(window.location.search);
@@ -3655,11 +3537,11 @@
             headers['Authorization'] = `Bearer ${token}`;
         }
 
-        // Prepare data for API call
+        // Prepare simplified data for API call
         const statusData = {
             status: status,
-            notes: notes,
-            notifyCustomer: shouldNotify
+            notes: "",
+            notifyCustomer: false
         };
 
         console.log(`Updating service ${window.currentRequestId} status to ${status}`);
@@ -3679,25 +3561,12 @@
             .then(data => {
                 console.log('Status update response:', data);
 
-                // Add to status history
-                addStatusHistoryItem(status, notes);
-
                 // Show success notification
                 showNotification(`Service status updated to ${status}!`);
-
-                // If notify customer is checked, show additional notification
-                if (shouldNotify && data.notificationSent) {
-                    setTimeout(() => {
-                        showNotification('Status update notification sent to customer');
-                    }, 3000);
-                }
 
                 // Update the status in the main table and in all status badges
                 updateStatusInTable(window.currentRequestId, status);
                 updateAllStatusBadges(status);
-
-                // Clear the notes field
-                document.getElementById('statusNotes').value = '';
 
                 // Refresh service details to ensure everything is in sync
                 setTimeout(() => {
@@ -3740,46 +3609,6 @@
         }
     }
 
-    // Add status history item
-    function addStatusHistoryItem(status, notes) {
-        const statusHistory = document.querySelector('.status-history');
-        if (!statusHistory) return;
-
-        const now = new Date();
-        const formattedDate = now.toLocaleDateString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric',
-            hour: 'numeric',
-            minute: '2-digit',
-            hour12: true
-        });
-
-        let statusText = status.replace(/-/g, ' ');
-        statusText = statusText.charAt(0).toUpperCase() + statusText.slice(1);
-
-        let statusClass = 'new';
-        if (status === 'Diagnosis' || status === 'Repair') {
-            statusClass = 'in-progress';
-        } else if (status === 'Completed') {
-            statusClass = 'completed';
-        }
-
-        const historyItem = document.createElement('div');
-        historyItem.className = 'status-history-item';
-        historyItem.innerHTML = `
-        <div class="status-history-badge ${statusClass}">${statusText}</div>
-        <div class="status-history-details">
-            <div class="status-history-date">${formattedDate}</div>
-            <div class="status-history-user">Updated by: Service Advisor</div>
-            <div class="status-history-notes">${notes || 'No notes provided'}</div>
-        </div>
-    `;
-
-        // Insert new history item at the top
-        statusHistory.insertBefore(historyItem, statusHistory.firstChild);
-    }
-
     // Update status in the table
     function updateStatusInTable(requestId, status) {
         const row = document.querySelector(`#vehiclesTableBody tr[data-id="${requestId}"]`);
@@ -3794,10 +3623,10 @@
                 }
 
                 statusCell.innerHTML = `
-                <span class="status-badge ${statusClass}">
-                    <i class="fas fa-circle"></i> ${status}
-                </span>
-            `;
+            <span class="status-badge ${statusClass}">
+                <i class="fas fa-circle"></i> ${status}
+            </span>
+        `;
             }
         }
     }
@@ -4010,18 +3839,6 @@
             }
         }
 
-        // Set default notes
-        const statusNotes = document.getElementById('statusNotes');
-        if (statusNotes) {
-            statusNotes.value = "Service marked as complete by service advisor.";
-        }
-
-        // Enable customer notification
-        const notifyCustomer = document.getElementById('notifyCustomer');
-        if (notifyCustomer) {
-            notifyCustomer.checked = true;
-        }
-
         // Preview the status update
         updateStatusPreview('Completed');
 
@@ -4044,30 +3861,6 @@
             notification.classList.remove('show');
         }, 3000);
     }
-
-    // Additional debugging function to examine the detail cards structure
-    function debugDetailCards() {
-        const detailCards = document.querySelectorAll('.detail-card');
-        console.log(`Found ${detailCards.length} detail cards`);
-
-        detailCards.forEach((card, cardIndex) => {
-            console.log(`Card ${cardIndex + 1} structure:`);
-
-            const header = card.querySelector('.detail-card-header');
-            console.log(`- Header: ${header ? header.textContent : 'Not found'}`);
-
-            const rows = card.querySelectorAll('.detail-row');
-            console.log(`- Contains ${rows.length} detail rows`);
-
-            rows.forEach((row, rowIndex) => {
-                const label = row.querySelector('.detail-label');
-                const value = row.querySelector('.detail-value');
-
-                console.log(`  - Row ${rowIndex + 1}: Label="${label ? label.textContent : 'Not found'}", Value="${value ? value.textContent : 'Not found'}"`);
-            });
-        });
-    }
 </script>
-
 </body>
 </html>
