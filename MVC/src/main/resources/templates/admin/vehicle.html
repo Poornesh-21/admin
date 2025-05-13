@@ -4734,32 +4734,34 @@
     }
 
     // Populate sample materials and costs for demo purposes
-    function populateSampleMaterialsAndCosts() {
-        // In a production app, this data would come from the API
+    function populateMaterialsAndCosts(serviceData) {
+        // Clear existing data
         const materialsTableBody = document.getElementById('materialsTableBody');
         materialsTableBody.innerHTML = '';
 
-        // Sample materials data
-        const materials = [
-            { item: 'Engine Oil', quantity: 4, unitPrice: 850, total: 3400 },
-            { item: 'Oil Filter', quantity: 1, unitPrice: 350, total: 350 },
-            { item: 'Air Filter', quantity: 1, unitPrice: 650, total: 650 }
-        ];
-
+        // Use materials from API response
+        const materials = serviceData.materials || [];
         let materialsTotal = 0;
 
-        // Add material rows
-        materials.forEach(material => {
+        if (materials.length > 0) {
+            // Add material rows from actual data
+            materials.forEach(material => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                <td>${material.name || 'Unknown Item'}</td>
+                <td>${material.quantity || 0}</td>
+                <td>₹${(material.unitPrice || 0).toFixed(2)}</td>
+                <td>₹${(material.total || 0).toFixed(2)}</td>
+            `;
+                materialsTableBody.appendChild(row);
+                materialsTotal += (material.total || 0);
+            });
+        } else {
+            // If no materials, show a message
             const row = document.createElement('tr');
-            row.innerHTML = `
-            <td>${material.item}</td>
-            <td>${material.quantity}</td>
-            <td>₹${material.unitPrice.toFixed(2)}</td>
-            <td>₹${material.total.toFixed(2)}</td>
-        `;
+            row.innerHTML = `<td colspan="4" class="text-center">No materials recorded for this service</td>`;
             materialsTableBody.appendChild(row);
-            materialsTotal += material.total;
-        });
+        }
 
         // Add materials total row
         const materialsTotalRow = document.createElement('tr');
@@ -4769,28 +4771,32 @@
     `;
         materialsTableBody.appendChild(materialsTotalRow);
 
-        // Sample labor data
+        // Labor charges from API response
         const laborTableBody = document.getElementById('laborChargesTableBody');
         laborTableBody.innerHTML = '';
 
-        const laborCharges = [
-            { description: 'Regular Service', hours: 2, ratePerHour: 600, total: 1200 }
-        ];
-
+        const laborCharges = serviceData.laborCharges || [];
         let laborTotal = 0;
 
-        // Add labor rows
-        laborCharges.forEach(labor => {
+        if (laborCharges.length > 0) {
+            // Add labor rows from actual data
+            laborCharges.forEach(labor => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                <td>${labor.description || 'Service Labor'}</td>
+                <td>${labor.hours || 0}</td>
+                <td>₹${(labor.ratePerHour || 0).toFixed(2)}</td>
+                <td>₹${(labor.total || 0).toFixed(2)}</td>
+            `;
+                laborTableBody.appendChild(row);
+                laborTotal += (labor.total || 0);
+            });
+        } else {
+            // If no labor charges, show a message
             const row = document.createElement('tr');
-            row.innerHTML = `
-            <td>${labor.description}</td>
-            <td>${labor.hours}</td>
-            <td>₹${labor.ratePerHour.toFixed(2)}</td>
-            <td>₹${labor.total.toFixed(2)}</td>
-        `;
+            row.innerHTML = `<td colspan="4" class="text-center">No labor charges recorded for this service</td>`;
             laborTableBody.appendChild(row);
-            laborTotal += labor.total;
-        });
+        }
 
         // Add labor total row
         const laborTotalRow = document.createElement('tr');
@@ -4800,10 +4806,10 @@
     `;
         laborTableBody.appendChild(laborTotalRow);
 
-        // Update invoice summary
-        const subtotal = materialsTotal + laborTotal;
-        const gst = subtotal * 0.18;
-        const grandTotal = subtotal + gst;
+        // Use totals from API response, with calculated fallbacks
+        const subtotal = serviceData.subtotal || (materialsTotal + laborTotal);
+        const gst = serviceData.tax || (subtotal * 0.18);
+        const grandTotal = serviceData.total || (subtotal + gst);
 
         // Update invoice summary sections
         document.getElementById('summaryMaterialsTotal').textContent = `₹${materialsTotal.toFixed(2)}`;
