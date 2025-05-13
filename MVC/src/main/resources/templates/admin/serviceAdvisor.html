@@ -1456,7 +1456,7 @@
             </a>
           </li>
           <li class="sidebar-menu-item">
-            <a th:href="@{/admin/vehicles}" class="sidebar-menu-link">
+            <a th:href="@{/admin/vehicles}" class="sidebar-menu-link active">
               <i class="fas fa-car"></i>
               <span>Vehicles</span>
             </a>
@@ -1468,7 +1468,7 @@
             </a>
           </li>
           <li class="sidebar-menu-item">
-            <a th:href="@{/admin/service-advisors}" class="sidebar-menu-link active">
+            <a th:href="@{/admin/service-advisors}" class="sidebar-menu-link">
               <i class="fas fa-user-tie"></i>
               <span>Service Advisors</span>
             </a>
@@ -1479,19 +1479,12 @@
               <span>Inventory</span>
             </a>
           </li>
-
-          <!--          <li class="sidebar-menu-item">-->
-          <!--            <a href="#" class="sidebar-menu-link">-->
-          <!--              <i class="fas fa-file-invoice-dollar"></i>-->
-          <!--              <span>Invoices</span>-->
-          <!--            </a>-->
-          <!--          </li>-->
-          <!--          <li class="sidebar-menu-item">-->
-          <!--            <a href="#" class="sidebar-menu-link">-->
-          <!--              <i class="fas fa-rupee-sign"></i>-->
-          <!--              <span>Payments</span>-->
-          <!--            </a>-->
-          <!--          </li>-->
+          <li class="sidebar-menu-item">
+            <a th:href="@{/admin/completed-services}" class="sidebar-menu-link">
+              <i class="fas fa-check-circle"></i>
+              <span>Completed Services</span>
+            </a>
+          </li>
         </ul>
       </div>
     </div>
@@ -1501,7 +1494,7 @@
         <div class="user-name">Arthur Morgan</div>
         <div class="user-role">Administrator</div>
       </div>
-      <button class="logout-btn" id="logoutBtn">
+      <button class="logout-btn">
         <i class="fas fa-sign-out-alt"></i>
         <span>Logout</span>
       </button>
