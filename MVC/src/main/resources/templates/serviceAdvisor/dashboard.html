@@ -3621,10 +3621,43 @@
     }
 
     // Update invoice information fields
+    // Update invoice information fields
     function updateInvoiceInfoFields() {
-        // Get customer and vehicle info from the modal
+        // Get customer name from the vehicle summary
         const customerName = document.querySelector('.vehicle-summary .vehicle-info-summary p')?.textContent?.replace('Customer: ', '') || 'Unknown Customer';
-        const vehicleInfo = document.querySelector('.vehicle-summary .vehicle-info-summary h4')?.textContent || 'Unknown Vehicle';
+
+        // Get customer email and phone from the details tab
+        const customerEmailElement = document.querySelector('.detail-card:nth-of-type(2) .detail-row:nth-child(2) .detail-value');
+        const customerPhoneElement = document.querySelector('.detail-card:nth-of-type(2) .detail-row:nth-child(3) .detail-value');
+
+        const customerEmail = customerEmailElement?.textContent || 'Not available';
+        const customerPhone = customerPhoneElement?.textContent || 'Not available';
+
+        // Get vehicle info and properly extract registration number
+        const vehicleInfoElement = document.querySelector('.vehicle-summary .vehicle-info-summary h4');
+        let vehicleModel = 'Unknown Vehicle';
+        let registrationNumber = 'Unknown';
+
+        if (vehicleInfoElement) {
+            const vehicleText = vehicleInfoElement.textContent;
+            // Extract parts - format is typically "Brand Model (Registration)"
+            const regMatch = vehicleText.match(/\(([^)]+)\)/);
+            if (regMatch && regMatch[1]) {
+                registrationNumber = regMatch[1];
+                // Get the vehicle model by removing the registration part
+                vehicleModel = vehicleText.replace(/\s*\([^)]+\)/, '').trim();
+            } else {
+                vehicleModel = vehicleText;
+            }
+        }
+
+        // Alternatively, try to get registration from the vehicle details card
+        if (registrationNumber === 'Unknown') {
+            const regElement = document.querySelector('.detail-card:nth-of-type(1) .detail-row:nth-child(2) .detail-value');
+            if (regElement) {
+                registrationNumber = regElement.textContent.trim();
+            }
+        }
 
         // Get today's date formatted
         const today = new Date();
@@ -3645,10 +3678,28 @@
             customerNameElement.innerHTML = `<span>Name:</span> ${customerName}`;
         }
 
+        // Update customer email
+        const customerEmailInvoiceElement = document.querySelector('.invoice-customer .invoice-detail:nth-child(3)');
+        if (customerEmailInvoiceElement) {
+            customerEmailInvoiceElement.innerHTML = `<span>Email:</span> ${customerEmail}`;
+        }
+
+        // Update customer phone
+        const customerPhoneInvoiceElement = document.querySelector('.invoice-customer .invoice-detail:nth-child(4)');
+        if (customerPhoneInvoiceElement) {
+            customerPhoneInvoiceElement.innerHTML = `<span>Phone:</span> ${customerPhone}`;
+        }
+
         // Update vehicle information in the invoice
-        const vehicleInfoElement = document.querySelector('.invoice-service .invoice-detail:nth-child(2)');
-        if (vehicleInfoElement) {
-            vehicleInfoElement.innerHTML = `<span>Vehicle:</span> ${vehicleInfo}`;
+        const vehicleInfoInvoiceElement = document.querySelector('.invoice-service .invoice-detail:nth-child(2)');
+        if (vehicleInfoInvoiceElement) {
+            vehicleInfoInvoiceElement.innerHTML = `<span>Vehicle:</span> ${vehicleModel}`;
+        }
+
+        // Update registration number separately
+        const regInvoiceElement = document.querySelector('.invoice-service .invoice-detail:nth-child(3)');
+        if (regInvoiceElement) {
+            regInvoiceElement.innerHTML = `<span>Registration:</span> ${registrationNumber}`;
         }
 
         // Update invoice date
