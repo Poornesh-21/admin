@@ -1876,7 +1876,7 @@
                                 <th>Service Type</th>
                                 <th>Completion Date</th>
                                 <th>Total Amount</th>
-                                <th>Invoice Status</th>
+                                <th>Bill/Invoice</th>
                                 <th>Actions</th>
                             </tr>
                             </thead>
@@ -2165,11 +2165,11 @@
                 <div id="workflowStepsContainer" style="display: none;" class="mt-4">
                     <h5 class="mb-3">Service Workflow</h5>
                     <div class="workflow-steps">
-                        <div class="workflow-step" id="stepInvoice">
+                        <div class="workflow-step" id="stepBill">
                             <div class="step-icon">
-                                <i class="fas fa-file-invoice"></i>
+                                <i class="fas fa-file-invoice-dollar"></i>
                             </div>
-                            <div class="step-text">Generate Invoice</div>
+                            <div class="step-text">Generate Bill</div>
                         </div>
                         <div class="workflow-step" id="stepPayment">
                             <div class="step-icon">
@@ -2177,11 +2177,17 @@
                             </div>
                             <div class="step-text">Payment</div>
                         </div>
+                        <div class="workflow-step" id="stepInvoice">
+                            <div class="step-icon">
+                                <i class="fas fa-file-invoice"></i>
+                            </div>
+                            <div class="step-text">Invoice</div>
+                        </div>
                         <div class="workflow-step" id="stepDelivery">
                             <div class="step-icon">
                                 <i class="fas fa-truck"></i>
                             </div>
-                            <div class="step-text">Dispatch</div>
+                            <div class="step-text">Delivery</div>
                         </div>
                     </div>
                 </div>
@@ -2201,99 +2207,142 @@
     </div>
 </div>
 
-<!-- Generate Invoice Modal -->
-<div class="modal fade modal-premium" id="generateInvoiceModal" tabindex="-1" aria-labelledby="generateInvoiceModalLabel" aria-hidden="true">
+<!-- Generate Bill Modal -->
+<div class="modal fade modal-premium" id="generateBillModal" tabindex="-1" aria-labelledby="generateBillModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="generateInvoiceModalLabel">
-                    <i class="fas fa-file-invoice"></i>
-                    Generate Invoice
+                <h5 class="modal-title" id="generateBillModalLabel">
+                    <i class="fas fa-file-invoice-dollar"></i>
+                    Generate Bill
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <div class="alert alert-success mb-4">
-                    <i class="fas fa-check-circle me-2"></i>
-                    <span id="invoiceAlertMessage">Service has been completed for <strong id="invoiceCustomerName">Rajesh Kumar</strong>. Please generate an official invoice.</span>
+                <div class="alert alert-info mb-4">
+                    <i class="fas fa-info-circle me-2"></i>
+                    You are about to generate a bill for service <strong id="billServiceId">REQ-1001</strong> for customer <strong id="billCustomerName">Rajesh Kumar</strong>.
                 </div>
 
                 <div class="service-detail-row">
                     <div class="service-detail-col">
-                        <div class="detail-label">Service ID</div>
-                        <div class="detail-value" id="invoiceServiceId">REQ-1001</div>
-                    </div>
-                    <div class="service-detail-col">
                         <div class="detail-label">Vehicle</div>
-                        <div class="detail-value" id="invoiceVehicleName">Honda City</div>
+                        <div class="detail-value" id="billVehicleName">Honda City</div>
                     </div>
                     <div class="service-detail-col">
                         <div class="detail-label">Registration Number</div>
-                        <div class="detail-value" id="invoiceRegistrationNumber">MH02AB1234</div>
+                        <div class="detail-value" id="billRegistrationNumber">MH02AB1234</div>
+                    </div>
+                    <div class="service-detail-col">
+                        <div class="detail-label">Service Type</div>
+                        <div class="detail-value" id="billServiceType">Engine Repair</div>
                     </div>
                 </div>
 
-                <div class="service-detail-row">
-                    <div class="service-detail-col">
-                        <div class="detail-label">Service Type</div>
-                        <div class="detail-value" id="invoiceServiceType">Engine Repair</div>
-                    </div>
-                    <div class="service-detail-col">
-                        <div class="detail-label">Customer</div>
-                        <div class="detail-value">
-                            <span id="invoiceCustomerFullName">Rajesh Kumar</span>
-                            <span id="premiumBadge" class="membership-badge membership-premium ms-2" style="display: none;">
-                                <i class="fas fa-crown"></i> Premium
-                            </span>
+                <div class="mb-4">
+                    <h5 class="mb-3">Add Materials Used</h5>
+                    <div id="billMaterialsContainer">
+                        <div class="row mb-3 bill-material-row">
+                            <div class="col-md-4">
+                                <input type="text" class="form-control material-name" placeholder="Item Name">
+                            </div>
+                            <div class="col-md-2">
+                                <input type="number" class="form-control material-quantity" placeholder="Quantity" min="1" value="1">
+                            </div>
+                            <div class="col-md-3">
+                                <div class="input-group">
+                                    <span class="input-group-text">₹</span>
+                                    <input type="number" class="form-control material-price" placeholder="Price" min="0" step="0.01">
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="input-group">
+                                    <span class="input-group-text">₹</span>
+                                    <input type="text" class="form-control material-total" placeholder="Total" readonly>
+                                </div>
+                            </div>
+                            <div class="col-md-1 d-flex align-items-center">
+                                <button type="button" class="btn btn-sm btn-danger remove-material"><i class="fas fa-times"></i></button>
+                            </div>
                         </div>
                     </div>
-                    <div class="service-detail-col">
-                        <div class="detail-label">Completed Date</div>
-                        <div class="detail-value" id="invoiceCompletionDate">April 15, 2025</div>
+                    <button type="button" class="btn btn-sm btn-success" id="addMaterialBtn">
+                        <i class="fas fa-plus"></i> Add Material
+                    </button>
+                </div>
+
+                <div class="mb-4">
+                    <h5 class="mb-3">Add Labor Charges</h5>
+                    <div id="billLaborContainer">
+                        <div class="row mb-3 bill-labor-row">
+                            <div class="col-md-5">
+                                <input type="text" class="form-control labor-description" placeholder="Labor Description">
+                            </div>
+                            <div class="col-md-2">
+                                <input type="number" class="form-control labor-hours" placeholder="Hours" min="0.5" step="0.5" value="1">
+                            </div>
+                            <div class="col-md-2">
+                                <div class="input-group">
+                                    <span class="input-group-text">₹</span>
+                                    <input type="number" class="form-control labor-rate" placeholder="Rate/Hr" min="0">
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="input-group">
+                                    <span class="input-group-text">₹</span>
+                                    <input type="text" class="form-control labor-total" placeholder="Total" readonly>
+                                </div>
+                            </div>
+                            <div class="col-md-1 d-flex align-items-center">
+                                <button type="button" class="btn btn-sm btn-danger remove-labor"><i class="fas fa-times"></i></button>
+                            </div>
+                        </div>
                     </div>
+                    <button type="button" class="btn btn-sm btn-success" id="addLaborBtn">
+                        <i class="fas fa-plus"></i> Add Labor
+                    </button>
                 </div>
 
                 <div class="invoice-summary">
                     <div class="invoice-summary-row">
                         <div class="invoice-summary-label">Materials Total</div>
-                        <div class="invoice-summary-value" id="invoiceMaterialsTotal">₹7,250.00</div>
+                        <div class="invoice-summary-value" id="billMaterialsTotal">₹0.00</div>
                     </div>
                     <div class="invoice-summary-row">
                         <div class="invoice-summary-label">Labor Total</div>
-                        <div class="invoice-summary-value" id="invoiceLaborTotal">₹3,600.00</div>
+                        <div class="invoice-summary-value" id="billLaborTotal">₹0.00</div>
                     </div>
-                    <!-- Premium discount row will be added here dynamically if customer is premium -->
                     <div class="invoice-summary-row">
                         <div class="invoice-summary-label">Subtotal</div>
-                        <div class="invoice-summary-value" id="invoiceSubtotal">₹10,850.00</div>
+                        <div class="invoice-summary-value" id="billSubtotal">₹0.00</div>
                     </div>
                     <div class="invoice-summary-row">
                         <div class="invoice-summary-label">GST (18%)</div>
-                        <div class="invoice-summary-value" id="invoiceGST">₹1,953.00</div>
+                        <div class="invoice-summary-value" id="billGST">₹0.00</div>
                     </div>
                     <div class="invoice-summary-row">
                         <div class="invoice-summary-label">Grand Total</div>
-                        <div class="invoice-summary-value" id="invoiceGrandTotal">₹12,803.00</div>
+                        <div class="invoice-summary-value" id="billGrandTotal">₹0.00</div>
                     </div>
                 </div>
 
                 <div class="form-group mt-4">
-                    <label for="invoiceNotes" class="form-label">Additional Notes</label>
-                    <textarea class="form-control" id="invoiceNotes" rows="3" placeholder="Add any notes to be included in the invoice"></textarea>
+                    <label for="billNotes" class="form-label">Additional Notes</label>
+                    <textarea class="form-control" id="billNotes" rows="3" placeholder="Add any additional notes for the bill"></textarea>
                 </div>
 
                 <div class="form-check mt-3">
-                    <input class="form-check-input" type="checkbox" value="" id="sendInvoiceEmail" checked>
-                    <label class="form-check-label" for="sendInvoiceEmail">
-                        Send invoice to customer via email
+                    <input class="form-check-input" type="checkbox" value="" id="sendBillEmail" checked>
+                    <label class="form-check-label" for="sendBillEmail">
+                        Send bill to customer via email
                     </label>
                 </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn-premium secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn-premium primary" id="confirmGenerateInvoiceBtn">
-                    <i class="fas fa-file-invoice"></i>
-                    Generate & Send Invoice
+                <button type="button" class="btn-premium primary" id="confirmGenerateBillBtn">
+                    <i class="fas fa-paper-plane"></i>
+                    Generate & Send Bill
                 </button>
             </div>
         </div>
@@ -2363,6 +2412,84 @@
                 <button type="button" class="btn-premium primary" id="confirmPaymentBtn">
                     <i class="fas fa-check-circle"></i>
                     Confirm Payment
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Generate Invoice Modal -->
+<div class="modal fade modal-premium" id="generateInvoiceModal" tabindex="-1" aria-labelledby="generateInvoiceModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="generateInvoiceModalLabel">
+                    <i class="fas fa-file-invoice"></i>
+                    Generate Invoice
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-success mb-4">
+                    <i class="fas fa-check-circle me-2"></i>
+                    Payment has been received for service <strong id="invoiceServiceId">REQ-1001</strong>. Please generate an official invoice for <strong id="invoiceCustomerName">Rajesh Kumar</strong>.
+                </div>
+
+                <div class="service-detail-row">
+                    <div class="service-detail-col">
+                        <div class="detail-label">Vehicle</div>
+                        <div class="detail-value" id="invoiceVehicleName">Honda City</div>
+                    </div>
+                    <div class="service-detail-col">
+                        <div class="detail-label">Registration Number</div>
+                        <div class="detail-value" id="invoiceRegistrationNumber">MH02AB1234</div>
+                    </div>
+                    <div class="service-detail-col">
+                        <div class="detail-label">Service Type</div>
+                        <div class="detail-value" id="invoiceServiceType">Engine Repair</div>
+                    </div>
+                </div>
+
+                <div class="invoice-summary">
+                    <div class="invoice-summary-row">
+                        <div class="invoice-summary-label">Materials Total</div>
+                        <div class="invoice-summary-value" id="invoiceMaterialsTotal">₹7,250.00</div>
+                    </div>
+                    <div class="invoice-summary-row">
+                        <div class="invoice-summary-label">Labor Total</div>
+                        <div class="invoice-summary-value" id="invoiceLaborTotal">₹3,600.00</div>
+                    </div>
+                    <div class="invoice-summary-row">
+                        <div class="invoice-summary-label">Subtotal</div>
+                        <div class="invoice-summary-value" id="invoiceSubtotal">₹10,850.00</div>
+                    </div>
+                    <div class="invoice-summary-row">
+                        <div class="invoice-summary-label">GST (18%)</div>
+                        <div class="invoice-summary-value" id="invoiceGST">₹1,953.00</div>
+                    </div>
+                    <div class="invoice-summary-row">
+                        <div class="invoice-summary-label">Grand Total</div>
+                        <div class="invoice-summary-value" id="invoiceGrandTotal">₹12,803.00</div>
+                    </div>
+                </div>
+
+                <div class="form-group mt-4">
+                    <label for="invoiceNotes" class="form-label">Additional Notes</label>
+                    <textarea class="form-control" id="invoiceNotes" rows="3" placeholder="Invoice details cannot be modified" readonly></textarea>
+                </div>
+
+                <div class="form-check mt-3">
+                    <input class="form-check-input" type="checkbox" value="" id="sendInvoiceEmail" checked>
+                    <label class="form-check-label" for="sendInvoiceEmail">
+                        Send invoice to customer via email
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-premium secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn-premium primary" id="confirmGenerateInvoiceBtn">
+                    <i class="fas fa-file-invoice"></i>
+                    Generate & Send Invoice
                 </button>
             </div>
         </div>
@@ -2522,6 +2649,8 @@
         </div>
     </div>
 </div>
+
+<!-- Bill Preview Modal removed as it's no longer needed -->
 
 <!-- Success Modal -->
 <div class="modal fade success-modal" id="successModal" tabindex="-1" aria-hidden="true">
@@ -2981,6 +3110,12 @@
                 updateCompletedPagination();
                 showCompletedServicesPage(currentCompletedPage);
             }
+        });
+
+        // Bill generation - now directly generates bill without preview
+        document.getElementById('confirmGenerateBillBtn').addEventListener('click', function() {
+            // Generate bill directly
+            generateBill();
         });
 
         // Payment method change handler
@@ -3751,7 +3886,6 @@
     }
 
     // Get progress notes based on service details
-    // Get progress notes based on service details
     function getProgressNotes(service) {
         switch ((service.status || '').toLowerCase()) {
             case 'received':
@@ -3865,7 +3999,8 @@
             });
     }
 
-    // Update workflow steps display - new workflow process
+    // Update workflow steps display
+    // Update the workflow steps display
     function updateWorkflowSteps(service) {
         // Determine service workflow status
         const hasGeneratedInvoice = service.hasInvoice || false;
@@ -3951,335 +4086,9 @@
         }
     }
 
-    // Populate sample materials and costs with premium discount
-    function populateSampleMaterialsAndCosts() {
-        // Get the service from completedServices array
-        const serviceId = currentServiceId;
-        const service = completedServices.find(s =>
-            s.serviceId === parseInt(serviceId) || s.requestId === parseInt(serviceId));
 
-        // Determine if customer is premium
-        const isPremium = service && service.membershipStatus === 'Premium';
+    // Open Generate Bill modal - now directly generates bill without showing modal
 
-        // In a production app, this data would come from the API
-        const materialsTableBody = document.getElementById('materialsTableBody');
-        materialsTableBody.innerHTML = '';
-
-        // Sample materials data
-        const materials = [
-            { item: 'Engine Oil', quantity: 4, unitPrice: 850, total: 3400 },
-            { item: 'Oil Filter', quantity: 1, unitPrice: 350, total: 350 },
-            { item: 'Air Filter', quantity: 1, unitPrice: 650, total: 650 }
-        ];
-
-        let materialsTotal = 0;
-
-        // Add material rows
-        materials.forEach(material => {
-            const row = document.createElement('tr');
-            row.innerHTML = `
-            <td>${material.item}</td>
-            <td>${material.quantity}</td>
-            <td>₹${material.unitPrice.toFixed(2)}</td>
-            <td>₹${material.total.toFixed(2)}</td>
-        `;
-            materialsTableBody.appendChild(row);
-            materialsTotal += material.total;
-        });
-
-        // Add materials total row
-        const materialsTotalRow = document.createElement('tr');
-        materialsTotalRow.innerHTML = `
-        <td colspan="3" class="text-end">Materials Total</td>
-        <td>₹${materialsTotal.toFixed(2)}</td>
-    `;
-        materialsTableBody.appendChild(materialsTotalRow);
-
-        // Sample labor data
-        const laborTableBody = document.getElementById('laborChargesTableBody');
-        laborTableBody.innerHTML = '';
-
-        // Base labor charges
-        const laborCharges = [
-            { description: 'Regular Service', hours: 2, ratePerHour: 600, total: 1200 }
-        ];
-
-        let laborTotal = 0;
-        const discountRate = isPremium ? 0.25 : 0; // 25% discount for premium members
-
-        // Add labor rows
-        laborCharges.forEach(labor => {
-            const originalTotal = labor.total;
-            const discountAmount = originalTotal * discountRate;
-            const finalTotal = originalTotal - discountAmount;
-
-            const row = document.createElement('tr');
-            row.innerHTML = `
-            <td>${labor.description}</td>
-            <td>${labor.hours}</td>
-            <td>₹${labor.ratePerHour.toFixed(2)}</td>
-            <td>₹${finalTotal.toFixed(2)}</td>
-        `;
-            laborTableBody.appendChild(row);
-            laborTotal += finalTotal;
-        });
-
-        // Add discount row if premium
-        if (isPremium) {
-            const discountRow = document.createElement('tr');
-            const discountAmount = laborCharges.reduce((sum, labor) => sum + (labor.total * discountRate), 0);
-            discountRow.innerHTML = `
-            <td colspan="3" class="text-end text-success">Premium Membership Discount (25%)</td>
-            <td class="text-success">-₹${discountAmount.toFixed(2)}</td>
-        `;
-            laborTableBody.appendChild(discountRow);
-        }
-
-        // Add labor total row
-        const laborTotalRow = document.createElement('tr');
-        laborTotalRow.innerHTML = `
-        <td colspan="3" class="text-end">Labor Total</td>
-        <td>₹${laborTotal.toFixed(2)}</td>
-    `;
-        laborTableBody.appendChild(laborTotalRow);
-
-        // Update invoice summary
-        const subtotal = materialsTotal + laborTotal;
-        const gst = subtotal * 0.18;
-        const grandTotal = subtotal + gst;
-
-        // Update invoice summary sections
-        document.getElementById('summaryMaterialsTotal').textContent = `₹${materialsTotal.toFixed(2)}`;
-        document.getElementById('summaryLaborTotal').textContent = `₹${laborTotal.toFixed(2)}`;
-        document.getElementById('summarySubtotal').textContent = `₹${subtotal.toFixed(2)}`;
-        document.getElementById('summaryGST').textContent = `₹${gst.toFixed(2)}`;
-        document.getElementById('summaryGrandTotal').textContent = `₹${grandTotal.toFixed(2)}`;
-    }
-
-    // Open Generate Invoice Modal
-    function openGenerateInvoiceModal() {
-        // Close service details modal
-        $('#viewServiceDetailsModal').modal('hide');
-
-        // Get service details
-        const serviceId = currentServiceId;
-        const service = completedServices.find(s => s.serviceId === parseInt(serviceId) || s.requestId === parseInt(serviceId));
-
-        // Determine if customer is premium
-        const isPremium = service && service.membershipStatus === 'Premium';
-
-        // Calculate costs with potential premium discount
-        let materialsTotal = service.materialsCost || 7250;
-        let laborTotal = service.laborCost || 3600;
-
-        // Apply 25% discount on labor for premium customers
-        if (isPremium) {
-            const originalLaborTotal = laborTotal;
-            laborTotal = originalLaborTotal * 0.75; // 25% off
-        }
-
-        const subtotal = materialsTotal + laborTotal;
-        const gst = subtotal * 0.18;
-        const grandTotal = subtotal + gst;
-
-        // Populate invoice modal fields
-        document.getElementById('invoiceServiceId').textContent = 'REQ-' + serviceId;
-        document.getElementById('invoiceCustomerName').textContent = service.customerName;
-        document.getElementById('invoiceCustomerFullName').textContent = service.customerName;
-        document.getElementById('invoiceVehicleName').textContent = service.vehicleName;
-        document.getElementById('invoiceRegistrationNumber').textContent = service.registrationNumber;
-        document.getElementById('invoiceServiceType').textContent = service.serviceType || 'Regular Service';
-
-        // Update premium badge visibility
-        const premiumBadge = document.getElementById('premiumBadge');
-        if (isPremium) {
-            premiumBadge.style.display = '';
-            document.getElementById('invoiceAlertMessage').innerHTML = `
-                Service has been completed for <strong>${service.customerName}</strong> (Premium Customer).
-                Please generate an official invoice with the 25% labor discount.
-            `;
-        } else {
-            premiumBadge.style.display = 'none';
-            document.getElementById('invoiceAlertMessage').innerHTML = `
-                Service has been completed for <strong>${service.customerName}</strong>.
-                Please generate an official invoice.
-            `;
-        }
-
-        // Set completion date
-        const completionDate = new Date(service.completedDate || Date.now()).toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric'
-        });
-        document.getElementById('invoiceCompletionDate').textContent = completionDate;
-
-        // Update invoice amounts with calculated values
-        document.getElementById('invoiceMaterialsTotal').textContent = `₹${materialsTotal.toFixed(2)}`;
-        document.getElementById('invoiceLaborTotal').textContent = `₹${laborTotal.toFixed(2)}`;
-
-        // Remove any existing premium discount row
-        const existingDiscountRow = document.querySelector('.premium-discount-row');
-        if (existingDiscountRow) {
-            existingDiscountRow.remove();
-        }
-
-        // Add premium discount note if applicable
-        if (isPremium) {
-            const discountRow = document.createElement('div');
-            discountRow.className = 'invoice-summary-row premium-discount-row';
-            discountRow.innerHTML = `
-                <div class="invoice-summary-label text-success">Premium Membership Discount (25% off labor)</div>
-                <div class="invoice-summary-value text-success">-₹${(service.laborCost * 0.25 || 900).toFixed(2)}</div>
-            `;
-
-            // Insert before subtotal
-            const subtotalRow = document.getElementById('invoiceSubtotal').closest('.invoice-summary-row');
-            subtotalRow.parentNode.insertBefore(discountRow, subtotalRow);
-        }
-
-        document.getElementById('invoiceSubtotal').textContent = `₹${subtotal.toFixed(2)}`;
-        document.getElementById('invoiceGST').textContent = `₹${gst.toFixed(2)}`;
-        document.getElementById('invoiceGrandTotal').textContent = `₹${grandTotal.toFixed(2)}`;
-
-        // Set default notes with premium mention if applicable
-        let invoiceNotes = "Thank you for choosing Albany Motors. Your vehicle has been serviced as per requirements.";
-        if (isPremium) {
-            invoiceNotes += " As a Premium member, you've received a 25% discount on labor charges.";
-        }
-        document.getElementById('invoiceNotes').value = invoiceNotes;
-
-        // Show invoice modal
-        $('#generateInvoiceModal').modal('show');
-    }
-
-    // Function to generate the invoice
-    function generateInvoice() {
-        // Show spinner
-        document.getElementById('spinnerOverlay').classList.add('show');
-
-        // Get token
-        const token = getJwtToken();
-        if (!token) {
-            console.error('No token found');
-            return;
-        }
-
-        // Get service ID
-        const serviceId = currentServiceId;
-        const service = completedServices.find(s => s.serviceId === parseInt(serviceId) || s.requestId === parseInt(serviceId));
-
-        // Determine if customer is premium for discount application
-        const isPremium = service && service.membershipStatus === 'Premium';
-
-        // Prepare invoice data with premium discount if applicable
-        const invoiceData = {
-            notes: document.getElementById('invoiceNotes').value,
-            sendEmail: document.getElementById('sendInvoiceEmail').checked,
-            applyPremiumDiscount: isPremium // Tell the server to apply premium discount
-        };
-
-        // API call to generate invoice
-        fetch(`/admin/api/vehicle-tracking/service-request/${serviceId}/invoice?token=${encodeURIComponent(token)}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(invoiceData)
-        })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('API call failed: ' + response.status);
-                }
-                return response.json();
-            })
-            .then(data => {
-                // Hide spinner
-                document.getElementById('spinnerOverlay').classList.remove('show');
-
-                // Update the completedServices array to mark invoice as generated
-                const serviceIndex = completedServices.findIndex(s =>
-                    s.serviceId === parseInt(serviceId) || s.requestId === parseInt(serviceId));
-
-                if (serviceIndex !== -1) {
-                    completedServices[serviceIndex].hasInvoice = true;
-
-                    // If premium discount was applied, update the total cost
-                    if (isPremium && completedServices[serviceIndex].laborCost) {
-                        const discountedLabor = completedServices[serviceIndex].laborCost * 0.75; // 25% off
-                        const newTotal = completedServices[serviceIndex].materialsCost + discountedLabor;
-                        const withGST = newTotal * 1.18; // Add 18% GST
-                        completedServices[serviceIndex].totalCost = withGST;
-                    }
-                }
-
-                // Hide the invoice modal
-                $('#generateInvoiceModal').modal('hide');
-
-                // Show success modal
-                document.getElementById('successTitle').textContent = 'Invoice Generated!';
-                document.getElementById('successMessage').textContent =
-                    `The invoice for service REQ-${serviceId} has been successfully generated${invoiceData.sendEmail ? ' and sent to the customer via email' : ''}.`;
-                $('#successModal').modal('show');
-
-                // Refresh the completed services table
-                showCompletedServicesPage(currentCompletedPage);
-            })
-            .catch(error => {
-                // Hide spinner
-                document.getElementById('spinnerOverlay').classList.remove('show');
-                console.error('Error generating invoice:', error);
-
-                // Hide the invoice modal
-                $('#generateInvoiceModal').modal('hide');
-
-                // Show error toast
-                showToastNotification('Error', 'Failed to generate invoice: ' + error.message);
-            });
-    }
-
-    // Function to download invoice
-    function downloadInvoice() {
-        // Get service ID
-        const serviceId = currentServiceId;
-
-        // Get token
-        const token = getJwtToken();
-        if (!token) {
-            console.error('No token found');
-            return;
-        }
-
-        // Show spinner
-        document.getElementById('spinnerOverlay').classList.add('show');
-
-        // Create and set download URL
-        const downloadUrl = `/admin/api/vehicle-tracking/invoice/download/${serviceId}?token=${encodeURIComponent(token)}`;
-
-        // Create a temporary anchor element
-        const a = document.createElement('a');
-        a.style.display = 'none';
-        a.href = downloadUrl;
-        a.target = '_blank';
-
-        // Add to document, click it, and remove it
-        document.body.appendChild(a);
-        a.click();
-
-        // Hide spinner after a delay to allow download to start
-        setTimeout(() => {
-            document.getElementById('spinnerOverlay').classList.remove('show');
-
-            // Show success toast
-            showToastNotification(
-                'Download Started',
-                'The invoice is being downloaded to your device.'
-            );
-
-            // Remove temporary element
-            document.body.removeChild(a);
-        }, 1000);
-    }
 
     // Open Payment modal
     function openPaymentModal() {
@@ -4314,6 +4123,297 @@
 
         // Show payment modal
         $('#paymentModal').modal('show');
+    }
+
+    // Open Generate Invoice modal - now directly generates invoice without showing modal
+    function openGenerateInvoiceModal() {
+        // Close service details modal
+        $('#viewServiceDetailsModal').modal('hide');
+
+        // Get service details
+        const serviceId = currentServiceId;
+        const service = completedServices.find(s => s.serviceId === parseInt(serviceId) || s.requestId === parseInt(serviceId));
+
+        // Determine if customer is premium
+        const isPremium = service && service.membershipStatus === 'Premium';
+
+        // Calculate costs with potential premium discount
+        let materialsTotal = service.materialsCost || 7250;
+        let laborTotal = service.laborCost || 3600;
+
+        // Apply 30% discount on labor for premium customers (UPDATED from 25%)
+        if (isPremium) {
+            const originalLaborTotal = laborTotal;
+            laborTotal = originalLaborTotal * 0.70; // 30% off
+        }
+
+        const subtotal = materialsTotal + laborTotal;
+        const gst = subtotal * 0.18;
+        const grandTotal = subtotal + gst;
+
+        // Populate invoice modal fields
+        document.getElementById('invoiceServiceId').textContent = 'REQ-' + serviceId;
+        document.getElementById('invoiceCustomerName').textContent = service.customerName;
+        document.getElementById('invoiceCustomerFullName').textContent = service.customerName;
+        document.getElementById('invoiceVehicleName').textContent = service.vehicleName;
+        document.getElementById('invoiceRegistrationNumber').textContent = service.registrationNumber;
+        document.getElementById('invoiceServiceType').textContent = service.serviceType || 'Regular Service';
+
+        // Update premium badge visibility
+        const premiumBadge = document.getElementById('premiumBadge');
+        if (isPremium) {
+            premiumBadge.style.display = '';
+            document.getElementById('invoiceAlertMessage').innerHTML = `
+            Service has been completed for <strong>${service.customerName}</strong> (Premium Customer).
+            Please generate an official invoice with the 30% labor discount.
+        `;
+        } else {
+            premiumBadge.style.display = 'none';
+            document.getElementById('invoiceAlertMessage').innerHTML = `
+            Service has been completed for <strong>${service.customerName}</strong>.
+            Please generate an official invoice.
+        `;
+        }
+
+        // Set completion date
+        const completionDate = new Date(service.completedDate || Date.now()).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        });
+        document.getElementById('invoiceCompletionDate').textContent = completionDate;
+
+        // Update invoice amounts with calculated values
+        document.getElementById('invoiceMaterialsTotal').textContent = `₹${materialsTotal.toFixed(2)}`;
+        document.getElementById('invoiceLaborTotal').textContent = `₹${laborTotal.toFixed(2)}`;
+
+        // Remove any existing premium discount row
+        const existingDiscountRow = document.querySelector('.premium-discount-row');
+        if (existingDiscountRow) {
+            existingDiscountRow.remove();
+        }
+
+        // Add premium discount note if applicable
+        if (isPremium) {
+            const discountRow = document.createElement('div');
+            discountRow.className = 'invoice-summary-row premium-discount-row';
+            discountRow.innerHTML = `
+            <div class="invoice-summary-label text-success">Premium Membership Discount (30% off labor)</div>
+            <div class="invoice-summary-value text-success">-₹${(service.laborCost * 0.30 || 1080).toFixed(2)}</div>
+        `;
+
+            // Insert before subtotal
+            const subtotalRow = document.getElementById('invoiceSubtotal').closest('.invoice-summary-row');
+            subtotalRow.parentNode.insertBefore(discountRow, subtotalRow);
+        }
+
+        document.getElementById('invoiceSubtotal').textContent = `₹${subtotal.toFixed(2)}`;
+        document.getElementById('invoiceGST').textContent = `₹${gst.toFixed(2)}`;
+        document.getElementById('invoiceGrandTotal').textContent = `₹${grandTotal.toFixed(2)}`;
+
+        // Set default notes with premium mention if applicable
+        let invoiceNotes = "Thank you for choosing Albany Motors. Your vehicle has been serviced as per requirements.";
+        if (isPremium) {
+            invoiceNotes += " As a Premium member, you've received a 30% discount on labor charges.";
+        }
+        document.getElementById('invoiceNotes').value = invoiceNotes;
+
+        // Show invoice modal
+        $('#generateInvoiceModal').modal('show');
+    }
+
+    // Open Delivery modal
+    function openDeliveryModal() {
+        // Close service details modal
+        $('#viewServiceDetailsModal').modal('hide');
+
+        // Get service details
+        const serviceId = currentServiceId;
+        const service = completedServices.find(s => s.serviceId === parseInt(serviceId) || s.requestId === parseInt(serviceId));
+
+        // Populate delivery modal fields
+        document.getElementById('deliveryServiceId').textContent = 'REQ-' + serviceId;
+        document.getElementById('deliveryVehicleName').textContent = service.vehicleName;
+        document.getElementById('deliveryRegistrationNumber').textContent = service.registrationNumber;
+
+        // Reset delivery form
+        document.getElementById('customerPickup').checked = true;
+        document.getElementById('homeDelivery').checked = false;
+        document.getElementById('pickupFields').style.display = '';
+        document.getElementById('deliveryFields').style.display = 'none';
+        document.getElementById('confirmDeliveryBtnText').textContent = 'Confirm Pickup';
+
+        document.getElementById('pickupPerson').value = '';
+        document.getElementById('pickupTime').value = '';
+        document.getElementById('deliveryAddress').value = '';
+        document.getElementById('deliveryDate').value = '';
+        document.getElementById('deliveryTimeSlot').value = '';
+        document.getElementById('deliveryContact').value = '';
+        document.getElementById('deliveryNotes').value = '';
+        document.getElementById('confirmDeliveryCheck').checked = false;
+
+        // Show delivery modal
+        $('#deliveryModal').modal('show');
+    }
+
+    // Download document (bill or invoice)
+    function downloadDocument() {
+        // Get service ID
+        const serviceId = currentServiceId;
+
+        // Get token
+        const token = getJwtToken();
+        if (!token) {
+            console.error('No token found');
+            return;
+        }
+
+        // Show spinner
+        document.getElementById('spinnerOverlay').classList.add('show');
+
+        // Create and set download URL
+        const downloadUrl = `/admin/api/vehicle-tracking/invoice/download/${serviceId}?token=${encodeURIComponent(token)}`;
+
+        // Create a temporary anchor element
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = downloadUrl;
+        a.target = '_blank';
+
+        // Add to document, click it, and remove it
+        document.body.appendChild(a);
+        a.click();
+
+        // Hide spinner after a delay to allow download to start
+        setTimeout(() => {
+            document.getElementById('spinnerOverlay').classList.remove('show');
+
+            // Show success toast
+            showToastNotification(
+                'Download Started',
+                'The document is being downloaded to your device.'
+            );
+
+            // Remove temporary element
+            document.body.removeChild(a);
+        }, 1000);
+    }
+
+    // Removed populateBillPreview function as it's no longer needed
+    // Bill generation is now handled directly without preview
+
+    // Generate bill
+    function generateBill() {
+        // Show spinner
+        document.getElementById('spinnerOverlay').classList.add('show');
+
+        // Get token
+        const token = getJwtToken();
+        if (!token) {
+            console.error('No token found');
+            return;
+        }
+
+        // Get service ID
+        const serviceId = currentServiceId;
+
+        // Prepare bill data
+        const billData = {
+            notes: document.getElementById('billNotes').value,
+            sendEmail: document.getElementById('sendBillEmail').checked,
+            materials: [],
+            laborCharges: [],
+            materialsTotal: parseFloat(document.getElementById('billMaterialsTotal').textContent.replace('₹', '')),
+            laborTotal: parseFloat(document.getElementById('billLaborTotal').textContent.replace('₹', '')),
+            subtotal: parseFloat(document.getElementById('billSubtotal').textContent.replace('₹', '')),
+            gst: parseFloat(document.getElementById('billGST').textContent.replace('₹', '')),
+            grandTotal: parseFloat(document.getElementById('billGrandTotal').textContent.replace('₹', ''))
+        };
+
+        // Collect materials data
+        document.querySelectorAll('.bill-material-row').forEach(row => {
+            const nameInput = row.querySelector('.material-name');
+            const quantityInput = row.querySelector('.material-quantity');
+            const priceInput = row.querySelector('.material-price');
+            const totalInput = row.querySelector('.material-total');
+
+            // Skip empty rows
+            if (!nameInput.value || !priceInput.value) return;
+
+            billData.materials.push({
+                name: nameInput.value,
+                quantity: parseFloat(quantityInput.value),
+                unitPrice: parseFloat(priceInput.value),
+                total: parseFloat(totalInput.value)
+            });
+        });
+
+        // Collect labor charges data
+        document.querySelectorAll('.bill-labor-row').forEach(row => {
+            const descriptionInput = row.querySelector('.labor-description');
+            const hoursInput = row.querySelector('.labor-hours');
+            const rateInput = row.querySelector('.labor-rate');
+            const totalInput = row.querySelector('.labor-total');
+
+            // Skip empty rows
+            if (!descriptionInput.value || !rateInput.value) return;
+
+            billData.laborCharges.push({
+                description: descriptionInput.value,
+                hours: parseFloat(hoursInput.value),
+                ratePerHour: parseFloat(rateInput.value),
+                total: parseFloat(totalInput.value)
+            });
+        });
+
+        // API call to generate bill
+        fetch(`/admin/api/vehicle-tracking/service-request/${serviceId}/bill?token=${encodeURIComponent(token)}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(billData)
+        })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('API call failed: ' + response.status);
+                }
+                return response.json();
+            })
+            .then(data => {
+                // Hide spinner
+                document.getElementById('spinnerOverlay').classList.remove('show');
+
+                // Update the completedServices array to mark bill as generated
+                const serviceIndex = completedServices.findIndex(s =>
+                    s.serviceId === parseInt(serviceId) || s.requestId === parseInt(serviceId));
+
+                if (serviceIndex !== -1) {
+                    completedServices[serviceIndex].hasBill = true;
+                    completedServices[serviceIndex].totalCost = billData.grandTotal;
+                }
+
+                // Bill preview modal has been removed
+
+                // Show success modal
+                document.getElementById('successTitle').textContent = 'Bill Generated!';
+                document.getElementById('successMessage').textContent =
+                    `The bill for service REQ-${serviceId} has been successfully generated${billData.sendEmail ? ' and sent to the customer via email' : ''}.`;
+                $('#successModal').modal('show');
+
+                // Refresh the completed services table
+                showCompletedServicesPage(currentCompletedPage);
+            })
+            .catch(error => {
+                // Hide spinner
+                document.getElementById('spinnerOverlay').classList.remove('show');
+                console.error('Error generating bill:', error);
+
+                // Bill preview modal has been removed
+
+                // Show error toast
+                showToastNotification('Error', 'Failed to generate bill: ' + error.message);
+            });
     }
 
     // Process payment
@@ -4408,41 +4508,99 @@
             });
     }
 
-    // Open Delivery modal
-    function openDeliveryModal() {
-        // Close service details modal
-        $('#viewServiceDetailsModal').modal('hide');
 
-        // Get service details
+
+
+
+    // Generate invoice
+    function generateInvoice() {
+        // Show spinner
+        document.getElementById('spinnerOverlay').classList.add('show');
+
+        // Get token
+        const token = getJwtToken();
+        if (!token) {
+            console.error('No token found');
+            return;
+        }
+
+        // Get service ID
         const serviceId = currentServiceId;
         const service = completedServices.find(s => s.serviceId === parseInt(serviceId) || s.requestId === parseInt(serviceId));
 
-        // Populate delivery modal fields
-        document.getElementById('deliveryServiceId').textContent = 'REQ-' + serviceId;
-        document.getElementById('deliveryVehicleName').textContent = service.vehicleName;
-        document.getElementById('deliveryRegistrationNumber').textContent = service.registrationNumber;
+        // Determine if customer is premium for discount application
+        const isPremium = service && service.membershipStatus === 'Premium';
 
-        // Reset delivery form
-        document.getElementById('customerPickup').checked = true;
-        document.getElementById('homeDelivery').checked = false;
-        document.getElementById('pickupFields').style.display = '';
-        document.getElementById('deliveryFields').style.display = 'none';
-        document.getElementById('confirmDeliveryBtnText').textContent = 'Confirm Pickup';
+        // Prepare invoice data with premium discount if applicable
+        const invoiceData = {
+            notes: document.getElementById('invoiceNotes').value,
+            sendEmail: document.getElementById('sendInvoiceEmail').checked,
+            applyPremiumDiscount: isPremium, // Tell the server to apply premium discount
+            discountRate: 0.30 // UPDATED from 0.25 to 0.30 (30%)
+        };
 
-        document.getElementById('pickupPerson').value = '';
-        document.getElementById('pickupTime').value = '';
-        document.getElementById('deliveryAddress').value = '';
-        document.getElementById('deliveryDate').value = '';
-        document.getElementById('deliveryTimeSlot').value = '';
-        document.getElementById('deliveryContact').value = '';
-        document.getElementById('deliveryNotes').value = '';
-        document.getElementById('confirmDeliveryCheck').checked = false;
+        // API call to generate invoice
+        fetch(`/admin/api/vehicle-tracking/service-request/${serviceId}/invoice?token=${encodeURIComponent(token)}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(invoiceData)
+        })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('API call failed: ' + response.status);
+                }
+                return response.json();
+            })
+            .then(data => {
+                // Hide spinner
+                document.getElementById('spinnerOverlay').classList.remove('show');
 
-        // Show delivery modal
-        $('#deliveryModal').modal('show');
+                // Update the completedServices array to mark invoice as generated
+                const serviceIndex = completedServices.findIndex(s =>
+                    s.serviceId === parseInt(serviceId) || s.requestId === parseInt(serviceId));
+
+                if (serviceIndex !== -1) {
+                    completedServices[serviceIndex].hasInvoice = true;
+
+                    // If premium discount was applied, update the total cost
+                    if (isPremium && completedServices[serviceIndex].laborCost) {
+                        const discountedLabor = completedServices[serviceIndex].laborCost * 0.70; // 30% off
+                        const newTotal = completedServices[serviceIndex].materialsCost + discountedLabor;
+                        const withGST = newTotal * 1.18; // Add 18% GST
+                        completedServices[serviceIndex].totalCost = withGST;
+                    }
+                }
+
+                // Hide the invoice modal
+                $('#generateInvoiceModal').modal('hide');
+
+                // Show success modal
+                document.getElementById('successTitle').textContent = 'Invoice Generated!';
+                document.getElementById('successMessage').textContent =
+                    `The invoice for service REQ-${serviceId} has been successfully generated${invoiceData.sendEmail ? ' and sent to the customer via email' : ''}.`;
+                $('#successModal').modal('show');
+
+                // Refresh the completed services table
+                showCompletedServicesPage(currentCompletedPage);
+            })
+            .catch(error => {
+                // Hide spinner
+                document.getElementById('spinnerOverlay').classList.remove('show');
+                console.error('Error generating invoice:', error);
+
+                // Hide the invoice modal
+                $('#generateInvoiceModal').modal('hide');
+
+                // Show error toast
+                showToastNotification('Error', 'Failed to generate invoice: ' + error.message);
+            });
     }
 
+
     // Confirm delivery
+    // Confirm delivery/dispatch
     function confirmDelivery() {
         // Show spinner
         document.getElementById('spinnerOverlay').classList.add('show');
@@ -4523,7 +4681,7 @@
         }
 
         // API call to confirm delivery
-        fetch(`/admin/api/vehicle-tracking/service-request/${serviceId}/delivery?token=${encodeURIComponent(token)}`, {
+        fetch(`/admin/api/vehicle-tracking/service-request/${serviceId}/dispatch?token=${encodeURIComponent(token)}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -4573,6 +4731,86 @@
                 // Show error toast
                 showToastNotification('Error', 'Failed to confirm delivery: ' + error.message);
             });
+    }
+
+    // Populate sample materials and costs for demo purposes
+    function populateSampleMaterialsAndCosts() {
+        // In a production app, this data would come from the API
+        const materialsTableBody = document.getElementById('materialsTableBody');
+        materialsTableBody.innerHTML = '';
+
+        // Sample materials data
+        const materials = [
+            { item: 'Engine Oil', quantity: 4, unitPrice: 850, total: 3400 },
+            { item: 'Oil Filter', quantity: 1, unitPrice: 350, total: 350 },
+            { item: 'Air Filter', quantity: 1, unitPrice: 650, total: 650 }
+        ];
+
+        let materialsTotal = 0;
+
+        // Add material rows
+        materials.forEach(material => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+            <td>${material.item}</td>
+            <td>${material.quantity}</td>
+            <td>₹${material.unitPrice.toFixed(2)}</td>
+            <td>₹${material.total.toFixed(2)}</td>
+        `;
+            materialsTableBody.appendChild(row);
+            materialsTotal += material.total;
+        });
+
+        // Add materials total row
+        const materialsTotalRow = document.createElement('tr');
+        materialsTotalRow.innerHTML = `
+        <td colspan="3" class="text-end">Materials Total</td>
+        <td>₹${materialsTotal.toFixed(2)}</td>
+    `;
+        materialsTableBody.appendChild(materialsTotalRow);
+
+        // Sample labor data
+        const laborTableBody = document.getElementById('laborChargesTableBody');
+        laborTableBody.innerHTML = '';
+
+        const laborCharges = [
+            { description: 'Regular Service', hours: 2, ratePerHour: 600, total: 1200 }
+        ];
+
+        let laborTotal = 0;
+
+        // Add labor rows
+        laborCharges.forEach(labor => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+            <td>${labor.description}</td>
+            <td>${labor.hours}</td>
+            <td>₹${labor.ratePerHour.toFixed(2)}</td>
+            <td>₹${labor.total.toFixed(2)}</td>
+        `;
+            laborTableBody.appendChild(row);
+            laborTotal += labor.total;
+        });
+
+        // Add labor total row
+        const laborTotalRow = document.createElement('tr');
+        laborTotalRow.innerHTML = `
+        <td colspan="3" class="text-end">Labor Total</td>
+        <td>₹${laborTotal.toFixed(2)}</td>
+    `;
+        laborTableBody.appendChild(laborTotalRow);
+
+        // Update invoice summary
+        const subtotal = materialsTotal + laborTotal;
+        const gst = subtotal * 0.18;
+        const grandTotal = subtotal + gst;
+
+        // Update invoice summary sections
+        document.getElementById('summaryMaterialsTotal').textContent = `₹${materialsTotal.toFixed(2)}`;
+        document.getElementById('summaryLaborTotal').textContent = `₹${laborTotal.toFixed(2)}`;
+        document.getElementById('summarySubtotal').textContent = `₹${subtotal.toFixed(2)}`;
+        document.getElementById('summaryGST').textContent = `₹${gst.toFixed(2)}`;
+        document.getElementById('summaryGrandTotal').textContent = `₹${grandTotal.toFixed(2)}`;
     }
 
     // Update service status
@@ -4653,7 +4891,7 @@
         }, 100);
     }
 
-    // Submit the status update to the server
+    // Submit the status update to the server without reopening any modal
     function submitStatusUpdate() {
         // Show spinner
         document.getElementById('spinnerOverlay').classList.add('show');
