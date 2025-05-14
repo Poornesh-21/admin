@@ -1,6 +1,6 @@
 package com.albany.mvc.controller;
 
-import com.albany.mvc.service.VehicleTrackingService;
+import com.albany.mvc.service.CompletedServicesService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.*;
 
 /**
- * REST API controller for completed services
+ * REST API controller for completed vehicle services
  */
 @RestController
 @RequestMapping("/admin/api/completed-services")
@@ -20,7 +20,7 @@ import java.util.*;
 @Slf4j
 public class CompletedServicesApiController {
 
-    private final VehicleTrackingService vehicleTrackingService;
+    private final CompletedServicesService completedServicesService;
 
     /**
      * Get all completed services
@@ -39,8 +39,8 @@ public class CompletedServicesApiController {
         }
 
         try {
-            // Use existing service to fetch completed services
-            List<Map<String, Object>> completedServices = vehicleTrackingService.getCompletedServices(validToken);
+            // Use service to fetch completed services
+            List<Map<String, Object>> completedServices = completedServicesService.getCompletedServices(validToken);
             return ResponseEntity.ok(completedServices);
         } catch (Exception e) {
             log.error("Error fetching completed services: {}", e.getMessage(), e);
@@ -66,8 +66,8 @@ public class CompletedServicesApiController {
         }
 
         try {
-            // Use existing service to filter completed services
-            List<Map<String, Object>> filteredServices = vehicleTrackingService.filterCompletedServices(
+            // Use service to filter completed services
+            List<Map<String, Object>> filteredServices = completedServicesService.filterCompletedServices(
                     filterCriteria, validToken);
             return ResponseEntity.ok(filteredServices);
         } catch (Exception e) {
@@ -94,8 +94,8 @@ public class CompletedServicesApiController {
         }
 
         try {
-            // Use existing service to get service details
-            Map<String, Object> serviceDetails = vehicleTrackingService.getServiceRequestById(id, validToken);
+            // Use service to get service details
+            Map<String, Object> serviceDetails = completedServicesService.getServiceDetails(id, validToken);
             
             if (serviceDetails.isEmpty()) {
                 return ResponseEntity.notFound().build();
@@ -127,8 +127,8 @@ public class CompletedServicesApiController {
         }
 
         try {
-            // Use existing service to generate invoice
-            Map<String, Object> result = vehicleTrackingService.generateInvoice(id, invoiceDetails, validToken);
+            // Use service to generate invoice
+            Map<String, Object> result = completedServicesService.generateInvoice(id, invoiceDetails, validToken);
             
             if (result.containsKey("error")) {
                 return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(result);
@@ -139,6 +139,41 @@ public class CompletedServicesApiController {
             log.error("Error generating invoice: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Collections.singletonMap("error", "Failed to generate invoice: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Download invoice for a completed service
+     */
+    @GetMapping("/{id}/invoice/download")
+    public ResponseEntity<byte[]> downloadInvoice(
+            @PathVariable Integer id,
+            @RequestParam(required = false) String token,
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            HttpServletRequest request) {
+
+        // Get token from various sources
+        String validToken = getValidToken(token, authHeader, request);
+
+        if (validToken == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new byte[0]);
+        }
+
+        try {
+            // Use service to download invoice
+            byte[] invoiceData = completedServicesService.downloadInvoice(id, validToken);
+            
+            if (invoiceData.length == 0) {
+                return ResponseEntity.notFound().build();
+            }
+            
+            return ResponseEntity.ok()
+                    .header("Content-Type", "application/pdf")
+                    .header("Content-Disposition", "attachment; filename=invoice_" + id + ".pdf")
+                    .body(invoiceData);
+        } catch (Exception e) {
+            log.error("Error downloading invoice: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new byte[0]);
         }
     }
 
@@ -161,8 +196,8 @@ public class CompletedServicesApiController {
         }
 
         try {
-            // Use existing service to record payment
-            Map<String, Object> result = vehicleTrackingService.recordPayment(id, paymentDetails, validToken);
+            // Use service to record payment
+            Map<String, Object> result = completedServicesService.recordPayment(id, paymentDetails, validToken);
             
             if (result.containsKey("error")) {
                 return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(result);
@@ -195,8 +230,8 @@ public class CompletedServicesApiController {
         }
 
         try {
-            // Use existing service to dispatch vehicle
-            Map<String, Object> result = vehicleTrackingService.dispatchVehicle(id, dispatchDetails, validToken);
+            // Use service to dispatch vehicle
+            Map<String, Object> result = completedServicesService.dispatchVehicle(id, dispatchDetails, validToken);
             
             if (result.containsKey("error")) {
                 return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(result);

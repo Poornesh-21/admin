@@ -2481,6 +2481,9 @@
             return;
         }
 
+        // Show spinner
+        showSpinner();
+
         // API call to fetch completed services
         fetch('/admin/api/vehicle-tracking/completed-services?token=' + encodeURIComponent(token))
             .then(response => {
@@ -2491,6 +2494,7 @@
             })
             .then(data => {
                 completedServices = data;
+                hideSpinner();
 
                 // Hide loading spinner
                 document.getElementById('loading-row-completed').style.display = 'none';
@@ -2525,6 +2529,8 @@
             })
             .catch(error => {
                 console.error('Error fetching completed services:', error);
+                hideSpinner();
+
                 // Hide loading spinner and show empty state with error
                 document.getElementById('loading-row-completed').style.display = 'none';
                 document.getElementById('empty-row-completed').style.display = '';
@@ -2545,6 +2551,1114 @@
                 </td>
             `;
             });
+    }
+
+    // Show spinner overlay
+    function showSpinner() {
+        const spinnerOverlay = document.getElementById('spinnerOverlay');
+        if (spinnerOverlay) {
+            spinnerOverlay.classList.add('show');
+        }
+    }
+
+    // Hide spinner overlay
+    function hideSpinner() {
+        const spinnerOverlay = document.getElementById('spinnerOverlay');
+        if (spinnerOverlay) {
+            spinnerOverlay.classList.remove('show');
+        }
+    }
+
+    // Refresh completed services
+    function refreshCompletedServices() {
+        loadCompletedServicesFromAPI();
+    }
+
+    // Update pagination for completed services
+    function updateCompletedPagination() {
+        const totalPages = Math.ceil(completedServices.length / itemsPerPage);
+        const paginationEl = document.getElementById('paginationCompleted');
+
+        if (!paginationEl) return;
+
+        // Clear existing page links (except prev/next)
+        const pageLinks = paginationEl.querySelectorAll('.page-link[data-page]');
+        pageLinks.forEach(link => {
+            link.parentElement.remove();
+        });
+
+        // Get prev/next buttons
+        const prevBtn = document.getElementById('prevBtnCompleted');
+        const nextBtn = document.getElementById('nextBtnCompleted');
+        const prevItem = prevBtn.parentElement;
+        const nextItem = nextBtn.parentElement;
+
+        // Disable/enable prev button
+        if (currentCompletedPage === 1) {
+            prevItem.classList.add('disabled');
+        } else {
+            prevItem.classList.remove('disabled');
+        }
+
+        // Disable/enable next button
+        if (currentCompletedPage === totalPages || totalPages === 0) {
+            nextItem.classList.add('disabled');
+        } else {
+            nextItem.classList.remove('disabled');
+        }
+
+        // Add page links
+        let startPage = Math.max(1, currentCompletedPage - 1);
+        let endPage = Math.min(totalPages, startPage + 2);
+
+        if (endPage - startPage < 2) {
+            startPage = Math.max(1, endPage - 2);
+        }
+
+        for (let i = startPage; i <= endPage; i++) {
+            const pageItem = document.createElement('li');
+            pageItem.classList.add('page-item');
+            if (i === currentCompletedPage) {
+                pageItem.classList.add('active');
+            }
+
+            const pageLink = document.createElement('a');
+            pageLink.classList.add('page-link');
+            pageLink.setAttribute('href', '#');
+            pageLink.setAttribute('data-page', i);
+            pageLink.textContent = i;
+
+            pageLink.addEventListener('click', function(e) {
+                e.preventDefault();
+                currentCompletedPage = i;
+                updateCompletedPagination();
+                showCompletedServicesPage(currentCompletedPage);
+            });
+
+            pageItem.appendChild(pageLink);
+            nextItem.parentElement.insertBefore(pageItem, nextItem);
+        }
+    }
+
+    // Show completed services page
+    function showCompletedServicesPage(page) {
+        const tableBody = document.getElementById('completedServicesTableBody');
+        if (!tableBody) return;
+
+        // Calculate start and end index
+        const startIdx = (page - 1) * itemsPerPage;
+        const endIdx = Math.min(startIdx + itemsPerPage, completedServices.length);
+
+        // Clear loading and empty rows
+        document.getElementById('loading-row-completed').style.display = 'none';
+        document.getElementById('empty-row-completed').style.display = 'none';
+
+        // Clear existing data rows
+        const existingRows = tableBody.querySelectorAll('tr:not(#loading-row-completed):not(#empty-row-completed)');
+        existingRows.forEach(row => row.remove());
+
+        // Add data rows
+        for (let i = startIdx; i < endIdx; i++) {
+            const service = completedServices[i];
+
+            const row = document.createElement('tr');
+            row.classList.add('active-page');
+            row.dataset.serviceId = service.serviceId;
+
+            row.innerHTML = `
+            <td>REQ-${service.serviceId}</td>
+            <td>
+                <div class="vehicle-info">
+                    <div class="vehicle-icon">
+                        <i class="${service.category === 'Car' ? 'fas fa-car' : service.category === 'Bike' ? 'fas fa-motorcycle' : 'fas fa-truck'}"></i>
+                    </div>
+                    <div class="vehicle-details">
+                        <h5>${service.vehicleName}</h5>
+                        <p>${service.registrationNumber}</p>
+                    </div>
+                </div>
+            </td>
+            <td>
+                <div class="person-info">
+                    <div class="person-details">
+                        <h5>${service.customerName}</h5>
+                        <p>${service.customerEmail || 'No email provided'}</p>
+                    </div>
+                </div>
+            </td>
+            <td>
+                <span class="membership-badge ${service.membershipStatus?.toLowerCase() === 'premium' ? 'membership-premium' : 'membership-standard'}">
+                    ${service.membershipStatus || 'Standard'}
+                </span>
+            </td>
+            <td>${service.serviceType || 'General Service'}</td>
+            <td>${formatDate(service.completedDate)}</td>
+            <td>${formatCurrency(service.totalCost || 0)}</td>
+            <td>
+                ${service.hasInvoice ?
+                `<span class="status-badge status-completed">
+                        <i class="fas fa-check-circle"></i> Generated
+                    </span>` :
+                `<span class="status-badge status-pending">
+                        <i class="fas fa-clock"></i> Pending
+                    </span>`
+            }
+            </td>
+            <td>
+                <div class="table-actions-cell">
+                    <button class="btn-table-action" onclick="viewServiceDetails(${service.serviceId})">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                    ${service.hasInvoice ?
+                `<button class="btn-table-action success" onclick="downloadInvoiceById(${service.serviceId})">
+                            <i class="fas fa-file-download"></i>
+                        </button>` : ''
+            }
+                </div>
+            </td>
+        `;
+
+            tableBody.appendChild(row);
+        }
+    }
+
+    // Format date
+    function formatDate(dateStr) {
+        if (!dateStr) return 'N/A';
+
+        const date = new Date(dateStr);
+        if (isNaN(date.getTime())) return dateStr;
+
+        const options = { year: 'numeric', month: 'short', day: 'numeric' };
+        return date.toLocaleDateString('en-US', options);
+    }
+
+    // Format currency
+    function formatCurrency(amount) {
+        if (amount === null || amount === undefined) return '₹0.00';
+
+        return '₹' + parseFloat(amount).toFixed(2)
+            .replace(/\d(?=(\d{3})+\.)/g, '$&,');
+    }
+
+    // View service details
+    function viewServiceDetails(serviceId) {
+        // Save current service ID
+        currentServiceId = serviceId;
+
+        // Get token
+        const token = getJwtToken();
+        if (!token) {
+            console.error('No token found');
+            return;
+        }
+
+        // Show spinner
+        showSpinner();
+
+        // Fetch service details
+        fetch(`/admin/api/vehicle-tracking/service-request/${serviceId}?token=${encodeURIComponent(token)}`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('API call failed: ' + response.status);
+                }
+                return response.json();
+            })
+            .then(data => {
+                hideSpinner();
+                populateServiceDetailsModal(data);
+
+                // Show the modal
+                new bootstrap.Modal(document.getElementById('viewServiceDetailsModal')).show();
+            })
+            .catch(error => {
+                hideSpinner();
+                console.error('Error fetching service details:', error);
+                showToast('Error', 'Failed to fetch service details: ' + error.message, 'error');
+            });
+    }
+
+    // Populate service details modal
+    function populateServiceDetailsModal(service) {
+        // Basic info
+        document.getElementById('viewServiceId').textContent = 'REQ-' + service.requestId;
+        document.getElementById('viewStatus').innerHTML = `
+        <span class="status-badge status-completed">
+            <i class="fas fa-check-circle"></i> Completed
+        </span>
+    `;
+        document.getElementById('viewCompletionDate').textContent = formatDate(service.completedDate || service.updatedAt);
+
+        // Vehicle info
+        document.getElementById('viewVehicleName').textContent = service.vehicleName || (service.vehicleBrand + ' ' + service.vehicleModel);
+        document.getElementById('viewRegistrationNumber').textContent = service.registrationNumber;
+        document.getElementById('viewVehicleCategory').textContent = service.category || service.vehicleType;
+
+        // Customer info
+        document.getElementById('viewCustomerName').textContent = service.customerName;
+        document.getElementById('viewCustomerContact').textContent = service.customerEmail || 'Not provided';
+        document.getElementById('viewMembership').textContent = service.membershipStatus || 'Standard';
+
+        // Service info
+        document.getElementById('viewServiceType').textContent = service.serviceType || 'General Service';
+        document.getElementById('viewServiceAdvisor').textContent = service.serviceAdvisorName || 'Not assigned';
+        document.getElementById('viewTotalAmount').textContent = formatCurrency(service.totalCost);
+
+        // Service description
+        document.getElementById('viewServiceDescription').textContent = service.additionalDescription || service.serviceDescription || 'No description provided.';
+
+        // Materials and labor tables
+        populateMaterialsTable(service.materials || []);
+        populateLaborTable(service.laborCharges || []);
+
+        // Invoice summary
+        updateInvoiceSummary(service);
+
+        // Update workflow steps
+        updateWorkflowSteps(service);
+
+        // Update action buttons
+        updateServiceActionButtons(service);
+    }
+
+    // Populate materials table
+    function populateMaterialsTable(materials) {
+        const tableBody = document.getElementById('materialsTableBody');
+        tableBody.innerHTML = '';
+
+        let materialsTotalCost = 0;
+
+        if (materials.length === 0) {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+            <td colspan="4" class="text-center">No materials recorded for this service.</td>
+        `;
+            tableBody.appendChild(row);
+        } else {
+            materials.forEach(material => {
+                const row = document.createElement('tr');
+
+                const totalItemCost = (material.quantity || 0) * (material.unitPrice || 0);
+                materialsTotalCost += totalItemCost;
+
+                row.innerHTML = `
+                <td>${material.name}</td>
+                <td>${material.quantity}</td>
+                <td>${formatCurrency(material.unitPrice)}</td>
+                <td>${formatCurrency(totalItemCost)}</td>
+            `;
+
+                tableBody.appendChild(row);
+            });
+
+            // Add total row
+            const totalRow = document.createElement('tr');
+            totalRow.innerHTML = `
+            <td colspan="3" class="text-end fw-bold">Materials Total</td>
+            <td class="fw-bold">${formatCurrency(materialsTotalCost)}</td>
+        `;
+            tableBody.appendChild(totalRow);
+        }
+
+        // Update summary
+        document.getElementById('summaryMaterialsTotal').textContent = formatCurrency(materialsTotalCost);
+    }
+
+    // Populate labor table
+    function populateLaborTable(laborCharges) {
+        const tableBody = document.getElementById('laborChargesTableBody');
+        tableBody.innerHTML = '';
+
+        let laborTotalCost = 0;
+
+        if (laborCharges.length === 0) {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+            <td colspan="4" class="text-center">No labor charges recorded for this service.</td>
+        `;
+            tableBody.appendChild(row);
+        } else {
+            laborCharges.forEach(labor => {
+                const row = document.createElement('tr');
+
+                laborTotalCost += parseFloat(labor.total || 0);
+
+                row.innerHTML = `
+                <td>${labor.description}</td>
+                <td>${labor.hours}</td>
+                <td>${formatCurrency(labor.ratePerHour)}</td>
+                <td>${formatCurrency(labor.total)}</td>
+            `;
+
+                tableBody.appendChild(row);
+            });
+
+            // Add total row
+            const totalRow = document.createElement('tr');
+            totalRow.innerHTML = `
+            <td colspan="3" class="text-end fw-bold">Labor Total</td>
+            <td class="fw-bold">${formatCurrency(laborTotalCost)}</td>
+        `;
+            tableBody.appendChild(totalRow);
+        }
+
+        // Update summary
+        document.getElementById('summaryLaborTotal').textContent = formatCurrency(laborTotalCost);
+    }
+
+    // Update invoice summary
+    function updateInvoiceSummary(service) {
+        // Get values
+        const materialsTotal = service.materialsTotal || parseFloat(document.getElementById('summaryMaterialsTotal').textContent.replace(/[₹,]/g, '')) || 0;
+        const laborTotal = service.laborTotal || parseFloat(document.getElementById('summaryLaborTotal').textContent.replace(/[₹,]/g, '')) || 0;
+
+        // Calculate discount for premium members
+        const isPremium = (service.membershipStatus || '').toLowerCase() === 'premium';
+        const premiumDiscountRow = document.getElementById('premiumDiscountRow');
+        let discount = 0;
+
+        if (isPremium) {
+            // 20% discount on labor
+            discount = laborTotal * 0.20;
+
+            document.getElementById('summaryDiscount').textContent = '-' + formatCurrency(discount);
+            premiumDiscountRow.style.display = '';
+        } else {
+            premiumDiscountRow.style.display = 'none';
+        }
+
+        // Calculate subtotal
+        const subtotal = materialsTotal + laborTotal - discount;
+        document.getElementById('summarySubtotal').textContent = formatCurrency(subtotal);
+
+        // Calculate GST (18%)
+        const gst = subtotal * 0.18;
+        document.getElementById('summaryGST').textContent = formatCurrency(gst);
+
+        // Calculate grand total
+        const grandTotal = subtotal + gst;
+        document.getElementById('summaryGrandTotal').textContent = formatCurrency(grandTotal);
+    }
+
+    // Update workflow steps
+    function updateWorkflowSteps(service) {
+        // Reset all steps
+        document.querySelectorAll('.workflow-step').forEach(step => {
+            step.classList.remove('active', 'completed');
+        });
+
+        // Check service status
+        const hasBill = service.hasBill === true;
+        const isPaid = service.isPaid === true;
+        const hasInvoice = service.hasInvoice === true;
+        const isDelivered = service.isDelivered === true;
+
+        // Update bill step
+        if (hasBill) {
+            document.getElementById('stepBill').classList.add('completed');
+        } else {
+            document.getElementById('stepBill').classList.add('active');
+        }
+
+        // Update payment step
+        if (isPaid) {
+            document.getElementById('stepPayment').classList.add('completed');
+        } else if (hasBill) {
+            document.getElementById('stepPayment').classList.add('active');
+        }
+
+        // Update invoice step
+        if (hasInvoice) {
+            document.getElementById('stepInvoice').classList.add('completed');
+        } else if (isPaid) {
+            document.getElementById('stepInvoice').classList.add('active');
+        }
+
+        // Update delivery step
+        if (isDelivered) {
+            document.getElementById('stepDelivery').classList.add('completed');
+        } else if (hasInvoice) {
+            document.getElementById('stepDelivery').classList.add('active');
+        }
+    }
+
+    // Update service action buttons
+    function updateServiceActionButtons(service) {
+        const footer = document.getElementById('completedServiceFooter');
+
+        // Clear existing action buttons (except close)
+        const existingButtons = footer.querySelectorAll('button:not([data-bs-dismiss="modal"])');
+        existingButtons.forEach(button => {
+            if (!button.classList.contains('btn-premium')) {
+                button.remove();
+            }
+        });
+
+        // Check service status
+        const hasBill = service.hasBill === true;
+        const isPaid = service.isPaid === true;
+        const hasInvoice = service.hasInvoice === true;
+        const isDelivered = service.isDelivered === true;
+
+        // Add appropriate action buttons
+        if (!hasBill) {
+            // Add generate bill button
+            const generateBillBtn = document.createElement('button');
+            generateBillBtn.type = 'button';
+            generateBillBtn.className = 'btn-premium primary';
+            generateBillBtn.innerHTML = '<i class="fas fa-file-invoice-dollar"></i> Generate Bill';
+            generateBillBtn.addEventListener('click', function() {
+                // Close the current modal
+                bootstrap.Modal.getInstance(document.getElementById('viewServiceDetailsModal')).hide();
+
+                // Open bill generation modal
+                generateBill(service);
+            });
+
+            footer.appendChild(generateBillBtn);
+        } else if (!isPaid) {
+            // Add process payment button
+            const processPaymentBtn = document.createElement('button');
+            processPaymentBtn.type = 'button';
+            processPaymentBtn.className = 'btn-premium primary';
+            processPaymentBtn.innerHTML = '<i class="fas fa-money-bill-wave"></i> Process Payment';
+            processPaymentBtn.addEventListener('click', function() {
+                // Close the current modal
+                bootstrap.Modal.getInstance(document.getElementById('viewServiceDetailsModal')).hide();
+
+                // Open payment modal
+                openPaymentModal(service);
+            });
+
+            footer.appendChild(processPaymentBtn);
+        } else if (!hasInvoice) {
+            // Add generate invoice button
+            const generateInvoiceBtn = document.createElement('button');
+            generateInvoiceBtn.type = 'button';
+            generateInvoiceBtn.className = 'btn-premium primary';
+            generateInvoiceBtn.innerHTML = '<i class="fas fa-file-invoice"></i> Generate Invoice';
+            generateInvoiceBtn.addEventListener('click', function() {
+                // Close the current modal
+                bootstrap.Modal.getInstance(document.getElementById('viewServiceDetailsModal')).hide();
+
+                // Open invoice generation modal
+                openInvoiceModal(service);
+            });
+
+            footer.appendChild(generateInvoiceBtn);
+        } else if (!isDelivered) {
+            // Add dispatch vehicle button
+            const dispatchBtn = document.createElement('button');
+            dispatchBtn.type = 'button';
+            dispatchBtn.className = 'btn-premium primary';
+            dispatchBtn.innerHTML = '<i class="fas fa-truck"></i> Dispatch Vehicle';
+            dispatchBtn.addEventListener('click', function() {
+                // Close the current modal
+                bootstrap.Modal.getInstance(document.getElementById('viewServiceDetailsModal')).hide();
+
+                // Open delivery modal
+                openDeliveryModal(service);
+            });
+
+            footer.appendChild(dispatchBtn);
+        }
+
+        // Add download invoice button if available
+        if (hasInvoice) {
+            const downloadInvoiceBtn = document.createElement('button');
+            downloadInvoiceBtn.type = 'button';
+            downloadInvoiceBtn.className = 'btn-table-action success ms-2';
+            downloadInvoiceBtn.id = 'downloadInvoiceBtn';
+            downloadInvoiceBtn.innerHTML = '<i class="fas fa-file-download"></i> Download Invoice';
+            downloadInvoiceBtn.addEventListener('click', function() {
+                downloadInvoice();
+            });
+
+            footer.appendChild(downloadInvoiceBtn);
+        }
+    }
+
+    // Filter completed services
+    function filterCompletedServices(searchText) {
+        if (!searchText || searchText.trim() === '') {
+            showCompletedServicesPage(currentCompletedPage);
+            return;
+        }
+
+        searchText = searchText.toLowerCase().trim();
+
+        const filteredServices = completedServices.filter(service => {
+            return (
+                (service.vehicleName && service.vehicleName.toLowerCase().includes(searchText)) ||
+                (service.registrationNumber && service.registrationNumber.toLowerCase().includes(searchText)) ||
+                (service.customerName && service.customerName.toLowerCase().includes(searchText)) ||
+                (service.serviceType && service.serviceType.toLowerCase().includes(searchText)) ||
+                ('req-' + service.serviceId).toLowerCase().includes(searchText)
+            );
+        });
+
+        const tableBody = document.getElementById('completedServicesTableBody');
+        if (!tableBody) return;
+
+        // Clear loading and empty rows
+        document.getElementById('loading-row-completed').style.display = 'none';
+
+        // Clear existing data rows
+        const existingRows = tableBody.querySelectorAll('tr:not(#loading-row-completed):not(#empty-row-completed)');
+        existingRows.forEach(row => row.remove());
+
+        if (filteredServices.length === 0) {
+            // Show no results message
+            document.getElementById('empty-row-completed').style.display = '';
+            document.getElementById('empty-row-completed').innerHTML = `
+            <td colspan="10" class="text-center py-5">
+                <div class="my-4">
+                    <i class="fas fa-search fa-3x text-muted mb-3"></i>
+                    <h5>No matching services found</h5>
+                    <p class="text-muted">Try a different search term</p>
+                </div>
+            </td>
+        `;
+        } else {
+            document.getElementById('empty-row-completed').style.display = 'none';
+
+            // Add filtered services
+            filteredServices.forEach(service => {
+                const row = document.createElement('tr');
+                row.classList.add('active-page');
+                row.dataset.serviceId = service.serviceId;
+
+                row.innerHTML = `
+                <td>REQ-${service.serviceId}</td>
+                <td>
+                    <div class="vehicle-info">
+                        <div class="vehicle-icon">
+                            <i class="${service.category === 'Car' ? 'fas fa-car' : service.category === 'Bike' ? 'fas fa-motorcycle' : 'fas fa-truck'}"></i>
+                        </div>
+                        <div class="vehicle-details">
+                            <h5>${service.vehicleName}</h5>
+                            <p>${service.registrationNumber}</p>
+                        </div>
+                    </div>
+                </td>
+                <td>
+                    <div class="person-info">
+                        <div class="person-details">
+                            <h5>${service.customerName}</h5>
+                            <p>${service.customerEmail || 'No email provided'}</p>
+                        </div>
+                    </div>
+                </td>
+                <td>
+                    <span class="membership-badge ${service.membershipStatus?.toLowerCase() === 'premium' ? 'membership-premium' : 'membership-standard'}">
+                        ${service.membershipStatus || 'Standard'}
+                    </span>
+                </td>
+                <td>${service.serviceType || 'General Service'}</td>
+                <td>${formatDate(service.completedDate)}</td>
+                <td>${formatCurrency(service.totalCost || 0)}</td>
+                <td>
+                    ${service.hasInvoice ?
+                    `<span class="status-badge status-completed">
+                            <i class="fas fa-check-circle"></i> Generated
+                        </span>` :
+                    `<span class="status-badge status-pending">
+                            <i class="fas fa-clock"></i> Pending
+                        </span>`
+                }
+                </td>
+                <td>
+                    <div class="table-actions-cell">
+                        <button class="btn-table-action" onclick="viewServiceDetails(${service.serviceId})">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                        ${service.hasInvoice ?
+                    `<button class="btn-table-action success" onclick="downloadInvoiceById(${service.serviceId})">
+                                <i class="fas fa-file-download"></i>
+                            </button>` : ''
+                }
+                    </div>
+                </td>
+            `;
+
+                tableBody.appendChild(row);
+            });
+        }
+    }
+
+    // Filter table rows
+    function filterTableRows(searchText, tableId) {
+        const table = document.getElementById(tableId);
+        if (!table) return;
+
+        const rows = table.querySelectorAll('tbody tr:not(#loading-row-completed):not(#empty-row-completed)');
+
+        if (!searchText || searchText.trim() === '') {
+            // Reset to current page
+            showCompletedServicesPage(currentCompletedPage);
+            return;
+        }
+
+        searchText = searchText.toLowerCase().trim();
+
+        rows.forEach(row => {
+            const rowText = row.textContent.toLowerCase();
+            if (rowText.includes(searchText)) {
+                row.style.display = '';
+                row.classList.add('active-page');
+            } else {
+                row.style.display = 'none';
+                row.classList.remove('active-page');
+            }
+        });
+    }
+
+    // Apply filters from modal
+    function applyFilters() {
+        // Get filter values
+        const vehicleType = document.getElementById('filterByVehicleType').value;
+        const serviceType = document.getElementById('filterByServiceType').value;
+        const paymentStatus = document.getElementById('filterByPaymentStatus').value;
+        const invoiceStatus = document.getElementById('filterByInvoiceStatus').value;
+        const dateFrom = document.getElementById('filterDateFrom').value;
+        const dateTo = document.getElementById('filterDateTo').value;
+
+        // Get token
+        const token = getJwtToken();
+        if (!token) {
+            console.error('No token found');
+            return;
+        }
+
+        // Prepare filter criteria
+        const filterCriteria = {};
+
+        if (vehicleType) filterCriteria.vehicleType = vehicleType;
+        if (serviceType) filterCriteria.serviceType = serviceType;
+        if (paymentStatus) filterCriteria.paymentStatus = paymentStatus;
+        if (invoiceStatus) filterCriteria.invoiceStatus = invoiceStatus;
+        if (dateFrom) filterCriteria.dateFrom = dateFrom;
+        if (dateTo) filterCriteria.dateTo = dateTo;
+
+        // Show spinner
+        showSpinner();
+
+        // Close the filter modal
+        bootstrap.Modal.getInstance(document.getElementById('filterServicesModal')).hide();
+
+        // Make API request
+        fetch('/admin/api/vehicle-tracking/completed-services/filter?token=' + encodeURIComponent(token), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(filterCriteria)
+        })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('API call failed: ' + response.status);
+                }
+                return response.json();
+            })
+            .then(data => {
+                hideSpinner();
+
+                // Update global services array
+                completedServices = data;
+
+                // Reset to page 1
+                currentCompletedPage = 1;
+
+                // Update display
+                updateCompletedPagination();
+                showCompletedServicesPage(currentCompletedPage);
+
+                // Show toast notification
+                showToast(
+                    'Filters Applied',
+                    `Found ${completedServices.length} service${completedServices.length !== 1 ? 's' : ''} matching your criteria.`,
+                    'success'
+                );
+            })
+            .catch(error => {
+                hideSpinner();
+                console.error('Error applying filters:', error);
+                showToast('Error', 'Failed to apply filters: ' + error.message, 'error');
+            });
+    }
+
+    // Download invoice
+    function downloadInvoice() {
+        if (!currentServiceId) {
+            showToast('Error', 'No service selected', 'error');
+            return;
+        }
+
+        downloadInvoiceById(currentServiceId);
+    }
+
+    // Download invoice by ID
+    function downloadInvoiceById(serviceId) {
+        // Get token
+        const token = getJwtToken();
+        if (!token) {
+            console.error('No token found');
+            return;
+        }
+
+        // Show spinner
+        showSpinner();
+
+        // Create the URL for the download
+        const downloadUrl = `/admin/api/vehicle-tracking/invoice/download/${serviceId}?token=${encodeURIComponent(token)}`;
+
+        // Create an iframe to handle the download
+        const iframe = document.createElement('iframe');
+        iframe.style.display = 'none';
+        iframe.src = downloadUrl;
+
+        // Add to document
+        document.body.appendChild(iframe);
+
+        // Set timeout to remove iframe and hide spinner
+        setTimeout(() => {
+            document.body.removeChild(iframe);
+            hideSpinner();
+            showToast('Success', 'Invoice download initiated', 'success');
+        }, 2000);
+    }
+
+    // Generate bill
+    function generateBill(service) {
+        // Show bill generation modal with service details
+        // In a real implementation, this would need more code
+        showToast('Info', 'Bill generation would be implemented here', 'info');
+    }
+
+    // Open payment modal
+    function openPaymentModal(service) {
+        // Populate payment modal with service details
+        document.getElementById('paymentServiceId').textContent = 'REQ-' + service.serviceId;
+        document.getElementById('paymentCustomerName').textContent = service.customerName;
+        document.getElementById('paymentVehicleName').textContent = service.vehicleName;
+        document.getElementById('paymentAmount').textContent = formatCurrency(service.totalCost);
+
+        // Set default paid amount
+        document.getElementById('paidAmount').value = parseFloat(service.totalCost).toFixed(2);
+
+        // Show the modal
+        new bootstrap.Modal(document.getElementById('paymentModal')).show();
+    }
+
+    // Process payment
+    function processPayment() {
+        if (!currentServiceId) {
+            showToast('Error', 'No service selected', 'error');
+            return;
+        }
+
+        // Get payment details
+        const paymentMethod = document.getElementById('paymentMethod').value;
+        const transactionId = document.getElementById('transactionId').value;
+        const paidAmount = document.getElementById('paidAmount').value;
+        const paymentNotes = document.getElementById('paymentNotes').value;
+
+        // Validate input
+        if (!paymentMethod) {
+            showToast('Error', 'Please select a payment method', 'error');
+            return;
+        }
+
+        if (!paidAmount) {
+            showToast('Error', 'Please enter the amount received', 'error');
+            return;
+        }
+
+        // Get token
+        const token = getJwtToken();
+        if (!token) {
+            console.error('No token found');
+            return;
+        }
+
+        // Show spinner
+        showSpinner();
+
+        // Close payment modal
+        bootstrap.Modal.getInstance(document.getElementById('paymentModal')).hide();
+
+        // Prepare payment data
+        const paymentData = {
+            paymentMethod: paymentMethod,
+            transactionId: transactionId,
+            amount: parseFloat(paidAmount),
+            notes: paymentNotes
+        };
+
+        // Make API request
+        fetch(`/admin/api/vehicle-tracking/service-request/${currentServiceId}/payment?token=${encodeURIComponent(token)}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(paymentData)
+        })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('API call failed: ' + response.status);
+                }
+                return response.json();
+            })
+            .then(data => {
+                hideSpinner();
+
+                // Show success modal
+                document.getElementById('successTitle').textContent = 'Payment Successful!';
+                document.getElementById('successMessage').textContent = 'The payment has been recorded successfully.';
+                new bootstrap.Modal(document.getElementById('successModal')).show();
+
+                // Refresh data
+                refreshCompletedServices();
+            })
+            .catch(error => {
+                hideSpinner();
+                console.error('Error processing payment:', error);
+                showToast('Error', 'Failed to process payment: ' + error.message, 'error');
+            });
+    }
+
+    // Open invoice modal
+    function openInvoiceModal(service) {
+        // Populate invoice modal with service details
+        document.getElementById('invoiceServiceId').textContent = 'REQ-' + service.serviceId;
+        document.getElementById('invoiceCustomerName').textContent = service.customerName;
+        document.getElementById('invoiceVehicleName').textContent = service.vehicleName;
+        document.getElementById('invoiceRegistrationNumber').textContent = service.registrationNumber;
+        document.getElementById('invoiceServiceType').textContent = service.serviceType;
+        document.getElementById('invoiceCompletionDate').textContent = formatDate(service.completedDate);
+
+        // Set premium badge
+        if ((service.membershipStatus || '').toLowerCase() === 'premium') {
+            document.getElementById('premiumBadge').style.display = '';
+        } else {
+            document.getElementById('premiumBadge').style.display = 'none';
+        }
+
+        // Set financial details
+        document.getElementById('invoiceMaterialsTotal').textContent = formatCurrency(service.materialsTotal || 0);
+        document.getElementById('invoiceLaborTotal').textContent = formatCurrency(service.laborTotal || 0);
+        document.getElementById('invoiceSubtotal').textContent = formatCurrency(service.subtotal || (service.materialsTotal + service.laborTotal));
+        document.getElementById('invoiceGST').textContent = formatCurrency(service.gst || (service.subtotal * 0.18));
+        document.getElementById('invoiceGrandTotal').textContent = formatCurrency(service.totalCost || 0);
+
+        // Show the modal
+        new bootstrap.Modal(document.getElementById('generateInvoiceModal')).show();
+    }
+
+    // Generate invoice
+    function generateInvoice() {
+        if (!currentServiceId) {
+            showToast('Error', 'No service selected', 'error');
+            return;
+        }
+
+        // Get invoice details
+        const notes = document.getElementById('invoiceNotes').value;
+        const sendEmail = document.getElementById('sendInvoiceEmail').checked;
+
+        // Get token
+        const token = getJwtToken();
+        if (!token) {
+            console.error('No token found');
+            return;
+        }
+
+        // Show spinner
+        showSpinner();
+
+        // Close invoice modal
+        bootstrap.Modal.getInstance(document.getElementById('generateInvoiceModal')).hide();
+
+        // Prepare invoice data
+        const invoiceData = {
+            notes: notes,
+            sendEmail: sendEmail
+        };
+
+        // Make API request
+        fetch(`/admin/api/vehicle-tracking/service-request/${currentServiceId}/invoice?token=${encodeURIComponent(token)}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(invoiceData)
+        })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('API call failed: ' + response.status);
+                }
+                return response.json();
+            })
+            .then(data => {
+                hideSpinner();
+
+                // Show success modal
+                document.getElementById('successTitle').textContent = 'Invoice Generated!';
+                document.getElementById('successMessage').textContent = 'The invoice has been generated successfully' + (sendEmail ? ' and sent to the customer via email.' : '.');
+                new bootstrap.Modal(document.getElementById('successModal')).show();
+
+                // Refresh data
+                refreshCompletedServices();
+            })
+            .catch(error => {
+                hideSpinner();
+                console.error('Error generating invoice:', error);
+                showToast('Error', 'Failed to generate invoice: ' + error.message, 'error');
+            });
+    }
+
+    // Open delivery modal
+    function openDeliveryModal(service) {
+        // Populate delivery modal with service details
+        document.getElementById('deliveryServiceId').textContent = 'REQ-' + service.serviceId;
+        document.getElementById('deliveryVehicleName').textContent = service.vehicleName;
+        document.getElementById('deliveryRegistrationNumber').textContent = service.registrationNumber;
+
+        // Reset form fields
+        document.getElementById('pickupPerson').value = '';
+        document.getElementById('pickupTime').value = '';
+        document.getElementById('deliveryAddress').value = '';
+        document.getElementById('deliveryDate').value = '';
+        document.getElementById('deliveryTimeSlot').value = '';
+        document.getElementById('deliveryContact').value = '';
+        document.getElementById('deliveryNotes').value = '';
+        document.getElementById('confirmDeliveryCheck').checked = false;
+
+        // Show the modal
+        new bootstrap.Modal(document.getElementById('deliveryModal')).show();
+    }
+
+    // Confirm delivery
+    function confirmDelivery() {
+        if (!currentServiceId) {
+            showToast('Error', 'No service selected', 'error');
+            return;
+        }
+
+        // Check confirmation
+        if (!document.getElementById('confirmDeliveryCheck').checked) {
+            showToast('Error', 'Please confirm that all service work has been completed', 'error');
+            return;
+        }
+
+        // Get delivery details
+        const deliveryMethod = document.querySelector('input[name="deliveryMethod"]:checked').value;
+
+        let dispatchDetails = {
+            deliveryMethod: deliveryMethod,
+            notes: document.getElementById('deliveryNotes').value
+        };
+
+        if (deliveryMethod === 'pickup') {
+            dispatchDetails.pickupPerson = document.getElementById('pickupPerson').value;
+            dispatchDetails.pickupTime = document.getElementById('pickupTime').value;
+        } else {
+            dispatchDetails.deliveryAddress = document.getElementById('deliveryAddress').value;
+            dispatchDetails.deliveryDate = document.getElementById('deliveryDate').value;
+            dispatchDetails.deliveryTimeSlot = document.getElementById('deliveryTimeSlot').value;
+            dispatchDetails.deliveryContact = document.getElementById('deliveryContact').value;
+        }
+
+        // Validate input
+        if (deliveryMethod === 'pickup' && !dispatchDetails.pickupPerson) {
+            showToast('Error', 'Please enter the name of person collecting vehicle', 'error');
+            return;
+        }
+
+        if (deliveryMethod === 'delivery' && !dispatchDetails.deliveryAddress) {
+            showToast('Error', 'Please enter delivery address', 'error');
+            return;
+        }
+
+        // Get token
+        const token = getJwtToken();
+        if (!token) {
+            console.error('No token found');
+            return;
+        }
+
+        // Show spinner
+        showSpinner();
+
+        // Close delivery modal
+        bootstrap.Modal.getInstance(document.getElementById('deliveryModal')).hide();
+
+        // Make API request
+        fetch(`/admin/api/vehicle-tracking/service-request/${currentServiceId}/dispatch?token=${encodeURIComponent(token)}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(dispatchDetails)
+        })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('API call failed: ' + response.status);
+                }
+                return response.json();
+            })
+            .then(data => {
+                hideSpinner();
+
+                // Show success modal
+                document.getElementById('successTitle').textContent = 'Vehicle Dispatched!';
+                document.getElementById('successMessage').textContent = 'The vehicle has been ' +
+                    (deliveryMethod === 'pickup' ? 'marked for customer pickup.' : 'scheduled for delivery.');
+                new bootstrap.Modal(document.getElementById('successModal')).show();
+
+                // Refresh data
+                refreshCompletedServices();
+            })
+            .catch(error => {
+                hideSpinner();
+                console.error('Error dispatching vehicle:', error);
+                showToast('Error', 'Failed to dispatch vehicle: ' + error.message, 'error');
+            });
+    }
+
+    // Show toast notification
+    function showToast(title, message, type) {
+        const toastContainer = document.querySelector('.toast-container');
+
+        const toast = document.createElement('div');
+        toast.className = `toast ${type === 'error' ? 'bg-danger' : type === 'success' ? 'bg-success' : 'bg-wine'} text-white`;
+        toast.setAttribute('role', 'alert');
+        toast.setAttribute('aria-live', 'assertive');
+        toast.setAttribute('aria-atomic', 'true');
+
+        toast.innerHTML = `
+        <div class="toast-header ${type === 'error' ? 'bg-danger' : type === 'success' ? 'bg-success' : 'bg-wine'} text-white">
+            <strong class="me-auto">${title}</strong>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+        <div class="toast-body">
+            ${message}
+        </div>
+    `;
+
+        toastContainer.appendChild(toast);
+
+        const bsToast = new bootstrap.Toast(toast, {
+            autohide: true,
+            delay: 5000
+        });
+
+        bsToast.show();
+
+        // Remove toast after it's hidden
+        toast.addEventListener('hidden.bs.toast', function() {
+            toastContainer.removeChild(toast);
+        });
     }
 </script>
 </body>

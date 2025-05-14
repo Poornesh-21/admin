@@ -1,6 +1,7 @@
 package com.albany.mvc.controller;
 
 import com.albany.mvc.security.JwtUtil;
+import com.albany.mvc.service.CompletedServicesService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
@@ -14,7 +15,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
 /**
- * Controller for handling the completed services page
+ * Controller for the Completed Services page
  */
 @Controller
 @RequestMapping("/admin")
@@ -23,9 +24,10 @@ import org.springframework.web.bind.annotation.RequestParam;
 public class CompletedServicesController {
 
     private final JwtUtil jwtUtil;
+    private final CompletedServicesService completedServicesService;
 
     /**
-     * Handles the request to display the completed services page
+     * Display the completed services page
      */
     @GetMapping("/completed-services")
     public String completedServicesPage(
@@ -43,8 +45,12 @@ public class CompletedServicesController {
             return "redirect:/admin/login?error=session_expired";
         }
 
-        // Set the admin's name for the page
-        model.addAttribute("userName", "Arthur Morgan");
+        // Get current user's name
+        String userName = getUserName(request);
+        model.addAttribute("userName", userName);
+
+        // Pass token to the view
+        model.addAttribute("token", validToken);
 
         return "admin/completed_services";
     }
@@ -108,5 +114,31 @@ public class CompletedServicesController {
         }
 
         return null;
+    }
+
+    /**
+     * Get the current user's name from session or authentication
+     */
+    private String getUserName(HttpServletRequest request) {
+        // Try to get from session
+        HttpSession session = request.getSession(false);
+        if (session != null) {
+            String firstName = (String) session.getAttribute("firstName");
+            String lastName = (String) session.getAttribute("lastName");
+            
+            if (firstName != null && lastName != null) {
+                return firstName + " " + lastName;
+            }
+        }
+        
+        // Try to get from authentication
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getName() != null) {
+            // If we just have the username/email, return a default display name
+            return "Arthur Morgan"; // This could be improved in a real app
+        }
+        
+        // Default admin name
+        return "Arthur Morgan";
     }
 }
