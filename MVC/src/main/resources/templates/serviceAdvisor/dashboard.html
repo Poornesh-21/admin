@@ -4124,34 +4124,64 @@
 
     // Send bill to admin for processing
 
-    // Mark service as complete
+    // Direct function to mark service as complete
     function markServiceComplete() {
-        // First save any pending changes to service items
-        saveServiceItems().then(() => {
-            // Then update status to completed
-            const statusSelect = document.getElementById('statusSelect');
-            if (statusSelect) {
-                // Find the "Completed" option
-                for (let i = 0; i < statusSelect.options.length; i++) {
-                    if (statusSelect.options[i].value.toLowerCase() === 'completed') {
-                        statusSelect.selectedIndex = i;
-                        break;
-                    }
+        // Get the current request ID
+        const requestId = window.currentRequestId;
+        if (!requestId) {
+            showNotification('No service selected', 'error');
+            return;
+        }
+
+        // Show loading notification
+        showNotification('Marking service as completed...', 'info');
+
+        // Get auth token
+        const token = getAuthToken();
+        const headers = {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+        };
+
+        // Simple request body - just change status to Completed
+        const data = {
+            status: "Completed",
+            notes: "Service completed by " + document.querySelector('.user-info h3').textContent
+        };
+
+        // Make direct API call to update status
+        fetch(`/serviceAdvisor/api/service/${requestId}/status`, {
+            method: 'PUT',
+            headers: headers,
+            body: JSON.stringify(data)
+        })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Failed to update status: ${response.status}`);
                 }
-            }
+                return response.json();
+            })
+            .then(result => {
+                console.log('Service completed successfully:', result);
 
-            // Preview the status update
-            updateStatusPreview('Completed');
+                // Show success notification
+                showNotification('Service marked as completed!', 'success');
 
-            // Update bill preview if needed
-            updateBillPreview();
+                // Update UI to show completed status
+                updateAllStatusBadges("Completed");
 
-            // Call the update function with explicit notifyCustomer: false
-            updateServiceStatus();
+                // Close the modal after a short delay
+                setTimeout(() => {
+                    document.getElementById('vehicleDetailsModal').classList.remove('show');
 
-            // Show success notification
-            showNotification('Service marked as completed!');
-        });
+                    // Refresh the dashboard to update the list
+                    fetchAssignedVehicles();
+                }, 1500);
+            })
+            .catch(error => {
+                console.error('Error completing service:', error);
+                showNotification('Error: ' + error.message, 'error');
+            });
     }
 
     // Filter vehicles by status
