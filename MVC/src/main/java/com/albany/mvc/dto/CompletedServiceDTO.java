@@ -30,16 +30,16 @@ public class CompletedServiceDTO {
     private String category;
     private String vehicleBrand;
     private String vehicleModel;
-    
+
     @JsonFormat(pattern = "yyyy-MM-dd")
     private LocalDate requestDate;
-    
+
     @JsonFormat(pattern = "yyyy-MM-dd")
     private LocalDate completedDate;
-    
+
     private String serviceAdvisorName;
     private Integer serviceAdvisorId;
-    
+
     // Financial details
     private BigDecimal materialsTotal;
     private BigDecimal laborTotal;
@@ -47,21 +47,21 @@ public class CompletedServiceDTO {
     private BigDecimal subtotal;
     private BigDecimal tax;
     private BigDecimal totalCost;
-    
+
     // Materials and labor
     private List<MaterialItemDTO> materials;
     private List<LaborChargeDTO> laborCharges;
-    
-    // Invoice and payment status
+
+    // Invoice and payment status - renamed fields to match Lombok's conventions
     private boolean hasBill;
-    private boolean isPaid;
+    private boolean paid;        // Changed from isPaid
     private boolean hasInvoice;
-    private boolean isDelivered;
-    
+    private boolean delivered;   // Changed from isDelivered
+
     // Invoice details
     private Integer invoiceId;
     private LocalDate invoiceDate;
-    
+
     // Additional info
     private String notes;
 }

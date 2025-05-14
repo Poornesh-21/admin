@@ -30,7 +30,7 @@ public class InvoiceService {
 
     @Value("${api.base-url}")
     private String apiBaseUrl;
-    
+
     /**
      * Get invoice information for a completed service
      */
@@ -52,7 +52,7 @@ public class InvoiceService {
                         response.getBody(),
                         new TypeReference<Map<String, Object>>() {}
                 );
-                
+
                 log.debug("Successfully fetched invoice info for service ID: {}", serviceId);
                 return invoiceInfo;
             } else {
@@ -64,7 +64,7 @@ public class InvoiceService {
             return Collections.emptyMap();
         }
     }
-    
+
     /**
      * Generate an invoice for a completed service
      */
@@ -88,7 +88,7 @@ public class InvoiceService {
                         response.getBody(),
                         new TypeReference<Map<String, Object>>() {}
                 );
-                
+
                 log.debug("Successfully generated invoice for service ID: {}", serviceId);
                 return result;
             } else {
@@ -100,7 +100,7 @@ public class InvoiceService {
             return Collections.singletonMap("error", "Failed to generate invoice: " + e.getMessage());
         }
     }
-    
+
     /**
      * Download invoice PDF
      */
@@ -130,14 +130,14 @@ public class InvoiceService {
             return new byte[0];
         }
     }
-    
+
     /**
      * Process service data to extract invoice and financial information
      */
     public CompletedServiceDTO processServiceForInvoice(Map<String, Object> serviceData) {
         try {
             CompletedServiceDTO completedService = new CompletedServiceDTO();
-            
+
             // Basic service info
             completedService.setServiceId(getIntegerValue(serviceData, "serviceId"));
             completedService.setVehicleName(getStringValue(serviceData, "vehicleName"));
@@ -151,15 +151,15 @@ public class InvoiceService {
             completedService.setCategory(getStringValue(serviceData, "category"));
             completedService.setVehicleBrand(getStringValue(serviceData, "vehicleBrand"));
             completedService.setVehicleModel(getStringValue(serviceData, "vehicleModel"));
-            
+
             // Dates
             completedService.setRequestDate(getLocalDateValue(serviceData, "requestDate"));
             completedService.setCompletedDate(getLocalDateValue(serviceData, "completedDate"));
-            
+
             // Service advisor
             completedService.setServiceAdvisorName(getStringValue(serviceData, "serviceAdvisorName"));
             completedService.setServiceAdvisorId(getIntegerValue(serviceData, "serviceAdvisorId"));
-            
+
             // Financial details
             completedService.setMaterialsTotal(getBigDecimalValue(serviceData, "materialsTotal"));
             completedService.setLaborTotal(getBigDecimalValue(serviceData, "laborTotal"));
@@ -167,31 +167,31 @@ public class InvoiceService {
             completedService.setSubtotal(getBigDecimalValue(serviceData, "subtotal"));
             completedService.setTax(getBigDecimalValue(serviceData, "tax"));
             completedService.setTotalCost(getBigDecimalValue(serviceData, "totalCost"));
-            
+
             // Materials and labor
             completedService.setMaterials(getMaterialsList(serviceData));
             completedService.setLaborCharges(getLaborChargesList(serviceData));
-            
-            // Invoice and payment status
+
+            // Invoice and payment status - updated method names to match renamed fields
             completedService.setHasBill(getBooleanValue(serviceData, "hasBill"));
-            completedService.setIsPaid(getBooleanValue(serviceData, "isPaid"));
+            completedService.setPaid(getBooleanValue(serviceData, "isPaid"));         // Changed from setIsPaid
             completedService.setHasInvoice(getBooleanValue(serviceData, "hasInvoice"));
-            completedService.setIsDelivered(getBooleanValue(serviceData, "isDelivered"));
-            
+            completedService.setDelivered(getBooleanValue(serviceData, "isDelivered")); // Changed from setIsDelivered
+
             // Invoice details
             completedService.setInvoiceId(getIntegerValue(serviceData, "invoiceId"));
             completedService.setInvoiceDate(getLocalDateValue(serviceData, "invoiceDate"));
-            
+
             // Notes
             completedService.setNotes(getStringValue(serviceData, "notes"));
-            
+
             return completedService;
         } catch (Exception e) {
             log.error("Error processing service data for invoice: {}", e.getMessage(), e);
             return new CompletedServiceDTO();
         }
     }
-    
+
     /**
      * Extract materials list from service data
      */
@@ -200,7 +200,7 @@ public class InvoiceService {
         try {
             if (serviceData.containsKey("materials") && serviceData.get("materials") instanceof List) {
                 List<Map<String, Object>> materialsList = (List<Map<String, Object>>) serviceData.get("materials");
-                
+
                 return materialsList.stream()
                         .map(materialData -> {
                             MaterialItemDTO material = new MaterialItemDTO();
@@ -218,10 +218,10 @@ public class InvoiceService {
         } catch (Exception e) {
             log.error("Error extracting materials list: {}", e.getMessage(), e);
         }
-        
+
         return new ArrayList<>();
     }
-    
+
     /**
      * Extract labor charges list from service data
      */
@@ -230,7 +230,7 @@ public class InvoiceService {
         try {
             if (serviceData.containsKey("laborCharges") && serviceData.get("laborCharges") instanceof List) {
                 List<Map<String, Object>> laborList = (List<Map<String, Object>>) serviceData.get("laborCharges");
-                
+
                 return laborList.stream()
                         .map(laborData -> {
                             LaborChargeDTO labor = new LaborChargeDTO();
@@ -246,10 +246,10 @@ public class InvoiceService {
         } catch (Exception e) {
             log.error("Error extracting labor charges list: {}", e.getMessage(), e);
         }
-        
+
         return new ArrayList<>();
     }
-    
+
     /**
      * Safe extraction of String value from a map
      */
@@ -259,7 +259,7 @@ public class InvoiceService {
         }
         return null;
     }
-    
+
     /**
      * Safe extraction of Integer value from a map
      */
@@ -279,7 +279,7 @@ public class InvoiceService {
         }
         return null;
     }
-    
+
     /**
      * Safe extraction of BigDecimal value from a map
      */
@@ -299,7 +299,7 @@ public class InvoiceService {
         }
         return null;
     }
-    
+
     /**
      * Safe extraction of LocalDate value from a map
      */
@@ -317,7 +317,7 @@ public class InvoiceService {
         }
         return null;
     }
-    
+
     /**
      * Safe extraction of Boolean value from a map
      */
@@ -331,7 +331,7 @@ public class InvoiceService {
         }
         return false;
     }
-    
+
     /**
      * Helper method to create authentication headers
      */

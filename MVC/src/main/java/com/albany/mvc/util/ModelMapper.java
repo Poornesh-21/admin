@@ -25,7 +25,7 @@ import java.util.stream.Collectors;
 public class ModelMapper {
 
     private final ObjectMapper objectMapper;
-    
+
     /**
      * Convert a map to a CompletedServiceDTO
      */
@@ -34,23 +34,23 @@ public class ModelMapper {
             if (data == null) {
                 return null;
             }
-            
+
             // Use Jackson to convert the map to the DTO
             return objectMapper.convertValue(data, CompletedServiceDTO.class);
         } catch (Exception e) {
             log.error("Error mapping to CompletedServiceDTO: {}", e.getMessage(), e);
-            
+
             // If Jackson conversion fails, try manual mapping
             return mapToCompletedServiceDTOManually(data);
         }
     }
-    
+
     /**
      * Manually map a map to a CompletedServiceDTO
      */
     private CompletedServiceDTO mapToCompletedServiceDTOManually(Map<String, Object> data) {
         CompletedServiceDTO dto = new CompletedServiceDTO();
-        
+
         try {
             // Basic info
             dto.setServiceId(getIntegerValue(data, "serviceId"));
@@ -65,15 +65,15 @@ public class ModelMapper {
             dto.setCategory(getStringValue(data, "category"));
             dto.setVehicleBrand(getStringValue(data, "vehicleBrand"));
             dto.setVehicleModel(getStringValue(data, "vehicleModel"));
-            
+
             // Dates
             dto.setRequestDate(getLocalDateValue(data, "requestDate"));
             dto.setCompletedDate(getLocalDateValue(data, "completedDate"));
-            
+
             // Service advisor
             dto.setServiceAdvisorName(getStringValue(data, "serviceAdvisorName"));
             dto.setServiceAdvisorId(getIntegerValue(data, "serviceAdvisorId"));
-            
+
             // Financial details
             dto.setMaterialsTotal(getBigDecimalValue(data, "materialsTotal"));
             dto.setLaborTotal(getBigDecimalValue(data, "laborTotal"));
@@ -81,30 +81,30 @@ public class ModelMapper {
             dto.setSubtotal(getBigDecimalValue(data, "subtotal"));
             dto.setTax(getBigDecimalValue(data, "tax"));
             dto.setTotalCost(getBigDecimalValue(data, "totalCost"));
-            
+
             // Materials and labor
             dto.setMaterials(getMaterialsList(data));
             dto.setLaborCharges(getLaborChargesList(data));
-            
-            // Invoice and payment status
+
+            // Invoice and payment status - updated method names to match renamed fields
             dto.setHasBill(getBooleanValue(data, "hasBill"));
-            dto.setIsPaid(getBooleanValue(data, "isPaid"));
+            dto.setPaid(getBooleanValue(data, "isPaid"));        // Changed from setIsPaid
             dto.setHasInvoice(getBooleanValue(data, "hasInvoice"));
-            dto.setIsDelivered(getBooleanValue(data, "isDelivered"));
-            
+            dto.setDelivered(getBooleanValue(data, "isDelivered")); // Changed from setIsDelivered
+
             // Invoice details
             dto.setInvoiceId(getIntegerValue(data, "invoiceId"));
             dto.setInvoiceDate(getLocalDateValue(data, "invoiceDate"));
-            
+
             // Notes
             dto.setNotes(getStringValue(data, "notes"));
         } catch (Exception e) {
             log.error("Error during manual mapping to CompletedServiceDTO: {}", e.getMessage(), e);
         }
-        
+
         return dto;
     }
-    
+
     /**
      * Convert a CompletedServiceDTO to a map
      */
@@ -113,23 +113,23 @@ public class ModelMapper {
             if (dto == null) {
                 return Collections.emptyMap();
             }
-            
+
             // Use Jackson to convert the DTO to a map
             return objectMapper.convertValue(dto, new TypeReference<Map<String, Object>>() {});
         } catch (Exception e) {
             log.error("Error mapping CompletedServiceDTO to map: {}", e.getMessage(), e);
-            
+
             // If Jackson conversion fails, try manual mapping
             return mapToMapManually(dto);
         }
     }
-    
+
     /**
      * Manually map a CompletedServiceDTO to a map
      */
     private Map<String, Object> mapToMapManually(CompletedServiceDTO dto) {
         Map<String, Object> map = new HashMap<>();
-        
+
         try {
             // Basic info
             if (dto.getServiceId() != null) map.put("serviceId", dto.getServiceId());
@@ -144,15 +144,15 @@ public class ModelMapper {
             if (dto.getCategory() != null) map.put("category", dto.getCategory());
             if (dto.getVehicleBrand() != null) map.put("vehicleBrand", dto.getVehicleBrand());
             if (dto.getVehicleModel() != null) map.put("vehicleModel", dto.getVehicleModel());
-            
+
             // Dates
             if (dto.getRequestDate() != null) map.put("requestDate", dto.getRequestDate().toString());
             if (dto.getCompletedDate() != null) map.put("completedDate", dto.getCompletedDate().toString());
-            
+
             // Service advisor
             if (dto.getServiceAdvisorName() != null) map.put("serviceAdvisorName", dto.getServiceAdvisorName());
             if (dto.getServiceAdvisorId() != null) map.put("serviceAdvisorId", dto.getServiceAdvisorId());
-            
+
             // Financial details
             if (dto.getMaterialsTotal() != null) map.put("materialsTotal", dto.getMaterialsTotal());
             if (dto.getLaborTotal() != null) map.put("laborTotal", dto.getLaborTotal());
@@ -160,45 +160,47 @@ public class ModelMapper {
             if (dto.getSubtotal() != null) map.put("subtotal", dto.getSubtotal());
             if (dto.getTax() != null) map.put("tax", dto.getTax());
             if (dto.getTotalCost() != null) map.put("totalCost", dto.getTotalCost());
-            
+
             // Materials and labor
             if (dto.getMaterials() != null && !dto.getMaterials().isEmpty()) {
                 map.put("materials", dto.getMaterials().stream()
                         .map(this::mapMaterialItemToMap)
                         .collect(Collectors.toList()));
             }
-            
+
             if (dto.getLaborCharges() != null && !dto.getLaborCharges().isEmpty()) {
                 map.put("laborCharges", dto.getLaborCharges().stream()
                         .map(this::mapLaborChargeToMap)
                         .collect(Collectors.toList()));
             }
-            
-            // Invoice and payment status
+
+            // Invoice and payment status - use the same keys for backward compatibility
             map.put("hasBill", dto.isHasBill());
-            map.put("isPaid", dto.isPaid());
+            map.put("isPaid", dto.isPaid());          // Still use isPaid as the key
             map.put("hasInvoice", dto.isHasInvoice());
-            map.put("isDelivered", dto.isDelivered());
-            
+            map.put("isDelivered", dto.isDelivered()); // Still use isDelivered as the key
+
             // Invoice details
             if (dto.getInvoiceId() != null) map.put("invoiceId", dto.getInvoiceId());
             if (dto.getInvoiceDate() != null) map.put("invoiceDate", dto.getInvoiceDate().toString());
-            
+
             // Notes
             if (dto.getNotes() != null) map.put("notes", dto.getNotes());
         } catch (Exception e) {
             log.error("Error during manual mapping of CompletedServiceDTO to map: {}", e.getMessage(), e);
         }
-        
+
         return map;
     }
-    
+
+    // Rest of the class methods remain unchanged
+
     /**
      * Map a MaterialItemDTO to a map
      */
     private Map<String, Object> mapMaterialItemToMap(MaterialItemDTO dto) {
         Map<String, Object> map = new HashMap<>();
-        
+
         if (dto.getItemId() != null) map.put("itemId", dto.getItemId());
         if (dto.getName() != null) map.put("name", dto.getName());
         if (dto.getCategory() != null) map.put("category", dto.getCategory());
@@ -206,25 +208,25 @@ public class ModelMapper {
         if (dto.getUnitPrice() != null) map.put("unitPrice", dto.getUnitPrice());
         if (dto.getTotal() != null) map.put("total", dto.getTotal());
         if (dto.getDescription() != null) map.put("description", dto.getDescription());
-        
+
         return map;
     }
-    
+
     /**
      * Map a LaborChargeDTO to a map
      */
     private Map<String, Object> mapLaborChargeToMap(LaborChargeDTO dto) {
         Map<String, Object> map = new HashMap<>();
-        
+
         if (dto.getChargeId() != null) map.put("chargeId", dto.getChargeId());
         if (dto.getDescription() != null) map.put("description", dto.getDescription());
         if (dto.getHours() != null) map.put("hours", dto.getHours());
         if (dto.getRatePerHour() != null) map.put("ratePerHour", dto.getRatePerHour());
         if (dto.getTotal() != null) map.put("total", dto.getTotal());
-        
+
         return map;
     }
-    
+
     /**
      * Extract materials list from data map
      */
@@ -233,7 +235,7 @@ public class ModelMapper {
         try {
             if (data.containsKey("materials") && data.get("materials") instanceof List) {
                 List<Object> materialsList = (List<Object>) data.get("materials");
-                
+
                 return materialsList.stream()
                         .map(item -> {
                             if (item instanceof Map) {
@@ -258,10 +260,10 @@ public class ModelMapper {
         } catch (Exception e) {
             log.error("Error extracting materials list: {}", e.getMessage(), e);
         }
-        
+
         return new ArrayList<>();
     }
-    
+
     /**
      * Extract labor charges list from data map
      */
@@ -270,7 +272,7 @@ public class ModelMapper {
         try {
             if (data.containsKey("laborCharges") && data.get("laborCharges") instanceof List) {
                 List<Object> laborList = (List<Object>) data.get("laborCharges");
-                
+
                 return laborList.stream()
                         .map(item -> {
                             if (item instanceof Map) {
@@ -293,10 +295,10 @@ public class ModelMapper {
         } catch (Exception e) {
             log.error("Error extracting labor charges list: {}", e.getMessage(), e);
         }
-        
+
         return new ArrayList<>();
     }
-    
+
     /**
      * Helper method to get string value from a map
      */
@@ -306,7 +308,7 @@ public class ModelMapper {
         }
         return null;
     }
-    
+
     /**
      * Helper method to get integer value from a map
      */
@@ -326,7 +328,7 @@ public class ModelMapper {
         }
         return null;
     }
-    
+
     /**
      * Helper method to get BigDecimal value from a map
      */
@@ -346,7 +348,7 @@ public class ModelMapper {
         }
         return null;
     }
-    
+
     /**
      * Helper method to get LocalDate value from a map
      */
@@ -356,7 +358,7 @@ public class ModelMapper {
                 return (LocalDate) map.get(key);
             } else {
                 String dateStr = map.get(key).toString();
-                
+
                 // Try different date formats
                 try {
                     return LocalDate.parse(dateStr);
@@ -383,7 +385,7 @@ public class ModelMapper {
         }
         return null;
     }
-    
+
     /**
      * Helper method to get boolean value from a map
      */
