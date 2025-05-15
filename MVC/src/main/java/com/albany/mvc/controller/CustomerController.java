@@ -12,13 +12,13 @@ import org.springframework.web.client.RestTemplate;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
 /**
  * REST API controller for customer operations
  */
+
 @RestController
 @RequestMapping("/admin/api")
 @RequiredArgsConstructor

@@ -2041,10 +2041,7 @@
                             <span>Subtotal:</span>
                             <span id="invoiceSubtotal">₹0.00</span>
                         </div>
-                        <div class="invoice-tax">
-                            <span>Tax (7%):</span>
-                            <span id="invoiceTax">₹0.00</span>
-                        </div>
+
                         <div class="invoice-grand-total">
                             <span>Total:</span>
                             <span id="invoiceTotal">₹0.00</span>
@@ -2072,7 +2069,10 @@
 </div>
 
 <script>
-    // Complete JavaScript code for Service Advisor Dashboard with improved invoice generation
+    /**
+     * Service Advisor Dashboard JavaScript
+     * Complete implementation with enhanced inventory management
+     */
 
     document.addEventListener('DOMContentLoaded', function() {
         // Initialize data structures
@@ -2082,6 +2082,7 @@
         window.laborCharges = [];
         window.currentRequestId = null;
         window.currentInvoiceNumber = null;
+        window.hasUnsavedChanges = false; // Track if there are unsaved changes
 
         // Set up token persistence
         const urlParams = new URLSearchParams(window.location.search);
@@ -2245,13 +2246,29 @@
 
         if (closeVehicleDetailsModal && vehicleDetailsModal) {
             closeVehicleDetailsModal.addEventListener('click', function() {
-                vehicleDetailsModal.classList.remove('show');
+                // Check for unsaved changes before closing
+                if (window.hasUnsavedChanges) {
+                    if (confirm('You have unsaved changes. Are you sure you want to close?')) {
+                        vehicleDetailsModal.classList.remove('show');
+                        window.hasUnsavedChanges = false;
+                    }
+                } else {
+                    vehicleDetailsModal.classList.remove('show');
+                }
             });
         }
 
         if (closeDetailsBtn && vehicleDetailsModal) {
             closeDetailsBtn.addEventListener('click', function() {
-                vehicleDetailsModal.classList.remove('show');
+                // Check for unsaved changes before closing
+                if (window.hasUnsavedChanges) {
+                    if (confirm('You have unsaved changes. Are you sure you want to close?')) {
+                        vehicleDetailsModal.classList.remove('show');
+                        window.hasUnsavedChanges = false;
+                    }
+                } else {
+                    vehicleDetailsModal.classList.remove('show');
+                }
             });
         }
 
@@ -2259,8 +2276,16 @@
         const tabs = document.querySelectorAll('.tab');
         tabs.forEach(tab => {
             tab.addEventListener('click', function() {
-                // Use the handleTabClick function for consistent behavior
-                handleTabClick(this);
+                // Check for unsaved changes when switching away from service items tab
+                const activeTab = document.querySelector('.tab.active');
+                if (activeTab && activeTab.getAttribute('data-tab') === 'service-items' &&
+                    this.getAttribute('data-tab') !== 'service-items' && window.hasUnsavedChanges) {
+                    if (confirm('You have unsaved changes on this tab. Continue without saving?')) {
+                        handleTabClick(this);
+                    }
+                } else {
+                    handleTabClick(this);
+                }
             });
         });
 
@@ -2273,6 +2298,15 @@
 
                 if (inventoryItemSelect.value) {
                     addInventoryItem(inventoryItemSelect.value, parseInt(itemQuantity.value) || 1);
+
+                    // Set unsaved changes flag
+                    window.hasUnsavedChanges = true;
+
+                    // Highlight save button to draw attention
+                    const saveButton = document.getElementById('saveInvoiceBtn');
+                    if (saveButton) {
+                        saveButton.classList.add('btn-save-highlight');
+                    }
                 } else {
                     showNotification('Please select an inventory item', 'error');
                 }
@@ -2290,6 +2324,9 @@
                     // Using a default description since we removed the description field
                     addLaborCharge("Labor Charge", hours, rate);
 
+                    // Set unsaved changes flag
+                    window.hasUnsavedChanges = true;
+
                     // Reset form
                     document.getElementById('laborHours').value = '1';
                     document.getElementById('laborRate').value = '65';
@@ -2299,12 +2336,17 @@
             });
         }
 
-
         // Save invoice button
         const saveInvoiceBtn = document.getElementById('saveInvoiceBtn');
         if (saveInvoiceBtn) {
             saveInvoiceBtn.addEventListener('click', function() {
                 saveServiceItems();
+
+                // Remove highlight after clicking save
+                this.classList.remove('btn-save-highlight');
+
+                // Reset unsaved changes flag
+                window.hasUnsavedChanges = false;
             });
         }
 
@@ -2315,18 +2357,37 @@
                 // Switch to the generate-invoice tab
                 const generateInvoiceTab = document.querySelector('.tab[data-tab="generate-invoice"]');
                 if (generateInvoiceTab) {
-                    handleTabClick(generateInvoiceTab);
+                    if (window.hasUnsavedChanges) {
+                        if (confirm('You have unsaved changes. Save before previewing?')) {
+                            saveServiceItems().then(() => {
+                                handleTabClick(generateInvoiceTab);
+                            });
+                        } else {
+                            handleTabClick(generateInvoiceTab);
+                        }
+                    } else {
+                        handleTabClick(generateInvoiceTab);
+                    }
                 }
             });
         }
-
-
 
         // Mark as complete button
         const markCompleteBtn = document.getElementById('markCompleteBtn');
         if (markCompleteBtn) {
             markCompleteBtn.addEventListener('click', function() {
-                markServiceComplete();
+                // Check if there are unsaved changes
+                if (window.hasUnsavedChanges) {
+                    if (confirm('You have unsaved changes. Save before marking as complete?')) {
+                        saveServiceItems().then(() => {
+                            markServiceComplete();
+                        });
+                    } else {
+                        markServiceComplete();
+                    }
+                } else {
+                    markServiceComplete();
+                }
             });
         }
 
@@ -2335,7 +2396,15 @@
         modalBackdrops.forEach(backdrop => {
             backdrop.addEventListener('click', function(event) {
                 if (event.target === this) {
-                    this.classList.remove('show');
+                    // Check for unsaved changes before closing
+                    if (window.hasUnsavedChanges) {
+                        if (confirm('You have unsaved changes. Are you sure you want to close?')) {
+                            this.classList.remove('show');
+                            window.hasUnsavedChanges = false;
+                        }
+                    } else {
+                        this.classList.remove('show');
+                    }
                 }
             });
         });
@@ -2351,9 +2420,28 @@
         // Add ESC key event to close modals
         document.addEventListener('keydown', function(event) {
             if (event.key === 'Escape') {
-                modalBackdrops.forEach(backdrop => {
-                    backdrop.classList.remove('show');
-                });
+                // Check for unsaved changes before closing
+                if (window.hasUnsavedChanges) {
+                    if (confirm('You have unsaved changes. Are you sure you want to close?')) {
+                        modalBackdrops.forEach(backdrop => {
+                            backdrop.classList.remove('show');
+                        });
+                        window.hasUnsavedChanges = false;
+                    }
+                } else {
+                    modalBackdrops.forEach(backdrop => {
+                        backdrop.classList.remove('show');
+                    });
+                }
+            }
+        });
+
+        // Add beforeunload event to warn about unsaved changes
+        window.addEventListener('beforeunload', function(e) {
+            if (window.hasUnsavedChanges) {
+                const message = 'You have unsaved changes. Are you sure you want to leave?';
+                e.returnValue = message;
+                return message;
             }
         });
     }
@@ -2645,6 +2733,9 @@
         console.log('Opening details for service request ID:', requestId);
         window.currentRequestId = requestId;
 
+        // Reset unsaved changes flag
+        window.hasUnsavedChanges = false;
+
         // Show loading indicator in the modal
         const vehicleDetailsModal = document.getElementById('vehicleDetailsModal');
         vehicleDetailsModal.classList.add('show');
@@ -2709,6 +2800,18 @@
 
                 // Load and populate inventory items dropdown
                 fetchInventoryItems();
+
+                // Hide unsaved changes warning
+                const warningElement = document.getElementById('unsavedChangesWarning');
+                if (warningElement) {
+                    warningElement.style.display = 'none';
+                }
+
+                // Remove save button highlight
+                const saveButton = document.getElementById('saveInvoiceBtn');
+                if (saveButton) {
+                    saveButton.classList.remove('btn-save-highlight');
+                }
             })
             .catch(error => {
                 console.error('Error fetching vehicle details:', error);
@@ -3219,7 +3322,7 @@
         console.log('Inventory data:', window.inventoryData);
     }
 
-    // Add inventory item with stock validation
+    // Add inventory item with stock validation - This version only adds to client-side array, not directly to DB
     function addInventoryItem(itemId, quantity = 1) {
         // Check if item ID exists
         if (!itemId) {
@@ -3283,8 +3386,18 @@
         if (inventorySelect) inventorySelect.selectedIndex = 0;
         if (quantityInput) quantityInput.value = 1;
 
+        // Update UI only - no database changes yet
         renderInventoryItems();
         updateBillSummary();
+
+        // Show a reminder that items aren't saved yet
+        document.getElementById('unsavedChangesWarning').style.display = 'block';
+
+        // Highlight save button
+        const saveButton = document.getElementById('saveInvoiceBtn');
+        if (saveButton) {
+            saveButton.classList.add('btn-save-highlight');
+        }
     }
 
     // Render inventory items with improved formatting
@@ -3394,6 +3507,16 @@
         window.inventoryItems[index].quantity++;
         renderInventoryItems();
         updateBillSummary();
+
+        // Show unsaved changes warning
+        document.getElementById('unsavedChangesWarning').style.display = 'block';
+        window.hasUnsavedChanges = true;
+
+        // Highlight save button
+        const saveButton = document.getElementById('saveInvoiceBtn');
+        if (saveButton) {
+            saveButton.classList.add('btn-save-highlight');
+        }
     }
 
     // Decrement inventory quantity
@@ -3402,6 +3525,16 @@
             window.inventoryItems[index].quantity--;
             renderInventoryItems();
             updateBillSummary();
+
+            // Show unsaved changes warning
+            document.getElementById('unsavedChangesWarning').style.display = 'block';
+            window.hasUnsavedChanges = true;
+
+            // Highlight save button
+            const saveButton = document.getElementById('saveInvoiceBtn');
+            if (saveButton) {
+                saveButton.classList.add('btn-save-highlight');
+            }
         }
     }
 
@@ -3430,6 +3563,16 @@
             window.inventoryItems[index].quantity = quantity;
             renderInventoryItems();
             updateBillSummary();
+
+            // Show unsaved changes warning
+            document.getElementById('unsavedChangesWarning').style.display = 'block';
+            window.hasUnsavedChanges = true;
+
+            // Highlight save button
+            const saveButton = document.getElementById('saveInvoiceBtn');
+            if (saveButton) {
+                saveButton.classList.add('btn-save-highlight');
+            }
         }
     }
 
@@ -3438,18 +3581,44 @@
         window.inventoryItems.splice(index, 1);
         renderInventoryItems();
         updateBillSummary();
+
+        // Update unsaved changes warning
+        if (window.inventoryItems.length === 0 && window.laborCharges.length === 0) {
+            document.getElementById('unsavedChangesWarning').style.display = 'none';
+
+            // Remove save button highlight
+            const saveButton = document.getElementById('saveInvoiceBtn');
+            if (saveButton) {
+                saveButton.classList.remove('btn-save-highlight');
+            }
+
+            window.hasUnsavedChanges = false;
+        } else {
+            document.getElementById('unsavedChangesWarning').style.display = 'block';
+            window.hasUnsavedChanges = true;
+        }
     }
 
     // Add labor charge
     function addLaborCharge(description, hours, rate) {
         window.laborCharges.push({
-            description: "Labor Charge",
+            description: description || "Labor Charge",
             hours: hours,
             rate: rate
         });
 
         renderLaborCharges();
         updateBillSummary();
+
+        // Show unsaved changes warning
+        document.getElementById('unsavedChangesWarning').style.display = 'block';
+        window.hasUnsavedChanges = true;
+
+        // Highlight save button
+        const saveButton = document.getElementById('saveInvoiceBtn');
+        if (saveButton) {
+            saveButton.classList.add('btn-save-highlight');
+        }
     }
 
     // Render labor charges
@@ -3499,6 +3668,22 @@
         window.laborCharges.splice(index, 1);
         renderLaborCharges();
         updateBillSummary();
+
+        // Update unsaved changes warning
+        if (window.inventoryItems.length === 0 && window.laborCharges.length === 0) {
+            document.getElementById('unsavedChangesWarning').style.display = 'none';
+
+            // Remove save button highlight
+            const saveButton = document.getElementById('saveInvoiceBtn');
+            if (saveButton) {
+                saveButton.classList.remove('btn-save-highlight');
+            }
+
+            window.hasUnsavedChanges = false;
+        } else {
+            document.getElementById('unsavedChangesWarning').style.display = 'block';
+            window.hasUnsavedChanges = true;
+        }
     }
 
     // Update bill summary
@@ -3559,11 +3744,11 @@
             const total = item.price * item.quantity;
 
             row.innerHTML = `
-        <td>${item.name} (Parts)</td>
-        <td>${item.quantity}</td>
-        <td>${formatter.format(item.price)}</td>
-        <td>${formatter.format(total)}</td>
-    `;
+            <td>${item.name} (Parts)</td>
+            <td>${item.quantity}</td>
+            <td>${formatter.format(item.price)}</td>
+            <td>${formatter.format(total)}</td>
+        `;
 
             invoiceItemsList.appendChild(row);
         });
@@ -3574,11 +3759,11 @@
             const total = charge.hours * charge.rate;
 
             row.innerHTML = `
-        <td>Labor Charge</td>
-        <td>${charge.hours} hrs</td>
-        <td>${formatter.format(charge.rate)}/hr</td>
-        <td>${formatter.format(total)}</td>
-    `;
+            <td>Labor Charge</td>
+            <td>${charge.hours} hrs</td>
+            <td>${formatter.format(charge.rate)}/hr</td>
+            <td>${formatter.format(total)}</td>
+        `;
 
             invoiceItemsList.appendChild(row);
         });
@@ -3587,10 +3772,10 @@
         if (window.inventoryItems.length === 0 && window.laborCharges.length === 0) {
             const row = document.createElement('tr');
             row.innerHTML = `
-        <td colspan="4" style="text-align: center; padding: 20px;">
-            No service items added yet.
-        </td>
-    `;
+            <td colspan="4" style="text-align: center; padding: 20px;">
+                No service items added yet.
+            </td>
+        `;
             invoiceItemsList.appendChild(row);
         }
 
@@ -3620,7 +3805,6 @@
         updateInvoiceInfoFields();
     }
 
-    // Update invoice information fields
     // Update invoice information fields
     function updateInvoiceInfoFields() {
         // Get customer name from the vehicle summary
@@ -3869,145 +4053,155 @@
         }
     }
 
-    // Save service items with improved error handling and feedback
+    // Save service items - This function sends all data to the server at once
     function saveServiceItems() {
-        // Only proceed if we have items to save
-        if (window.inventoryItems.length === 0 && window.laborCharges.length === 0) {
-            showNotification('No service items to save', 'info');
-            return;
-        }
+        return new Promise((resolve, reject) => {
+            // Only proceed if we have items to save
+            if (window.inventoryItems.length === 0 && window.laborCharges.length === 0) {
+                showNotification('No service items to save', 'info');
+                resolve({});
+                return;
+            }
 
-        // Validate inventory quantities against available stock
-        const validation = validateInventoryQuantities();
-        if (!validation.isValid) {
-            showNotification(validation.message, 'error');
-            return;
-        }
+            // Validate inventory quantities against available stock
+            const validation = validateInventoryQuantities();
+            if (!validation.isValid) {
+                showNotification(validation.message, 'error');
+                reject(new Error(validation.message));
+                return;
+            }
 
-        // Show a saving indicator
-        showNotification('Saving service items...', 'info');
+            // Show a saving indicator
+            showNotification('Saving service items...', 'info');
 
-        // Disable save button to prevent double submission
-        const saveButton = document.getElementById('saveServiceItemsBtn');
-        const saveBillBtn = document.getElementById('saveBillBtn');
-        if (saveButton) saveButton.disabled = true;
-        if (saveBillBtn) saveBillBtn.disabled = true;
+            // Disable save button to prevent double submission
+            const saveButton = document.getElementById('saveInvoiceBtn');
+            if (saveButton) saveButton.disabled = true;
 
-        // Get token and headers
-        const token = getAuthToken();
-        const headers = createAuthHeaders();
+            // Get token and headers
+            const token = getAuthToken();
+            const headers = createAuthHeaders();
 
-        // Track promises for inventory items and labor charges
-        const promises = [];
+            // Track promises for inventory items and labor charges
+            const promises = [];
 
-        // Save inventory items if there are any
-        if (window.inventoryItems.length > 0) {
-            console.log('Preparing to save inventory items:', window.inventoryItems);
+            // Save inventory items if there are any
+            if (window.inventoryItems.length > 0) {
+                console.log('Preparing to save inventory items:', window.inventoryItems);
 
-            // Format inventory items for API
-            const items = window.inventoryItems.map(item => {
-                return {
-                    itemId: Number(item.key),
-                    name: item.name,
-                    quantity: Number(item.quantity),
-                    unitPrice: Number(item.price)
-                };
-            });
-
-            // Create service materials request
-            const materialsRequest = {
-                items: items,
-                replaceExisting: true
-            };
-
-            console.log('Sending materials request:', JSON.stringify(materialsRequest));
-
-            // Add inventory items promise
-            const inventoryPromise = fetch(`/serviceAdvisor/api/service/${window.currentRequestId}/inventory-items`, {
-                method: 'POST',
-                headers: headers,
-                body: JSON.stringify(materialsRequest)
-            })
-                .then(response => {
-                    if (!response.ok) {
-                        return response.text().then(text => {
-                            throw new Error(`Failed to save inventory items: ${response.status} - ${text}`);
-                        });
-                    }
-                    return response.json();
+                // Format inventory items for API
+                const items = window.inventoryItems.map(item => {
+                    return {
+                        itemId: Number(item.key),
+                        name: item.name,
+                        quantity: Number(item.quantity),
+                        unitPrice: Number(item.price)
+                    };
                 });
 
-            promises.push(inventoryPromise);
-        }
-
-        // Save labor charges if there are any
-        if (window.laborCharges.length > 0) {
-            console.log('Preparing to save labor charges:', window.laborCharges);
-
-            // Format labor charges for API
-            const charges = window.laborCharges.map(charge => {
-                return {
-                    description: charge.description || 'Labor Charge',
-                    hours: Number(charge.hours),
-                    ratePerHour: Number(charge.rate),
-                    total: Number(charge.hours * charge.rate)
+                // Create service materials request
+                const materialsRequest = {
+                    items: items,
+                    replaceExisting: true
                 };
-            });
 
-            console.log('Sending labor charges:', JSON.stringify(charges));
+                console.log('Sending materials request:', JSON.stringify(materialsRequest));
 
-            // Add labor charges promise
-            const laborPromise = fetch(`/serviceAdvisor/api/service/${window.currentRequestId}/labor-charges`, {
-                method: 'POST',
-                headers: headers,
-                body: JSON.stringify(charges)
-            })
-                .then(response => {
-                    if (!response.ok) {
-                        return response.text().then(text => {
-                            throw new Error(`Failed to save labor charges: ${response.status} - ${text}`);
-                        });
-                    }
-                    return response.json();
+                // Add inventory items promise
+                const inventoryPromise = fetch(`/serviceAdvisor/api/service/${window.currentRequestId}/inventory-items`, {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify(materialsRequest)
+                })
+                    .then(response => {
+                        if (!response.ok) {
+                            return response.text().then(text => {
+                                throw new Error(`Failed to save inventory items: ${response.status} - ${text}`);
+                            });
+                        }
+                        return response.json();
+                    });
+
+                promises.push(inventoryPromise);
+            }
+
+            // Save labor charges if there are any
+            if (window.laborCharges.length > 0) {
+                console.log('Preparing to save labor charges:', window.laborCharges);
+
+                // Format labor charges for API
+                const charges = window.laborCharges.map(charge => {
+                    return {
+                        description: charge.description || 'Labor Charge',
+                        hours: Number(charge.hours),
+                        ratePerHour: Number(charge.rate),
+                        total: Number(charge.hours * charge.rate)
+                    };
                 });
 
-            promises.push(laborPromise);
-        }
+                console.log('Sending labor charges:', JSON.stringify(charges));
 
-        // Wait for all promises to resolve
-        Promise.all(promises)
-            .then(results => {
-                console.log('Save service items results:', results);
+                // Add labor charges promise
+                const laborPromise = fetch(`/serviceAdvisor/api/service/${window.currentRequestId}/labor-charges`, {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify(charges)
+                })
+                    .then(response => {
+                        if (!response.ok) {
+                            return response.text().then(text => {
+                                throw new Error(`Failed to save labor charges: ${response.status} - ${text}`);
+                            });
+                        }
+                        return response.json();
+                    });
 
-                // Use the latest bill data (from the last result)
-                const latestData = results[results.length - 1];
-                if (latestData && latestData.currentBill) {
-                    loadCurrentBill(latestData.currentBill);
-                }
+                promises.push(laborPromise);
+            }
 
-                // Show success notification
-                showNotification('Service items saved successfully!');
+            // Wait for all promises to resolve
+            Promise.all(promises)
+                .then(results => {
+                    console.log('Save service items results:', results);
 
-                // Refresh inventory after successful save to update stock levels
-                fetchInventoryItems();
+                    // Use the latest bill data (from the last result)
+                    const latestData = results[results.length - 1];
+                    if (latestData && latestData.currentBill) {
+                        loadCurrentBill(latestData.currentBill);
+                    }
 
-                // Re-enable save button
-                if (saveButton) saveButton.disabled = false;
-                if (saveBillBtn) saveBillBtn.disabled = false;
+                    // Show success notification
+                    showNotification('Service items saved successfully!');
 
-                // Refresh service details to ensure everything is in sync
-                setTimeout(() => {
-                    openVehicleDetails(window.currentRequestId);
-                }, 1000);
-            })
-            .catch(error => {
-                console.error('Error saving service items:', error);
-                showNotification('Error: ' + error.message, 'error');
+                    // Hide unsaved changes warning
+                    document.getElementById('unsavedChangesWarning').style.display = 'none';
 
-                // Re-enable save button
-                if (saveButton) saveButton.disabled = false;
-                if (saveBillBtn) saveBillBtn.disabled = false;
-            });
+                    // Reset unsaved changes flag
+                    window.hasUnsavedChanges = false;
+
+                    // Refresh inventory after successful save to update stock levels
+                    fetchInventoryItems();
+
+                    // Re-enable save button
+                    if (saveButton) saveButton.disabled = false;
+
+                    // Remove save button highlight
+                    if (saveButton) saveButton.classList.remove('btn-save-highlight');
+
+                    // Resolve the promise with the results
+                    resolve(results);
+                })
+                .catch(error => {
+                    console.error('Error saving service items:', error);
+                    showNotification('Error: ' + error.message, 'error');
+
+                    // Re-enable save button
+                    if (saveButton) saveButton.disabled = false;
+
+                    // Reject the promise with the error
+                    reject(error);
+                });
+        });
     }
 
     // Generate bill with improved error handling
@@ -4026,7 +4220,7 @@
         showNotification('Generating bill...', 'info');
 
         // Disable buttons to prevent double submission
-        const saveButton = document.getElementById('saveServiceItemsBtn');
+        const saveButton = document.getElementById('saveInvoiceBtn');
         if (saveButton) saveButton.disabled = true;
 
         // Number formatter for currency
@@ -4166,6 +4360,9 @@
                 // Update UI to show completed status
                 updateAllStatusBadges("Completed");
 
+                // Reset unsaved changes flag
+                window.hasUnsavedChanges = false;
+
                 // Close the modal after a short delay
                 setTimeout(() => {
                     document.getElementById('vehicleDetailsModal').classList.remove('show');
@@ -4232,15 +4429,28 @@
         });
     }
 
+    // Helper function to send bill to admin
+    function sendBillToAdmin() {
+        // Implementation would go here if needed
+        showNotification('Bill sent to admin for approval', 'success');
+    }
+
     // Show notification
     function showNotification(message, type = 'success') {
         const notification = document.getElementById('successNotification');
+        if (!notification) return;
 
         // Update notification class based on type
         notification.className = 'notification'; // Reset classes
         notification.classList.add(type);
 
-        document.getElementById('notificationMessage').textContent = message;
+        const messageElement = document.getElementById('notificationMessage');
+        if (messageElement) {
+            messageElement.textContent = message;
+        } else {
+            notification.textContent = message;
+        }
+
         notification.classList.add('show');
 
         setTimeout(() => {
@@ -4256,9 +4466,14 @@
     window.removeInventoryItem = removeInventoryItem;
     window.removeLaborCharge = removeLaborCharge;
     window.handleTabClick = handleTabClick;
-    window.sendBillToAdmin = sendBillToAdmin;
     window.updateBillPreview = updateBillPreview;
     window.updateInvoiceInfoFields = updateInvoiceInfoFields;
+    window.sendBillToAdmin = sendBillToAdmin;
+    window.markServiceComplete = markServiceComplete;
+    window.saveServiceItems = saveServiceItems;
+    window.generateBill = generateBill;
+    window.addInventoryItem = addInventoryItem;
+    window.addLaborCharge = addLaborCharge;
 </script>
 </body>
 </html>
