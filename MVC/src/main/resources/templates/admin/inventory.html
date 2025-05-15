@@ -1263,9 +1263,8 @@
             }
 
             .action-buttons {
-                flex-direction: column;
-                gap: 0.75rem;
-                width: 100%;
+                display: flex;
+                gap: 1rem;
             }
 
             .btn-premium {
@@ -1519,10 +1518,12 @@
             </div>
             <div class="modal-body">
                 <form id="addInventoryForm">
+                    <div id="formErrorMessage" class="alert alert-danger" style="display: none;"></div>
                     <div class="form-row">
                         <div class="form-group">
                             <label class="form-label" for="itemName">Item Name <span class="text-danger">*</span></label>
                             <input type="text" class="form-control" id="itemName" name="name" required>
+                            <div class="invalid-feedback" id="itemNameError"></div>
                         </div>
                         <div class="form-group">
                             <label class="form-label" for="itemCategory">Category <span class="text-danger">*</span></label>
@@ -1532,6 +1533,7 @@
                                 <option value="Fluids & Lubricants">Fluids & Lubricants</option>
                                 <option value="Tools & Equipment">Tools & Equipment</option>
                             </select>
+                            <div class="invalid-feedback" id="itemCategoryError"></div>
                         </div>
                     </div>
 
@@ -1539,16 +1541,19 @@
                         <div class="form-group">
                             <label class="form-label" for="currentStock">Current Stock <span class="text-danger">*</span></label>
                             <input type="number" class="form-control" id="currentStock" name="currentStock" min="0" step="0.01" required>
+                            <div class="invalid-feedback" id="currentStockError"></div>
                         </div>
                         <div class="form-group">
                             <label class="form-label" for="unitPrice">Unit Price (₹) <span class="text-danger">*</span></label>
                             <input type="number" class="form-control" id="unitPrice" name="unitPrice" min="0" step="0.01" required>
+                            <div class="invalid-feedback" id="unitPriceError"></div>
                         </div>
                     </div>
 
                     <div class="form-group">
                         <label class="form-label" for="reorderLevel">Reorder Level <span class="text-danger">*</span></label>
                         <input type="number" class="form-control" id="reorderLevel" name="reorderLevel" min="0" step="0.01" required>
+                        <div class="invalid-feedback" id="reorderLevelError"></div>
                         <small class="form-text text-muted">Stock level at which you should reorder this item</small>
                     </div>
                 </form>
@@ -1578,10 +1583,12 @@
             <div class="modal-body">
                 <form id="editInventoryForm">
                     <input type="hidden" id="editItemId" name="itemId">
+                    <div id="editFormErrorMessage" class="alert alert-danger" style="display: none;"></div>
                     <div class="form-row">
                         <div class="form-group">
                             <label class="form-label" for="editItemName">Item Name <span class="text-danger">*</span></label>
                             <input type="text" class="form-control" id="editItemName" name="name" required>
+                            <div class="invalid-feedback" id="editItemNameError"></div>
                         </div>
                         <div class="form-group">
                             <label class="form-label" for="editItemCategory">Category <span class="text-danger">*</span></label>
@@ -1591,6 +1598,7 @@
                                 <option value="Fluids & Lubricants">Fluids & Lubricants</option>
                                 <option value="Tools & Equipment">Tools & Equipment</option>
                             </select>
+                            <div class="invalid-feedback" id="editItemCategoryError"></div>
                         </div>
                     </div>
 
@@ -1598,16 +1606,19 @@
                         <div class="form-group">
                             <label class="form-label" for="editCurrentStock">Current Stock <span class="text-danger">*</span></label>
                             <input type="number" class="form-control" id="editCurrentStock" name="currentStock" min="0" step="0.01" required>
+                            <div class="invalid-feedback" id="editCurrentStockError"></div>
                         </div>
                         <div class="form-group">
                             <label class="form-label" for="editUnitPrice">Unit Price (₹) <span class="text-danger">*</span></label>
                             <input type="number" class="form-control" id="editUnitPrice" name="unitPrice" min="0" step="0.01" required>
+                            <div class="invalid-feedback" id="editUnitPriceError"></div>
                         </div>
                     </div>
 
                     <div class="form-group">
                         <label class="form-label" for="editReorderLevel">Reorder Level <span class="text-danger">*</span></label>
                         <input type="number" class="form-control" id="editReorderLevel" name="reorderLevel" min="0" step="0.01" required>
+                        <div class="invalid-feedback" id="editReorderLevelError"></div>
                         <small class="form-text text-muted">Stock level at which you should reorder this item</small>
                     </div>
                 </form>
@@ -1975,6 +1986,87 @@
         if (confirmDeleteBtn) {
             confirmDeleteBtn.addEventListener('click', performDeleteItem);
         }
+
+        // Real-time validation for Add Inventory form
+        setupFormValidation('addInventoryForm', {
+            'itemName': 'itemNameError',
+            'itemCategory': 'itemCategoryError',
+            'currentStock': 'currentStockError',
+            'unitPrice': 'unitPriceError',
+            'reorderLevel': 'reorderLevelError'
+        });
+
+        // Real-time validation for Edit Inventory form
+        setupFormValidation('editInventoryForm', {
+            'editItemName': 'editItemNameError',
+            'editItemCategory': 'editItemCategoryError',
+            'editCurrentStock': 'editCurrentStockError',
+            'editUnitPrice': 'editUnitPriceError',
+            'editReorderLevel': 'editReorderLevelError'
+        });
+    }
+
+    // Setup real-time validation for a form
+    function setupFormValidation(formId, fieldMap) {
+        const form = document.getElementById(formId);
+        if (!form) return;
+
+        // Add blur event listeners to all fields for validation when leaving a field
+        for (const fieldId in fieldMap) {
+            const field = document.getElementById(fieldId);
+            const errorId = fieldMap[fieldId];
+
+            if (field) {
+                field.addEventListener('blur', function() {
+                    // Get appropriate error message based on field type
+                    let errorMessage = '';
+                    if (!this.value) {
+                        errorMessage = 'This field is required';
+                    } else if (this.type === 'number' && parseFloat(this.value) < 0) {
+                        errorMessage = 'Value must be a positive number';
+                    }
+
+                    validateField(this, document.getElementById(errorId), errorMessage);
+                });
+
+                // For select fields, also validate on change
+                if (field.tagName === 'SELECT') {
+                    field.addEventListener('change', function() {
+                        validateField(this, document.getElementById(errorId), 
+                            this.value ? '' : 'Please select an option');
+                    });
+                }
+            }
+        }
+
+        // Reset validation state when modal is hidden
+        const modalId = formId === 'addInventoryForm' ? 'addInventoryModal' : 'editInventoryModal';
+        const modal = document.getElementById(modalId);
+        if (modal) {
+            modal.addEventListener('hidden.bs.modal', function() {
+                // Reset form
+                form.reset();
+
+                // Clear error messages
+                for (const fieldId in fieldMap) {
+                    const field = document.getElementById(fieldId);
+                    if (field) {
+                        field.classList.remove('is-valid', 'is-invalid');
+                    }
+
+                    const errorElement = document.getElementById(fieldMap[fieldId]);
+                    if (errorElement) {
+                        errorElement.textContent = '';
+                    }
+                }
+
+                // Hide form error message
+                const formErrorMessage = document.getElementById(formId === 'addInventoryForm' ? 'formErrorMessage' : 'editFormErrorMessage');
+                if (formErrorMessage) {
+                    formErrorMessage.style.display = 'none';
+                }
+            });
+        }
     }
 
     // API Functions
@@ -2211,6 +2303,12 @@
     window.showEditModal = function(itemId) {
         showSpinner();
 
+        // Reset any previous error messages
+        const formErrorMessage = document.getElementById('editFormErrorMessage');
+        if (formErrorMessage) {
+            formErrorMessage.style.display = 'none';
+        }
+
         // Fetch item details
         fetch(`/admin/inventory/api/items/${itemId}`, {
             method: 'GET',
@@ -2236,6 +2334,14 @@
                 document.getElementById('editUnitPrice').value = parseFloat(item.unitPrice).toFixed(2);
                 document.getElementById('editReorderLevel').value = parseFloat(item.reorderLevel).toFixed(2);
 
+                // Clear any validation classes
+                const form = document.getElementById('editInventoryForm');
+                if (form) {
+                    form.querySelectorAll('.is-valid, .is-invalid').forEach(el => {
+                        el.classList.remove('is-valid', 'is-invalid');
+                    });
+                }
+
                 // Show the modal
                 const modal = new bootstrap.Modal(document.getElementById('editInventoryModal'));
                 modal.show();
@@ -2243,7 +2349,16 @@
             .catch(error => {
                 hideSpinner();
                 console.error('Error fetching item details for editing:', error);
-                alert('Failed to load item details for editing. Please try again.');
+
+                // Show error message in a more user-friendly way
+                if (formErrorMessage) {
+                    formErrorMessage.textContent = 'Failed to load item details for editing. Please try again.';
+                    formErrorMessage.style.display = 'block';
+
+                    // Show the modal with the error message
+                    const modal = new bootstrap.Modal(document.getElementById('editInventoryModal'));
+                    modal.show();
+                }
             });
     };
 
@@ -2292,7 +2407,25 @@
             .catch(error => {
                 hideSpinner();
                 console.error('Error deleting inventory item:', error);
-                alert('Failed to delete inventory item. Please try again.');
+
+                // Show error message in a user-friendly way using the success modal with error styling
+                const successTitle = document.getElementById('successTitle');
+                const successMessage = document.getElementById('successMessage');
+
+                if (successTitle && successMessage) {
+                    successTitle.textContent = 'Error';
+                    successTitle.className = 'mb-2 text-danger';
+                    successMessage.textContent = 'Failed to delete inventory item. Please try again.';
+
+                    const successModal = new bootstrap.Modal(document.getElementById('successModal'));
+                    successModal.show();
+
+                    // Reset the styling after the modal is hidden
+                    document.getElementById('successModal').addEventListener('hidden.bs.modal', function() {
+                        successTitle.textContent = 'Success!';
+                        successTitle.className = 'mb-2';
+                    }, { once: true });
+                }
             });
     }
 
@@ -2555,12 +2688,56 @@
         }
     }
 
+    // Validate a single field and show error message if invalid
+    function validateField(field, errorElement, errorMessage) {
+        if (!field.checkValidity()) {
+            field.classList.add('is-invalid');
+            errorElement.textContent = errorMessage || field.validationMessage;
+            return false;
+        } else {
+            field.classList.remove('is-invalid');
+            field.classList.add('is-valid');
+            errorElement.textContent = '';
+            return true;
+        }
+    }
+
+    // Validate all fields in the add form
+    function validateAddForm() {
+        const itemName = document.getElementById('itemName');
+        const itemCategory = document.getElementById('itemCategory');
+        const currentStock = document.getElementById('currentStock');
+        const unitPrice = document.getElementById('unitPrice');
+        const reorderLevel = document.getElementById('reorderLevel');
+
+        const nameValid = validateField(itemName, document.getElementById('itemNameError'), 
+            itemName.value ? '' : 'Item name is required');
+
+        const categoryValid = validateField(itemCategory, document.getElementById('itemCategoryError'), 
+            itemCategory.value ? '' : 'Please select a category');
+
+        const stockValid = validateField(currentStock, document.getElementById('currentStockError'), 
+            currentStock.value && parseFloat(currentStock.value) >= 0 ? '' : 'Current stock must be a positive number');
+
+        const priceValid = validateField(unitPrice, document.getElementById('unitPriceError'), 
+            unitPrice.value && parseFloat(unitPrice.value) >= 0 ? '' : 'Unit price must be a positive number');
+
+        const reorderValid = validateField(reorderLevel, document.getElementById('reorderLevelError'), 
+            reorderLevel.value && parseFloat(reorderLevel.value) >= 0 ? '' : 'Reorder level must be a positive number');
+
+        return nameValid && categoryValid && stockValid && priceValid && reorderValid;
+    }
+
     function saveInventoryItem() {
         const form = document.getElementById('addInventoryForm');
         if (!form) return;
 
-        if (!form.checkValidity()) {
-            form.reportValidity();
+        // Hide any previous form error message
+        const formErrorMessage = document.getElementById('formErrorMessage');
+        formErrorMessage.style.display = 'none';
+
+        // Validate all fields
+        if (!validateAddForm()) {
             return;
         }
 
@@ -2601,6 +2778,11 @@
                 // Reset form
                 form.reset();
 
+                // Remove validation classes
+                form.querySelectorAll('.is-valid, .is-invalid').forEach(el => {
+                    el.classList.remove('is-valid', 'is-invalid');
+                });
+
                 // Show success message
                 showSuccessModal('Item Added', 'The inventory item has been added successfully.');
 
@@ -2610,16 +2792,49 @@
             .catch(error => {
                 hideSpinner();
                 console.error('Error creating inventory item:', error);
-                alert('Failed to create inventory item. Please try again.');
+
+                // Show error message in the form instead of alert
+                formErrorMessage.textContent = 'Failed to create inventory item. Please try again.';
+                formErrorMessage.style.display = 'block';
             });
+    }
+
+    // Validate all fields in the edit form
+    function validateEditForm() {
+        const itemName = document.getElementById('editItemName');
+        const itemCategory = document.getElementById('editItemCategory');
+        const currentStock = document.getElementById('editCurrentStock');
+        const unitPrice = document.getElementById('editUnitPrice');
+        const reorderLevel = document.getElementById('editReorderLevel');
+
+        const nameValid = validateField(itemName, document.getElementById('editItemNameError'), 
+            itemName.value ? '' : 'Item name is required');
+
+        const categoryValid = validateField(itemCategory, document.getElementById('editItemCategoryError'), 
+            itemCategory.value ? '' : 'Please select a category');
+
+        const stockValid = validateField(currentStock, document.getElementById('editCurrentStockError'), 
+            currentStock.value && parseFloat(currentStock.value) >= 0 ? '' : 'Current stock must be a positive number');
+
+        const priceValid = validateField(unitPrice, document.getElementById('editUnitPriceError'), 
+            unitPrice.value && parseFloat(unitPrice.value) >= 0 ? '' : 'Unit price must be a positive number');
+
+        const reorderValid = validateField(reorderLevel, document.getElementById('editReorderLevelError'), 
+            reorderLevel.value && parseFloat(reorderLevel.value) >= 0 ? '' : 'Reorder level must be a positive number');
+
+        return nameValid && categoryValid && stockValid && priceValid && reorderValid;
     }
 
     function updateInventoryItem() {
         const form = document.getElementById('editInventoryForm');
         if (!form) return;
 
-        if (!form.checkValidity()) {
-            form.reportValidity();
+        // Hide any previous form error message
+        const formErrorMessage = document.getElementById('editFormErrorMessage');
+        formErrorMessage.style.display = 'none';
+
+        // Validate all fields
+        if (!validateEditForm()) {
             return;
         }
 
@@ -2658,6 +2873,11 @@
                     modal.hide();
                 }
 
+                // Remove validation classes
+                form.querySelectorAll('.is-valid, .is-invalid').forEach(el => {
+                    el.classList.remove('is-valid', 'is-invalid');
+                });
+
                 // Show success message
                 showSuccessModal('Item Updated', 'The inventory item has been updated successfully.');
 
@@ -2667,7 +2887,10 @@
             .catch(error => {
                 hideSpinner();
                 console.error('Error updating inventory item:', error);
-                alert('Failed to update inventory item. Please try again.');
+
+                // Show error message in the form instead of alert
+                formErrorMessage.textContent = 'Failed to update inventory item. Please try again.';
+                formErrorMessage.style.display = 'block';
             });
     }
 

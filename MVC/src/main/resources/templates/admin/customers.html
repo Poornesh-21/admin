@@ -317,6 +317,37 @@
     transform: translateY(-2px);
   }
 
+  /* Add processing state for buttons */
+  .btn-premium.processing {
+    position: relative;
+    pointer-events: none;
+    opacity: 0.8;
+  }
+
+  .btn-premium.processing::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 1.5rem;
+    height: 1.5rem;
+    margin-top: -0.75rem;
+    margin-left: -0.75rem;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+    border-top-color: white;
+    animation: button-spin 0.8s linear infinite;
+  }
+
+  @keyframes button-spin {
+    0% {
+      transform: rotate(0deg);
+    }
+    100% {
+      transform: rotate(360deg);
+    }
+  }
+
   .btn-premium.secondary {
     background-color: var(--bg-light);
     color: var(--secondary-color);
@@ -1891,20 +1922,24 @@
                 <div class="form-group">
                   <label for="firstName" class="form-label">First Name *</label>
                   <input type="text" class="form-control" id="firstName" name="firstName" required>
+                  <div class="invalid-feedback" id="firstName-error"></div>
                 </div>
                 <div class="form-group">
                   <label for="lastName" class="form-label">Last Name *</label>
                   <input type="text" class="form-control" id="lastName" name="lastName" required>
+                  <div class="invalid-feedback" id="lastName-error"></div>
                 </div>
               </div>
               <div class="form-row">
                 <div class="form-group">
                   <label for="email" class="form-label">Email Address *</label>
                   <input type="email" class="form-control" id="email" name="email" required>
+                  <div class="invalid-feedback" id="email-error"></div>
                 </div>
                 <div class="form-group">
                   <label for="phone" class="form-label">Phone Number *</label>
                   <input type="tel" class="form-control" id="phone" name="phoneNumber" required>
+                  <div class="invalid-feedback" id="phone-error"></div>
                 </div>
               </div>
             </div>
@@ -1917,20 +1952,24 @@
               <div class="form-group">
                 <label for="street" class="form-label">Street Address</label>
                 <input type="text" class="form-control" id="street" name="street">
+                <div class="invalid-feedback" id="street-error"></div>
               </div>
               <div class="form-row">
                 <div class="form-group">
                   <label for="city" class="form-label">City</label>
                   <input type="text" class="form-control" id="city" name="city">
+                  <div class="invalid-feedback" id="city-error"></div>
                 </div>
                 <div class="form-group">
                   <label for="state" class="form-label">State</label>
                   <input type="text" class="form-control" id="state" name="state">
+                  <div class="invalid-feedback" id="state-error"></div>
                 </div>
               </div>
               <div class="form-group">
                 <label for="postalCode" class="form-label">Postal Code</label>
                 <input type="text" class="form-control" id="postalCode" name="postalCode">
+                <div class="invalid-feedback" id="postalCode-error"></div>
               </div>
             </div>
 
@@ -1945,6 +1984,7 @@
                   <option value="Standard">Standard</option>
                   <option value="Premium">Premium</option>
                 </select>
+                <div class="invalid-feedback" id="membershipStatus-error"></div>
               </div>
             </div>
           </form>
@@ -1983,20 +2023,24 @@
                 <div class="form-group">
                   <label for="editFirstName" class="form-label">First Name *</label>
                   <input type="text" class="form-control" id="editFirstName" name="firstName" required>
+                  <div class="invalid-feedback" id="editFirstName-error"></div>
                 </div>
                 <div class="form-group">
                   <label for="editLastName" class="form-label">Last Name *</label>
                   <input type="text" class="form-control" id="editLastName" name="lastName" required>
+                  <div class="invalid-feedback" id="editLastName-error"></div>
                 </div>
               </div>
               <div class="form-row">
                 <div class="form-group">
                   <label for="editEmail" class="form-label">Email Address *</label>
                   <input type="email" class="form-control" id="editEmail" name="email" required>
+                  <div class="invalid-feedback" id="editEmail-error"></div>
                 </div>
                 <div class="form-group">
                   <label for="editPhone" class="form-label">Phone Number *</label>
                   <input type="tel" class="form-control" id="editPhone" name="phoneNumber" required>
+                  <div class="invalid-feedback" id="editPhone-error"></div>
                 </div>
               </div>
             </div>
@@ -2009,6 +2053,7 @@
               <div class="form-group">
                 <label for="editStreet" class="form-label">Street Address</label>
                 <input type="text" class="form-control" id="editStreet" name="street">
+                <div class="invalid-feedback" id="editStreet-error"></div>
               </div>
               <div class="form-row">
                 <div class="form-group">
@@ -2094,7 +2139,7 @@
       const spinner = document.getElementById('spinnerOverlay');
       setTimeout(() => {
         spinner.classList.remove('show');
-      }, 800); // Minimum show time for spinner
+      }, 300); // Reduced minimum show time for spinner for better responsiveness
     }
 
     // Success confirmation modal function
@@ -2250,7 +2295,7 @@
                 .catch(error => {
                   console.error('Error fetching customer details:', error);
                   hideSpinner();
-                  alert('Failed to load customer details. Please try again.');
+                  showToast('Error', 'Failed to load customer details. Please try again.', 'error');
                 });
       });
     });
@@ -2286,12 +2331,14 @@
     /**
      * Validates the customer form before submission
      * @param {string} formId - The ID of the form to validate ('addCustomerForm' or 'editCustomerForm')
+     * @param {string} [singleFieldId] - Optional ID of a single field to validate
      * @returns {boolean} - True if valid, false otherwise
      */
-    function validateCustomerForm(formId) {
+    function validateCustomerForm(formId, singleFieldId = null) {
       try {
         // Get form IDs based on whether it's the add or edit form
         let ids = {};
+        let errorIds = {};
 
         if (formId === 'editCustomerForm') {
           ids = {
@@ -2305,6 +2352,17 @@
             postalCode: 'editPostalCode',
             membershipStatus: 'editMembershipStatus'
           };
+          errorIds = {
+            firstName: 'editFirstName-error',
+            lastName: 'editLastName-error',
+            email: 'editEmail-error',
+            phone: 'editPhone-error',
+            street: 'editStreet-error',
+            city: 'editCity-error',
+            state: 'editState-error',
+            postalCode: 'editPostalCode-error',
+            membershipStatus: 'editMembershipStatus-error'
+          };
         } else {
           ids = {
             firstName: 'firstName',
@@ -2317,110 +2375,391 @@
             postalCode: 'postalCode',
             membershipStatus: 'membershipStatus'
           };
+          errorIds = {
+            firstName: 'firstName-error',
+            lastName: 'lastName-error',
+            email: 'email-error',
+            phone: 'phone-error',
+            street: 'street-error',
+            city: 'city-error',
+            state: 'state-error',
+            postalCode: 'postalCode-error',
+            membershipStatus: 'membershipStatus-error'
+          };
         }
 
-        // Get values from form using the correct IDs
-        const firstName = document.getElementById(ids.firstName).value.trim();
-        const lastName = document.getElementById(ids.lastName).value.trim();
-        const email = document.getElementById(ids.email).value.trim();
-        const phone = document.getElementById(ids.phone).value.trim();
-        const street = document.getElementById(ids.street).value.trim();
-        const city = document.getElementById(ids.city).value.trim();
-        const state = document.getElementById(ids.state).value.trim();
-        const postalCode = document.getElementById(ids.postalCode).value.trim();
-        const membershipStatus = document.getElementById(ids.membershipStatus).value;
+        // If validating a single field, only reset that field's error
+        if (singleFieldId) {
+          // Find the field key (firstName, lastName, etc.) that matches the singleFieldId
+          const fieldKey = Object.keys(ids).find(key => ids[key] === singleFieldId);
 
-        let errors = [];
+          if (fieldKey) {
+            const errorElement = document.getElementById(errorIds[fieldKey]);
+            if (errorElement) {
+              errorElement.textContent = '';
+              errorElement.style.display = 'none';
+            }
 
-        // Add validation rules
-        // First Name validation - required, 2-50 chars, alphabetic only
-        if (!firstName) {
-          errors.push("First name is required");
-        } else if (firstName.length < 1 || firstName.length > 50) {
-          errors.push("First name must be between 2 and 50 characters");
-        } else if (!/^[A-Za-z]+$/.test(firstName)) {
-          errors.push("First name must contain only alphabetic characters");
+            const inputElement = document.getElementById(singleFieldId);
+            if (inputElement) {
+              inputElement.classList.remove('is-invalid');
+            }
+          }
+        } else {
+          // Reset all error messages and remove invalid class
+          Object.values(errorIds).forEach(id => {
+            const errorElement = document.getElementById(id);
+            if (errorElement) {
+              errorElement.textContent = '';
+              errorElement.style.display = 'none';
+            }
+          });
+
+          Object.values(ids).forEach(id => {
+            const inputElement = document.getElementById(id);
+            if (inputElement) {
+              inputElement.classList.remove('is-invalid');
+            }
+          });
         }
 
-        // Last Name validation - required, 2-50 chars, alphabetic only
-        if (!lastName) {
-          errors.push("Last name is required");
-        } else if (lastName.length < 1 || lastName.length > 50) {
-          errors.push("Last name must be between 2 and 50 characters");
-        } else if (!/^[A-Za-z]+$/.test(lastName)) {
-          errors.push("Last name must contain only alphabetic characters");
+        let isValid = true;
+
+        // If validating a single field, only validate that field
+        if (singleFieldId) {
+          // Find the field key (firstName, lastName, etc.) that matches the singleFieldId
+          const fieldKey = Object.keys(ids).find(key => ids[key] === singleFieldId);
+
+          if (fieldKey) {
+            const value = document.getElementById(singleFieldId).value.trim();
+
+            switch (fieldKey) {
+              case 'firstName':
+                if (!value) {
+                  displayFieldError(ids.firstName, errorIds.firstName, "First name is required");
+                  isValid = false;
+                } else if (value.length < 1 || value.length > 50) {
+                  displayFieldError(ids.firstName, errorIds.firstName, "First name must be between 2 and 50 characters");
+                  isValid = false;
+                } else if (!/^[A-Za-z]+$/.test(value)) {
+                  displayFieldError(ids.firstName, errorIds.firstName, "First name must contain only alphabetic characters");
+                  isValid = false;
+                }
+                break;
+
+              case 'lastName':
+                if (!value) {
+                  displayFieldError(ids.lastName, errorIds.lastName, "Last name is required");
+                  isValid = false;
+                } else if (value.length < 1 || value.length > 50) {
+                  displayFieldError(ids.lastName, errorIds.lastName, "Last name must be between 2 and 50 characters");
+                  isValid = false;
+                } else if (!/^[A-Za-z]+$/.test(value)) {
+                  displayFieldError(ids.lastName, errorIds.lastName, "Last name must contain only alphabetic characters");
+                  isValid = false;
+                }
+                break;
+
+              case 'email':
+                if (!value) {
+                  displayFieldError(ids.email, errorIds.email, "Email is required");
+                  isValid = false;
+                } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+                  displayFieldError(ids.email, errorIds.email, "Please enter a valid email address");
+                  isValid = false;
+                } else if (value.length > 100) {
+                  displayFieldError(ids.email, errorIds.email, "Email must be less than 100 characters");
+                  isValid = false;
+                }
+                break;
+
+              case 'phone':
+                if (!value) {
+                  displayFieldError(ids.phone, errorIds.phone, "Phone number is required");
+                  isValid = false;
+                } else if (!/^[6-9]\d{9}$/.test(value)) {
+                  displayFieldError(ids.phone, errorIds.phone, "Phone number must be a valid 10-digit Indian mobile number starting with 6-9");
+                  isValid = false;
+                }
+                break;
+
+              case 'street':
+                if (value.length > 200) {
+                  displayFieldError(ids.street, errorIds.street, "Street address must be less than 200 characters");
+                  isValid = false;
+                }
+                break;
+
+              case 'city':
+                if (value && value.length > 100) {
+                  displayFieldError(ids.city, errorIds.city, "City must be less than 100 characters");
+                  isValid = false;
+                } else if (value && !/^[A-Za-z\s]*$/.test(value)) {
+                  displayFieldError(ids.city, errorIds.city, "City must contain only alphabetic characters and spaces");
+                  isValid = false;
+                }
+                break;
+
+              case 'state':
+                if (value && value.length > 100) {
+                  displayFieldError(ids.state, errorIds.state, "State must be less than 100 characters");
+                  isValid = false;
+                } else if (value && !/^[A-Za-z\s]*$/.test(value)) {
+                  displayFieldError(ids.state, errorIds.state, "State must contain only alphabetic characters and spaces");
+                  isValid = false;
+                }
+                break;
+
+              case 'postalCode':
+                if (value && !/^\d{6}$/.test(value)) {
+                  displayFieldError(ids.postalCode, errorIds.postalCode, "Postal code must be a 6-digit number");
+                  isValid = false;
+                }
+                break;
+
+              case 'membershipStatus':
+                if (!value) {
+                  displayFieldError(ids.membershipStatus, errorIds.membershipStatus, "Membership status is required");
+                  isValid = false;
+                }
+                break;
+            }
+          }
+        } else {
+          // Get values from form using the correct IDs
+          const firstName = document.getElementById(ids.firstName).value.trim();
+          const lastName = document.getElementById(ids.lastName).value.trim();
+          const email = document.getElementById(ids.email).value.trim();
+          const phone = document.getElementById(ids.phone).value.trim();
+          const street = document.getElementById(ids.street).value.trim();
+          const city = document.getElementById(ids.city).value.trim();
+          const state = document.getElementById(ids.state).value.trim();
+          const postalCode = document.getElementById(ids.postalCode).value.trim();
+          const membershipStatus = document.getElementById(ids.membershipStatus).value;
+
+          // First Name validation - required, 2-50 chars, alphabetic only
+          if (!firstName) {
+            displayFieldError(ids.firstName, errorIds.firstName, "First name is required");
+            isValid = false;
+          } else if (firstName.length < 1 || firstName.length > 50) {
+            displayFieldError(ids.firstName, errorIds.firstName, "First name must be between 2 and 50 characters");
+            isValid = false;
+          } else if (!/^[A-Za-z]+$/.test(firstName)) {
+            displayFieldError(ids.firstName, errorIds.firstName, "First name must contain only alphabetic characters");
+            isValid = false;
+          }
+
+          // Last Name validation - required, 2-50 chars, alphabetic only
+          if (!lastName) {
+            displayFieldError(ids.lastName, errorIds.lastName, "Last name is required");
+            isValid = false;
+          } else if (lastName.length < 1 || lastName.length > 50) {
+            displayFieldError(ids.lastName, errorIds.lastName, "Last name must be between 2 and 50 characters");
+            isValid = false;
+          } else if (!/^[A-Za-z]+$/.test(lastName)) {
+            displayFieldError(ids.lastName, errorIds.lastName, "Last name must contain only alphabetic characters");
+            isValid = false;
+          }
+
+          // Email validation - required, valid format, max 100 chars
+          if (!email) {
+            displayFieldError(ids.email, errorIds.email, "Email is required");
+            isValid = false;
+          } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            displayFieldError(ids.email, errorIds.email, "Please enter a valid email address");
+            isValid = false;
+          } else if (email.length > 100) {
+            displayFieldError(ids.email, errorIds.email, "Email must be less than 100 characters");
+            isValid = false;
+          }
+
+          // Phone validation - required, 10-digit Indian mobile format
+          if (!phone) {
+            displayFieldError(ids.phone, errorIds.phone, "Phone number is required");
+            isValid = false;
+          } else if (!/^[6-9]\d{9}$/.test(phone)) {
+            displayFieldError(ids.phone, errorIds.phone, "Phone number must be a valid 10-digit Indian mobile number starting with 6-9");
+            isValid = false;
+          }
+
+          // Street validation - max 200 chars
+          if (street.length > 200) {
+            displayFieldError(ids.street, errorIds.street, "Street address must be less than 200 characters");
+            isValid = false;
+          }
+
+          // City validation - max 100 chars, alphabetic + spaces only
+          if (city && city.length > 100) {
+            displayFieldError(ids.city, errorIds.city, "City must be less than 100 characters");
+            isValid = false;
+          } else if (city && !/^[A-Za-z\s]*$/.test(city)) {
+            displayFieldError(ids.city, errorIds.city, "City must contain only alphabetic characters and spaces");
+            isValid = false;
+          }
+
+          // State validation - max 100 chars, alphabetic + spaces only
+          if (state && state.length > 100) {
+            displayFieldError(ids.state, errorIds.state, "State must be less than 100 characters");
+            isValid = false;
+          } else if (state && !/^[A-Za-z\s]*$/.test(state)) {
+            displayFieldError(ids.state, errorIds.state, "State must contain only alphabetic characters and spaces");
+            isValid = false;
+          }
+
+          // Postal code validation - 6-digit number
+          if (postalCode && !/^\d{6}$/.test(postalCode)) {
+            displayFieldError(ids.postalCode, errorIds.postalCode, "Postal code must be a 6-digit number");
+            isValid = false;
+          }
+
+          // Membership status validation - required
+          if (!membershipStatus) {
+            displayFieldError(ids.membershipStatus, errorIds.membershipStatus, "Membership status is required");
+            isValid = false;
+          }
         }
 
-        // Email validation - required, valid format, max 100 chars
-        if (!email) {
-          errors.push("Email is required");
-        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-          errors.push("Please enter a valid email address");
-        } else if (email.length > 100) {
-          errors.push("Email must be less than 100 characters");
-        }
-
-        // Phone validation - required, 10-digit Indian mobile format
-        if (!phone) {
-          errors.push("Phone number is required");
-        } else if (!/^[6-9]\d{9}$/.test(phone)) {
-          errors.push("Phone number must be a valid 10-digit Indian mobile number starting with 6-9");
-        }
-
-        // Street validation - max 200 chars
-        if (street.length > 200) {
-          errors.push("Street address must be less than 200 characters");
-        }
-
-        // City validation - max 100 chars, alphabetic + spaces only
-        if (city && city.length > 100) {
-          errors.push("City must be less than 100 characters");
-        } else if (city && !/^[A-Za-z\s]*$/.test(city)) {
-          errors.push("City must contain only alphabetic characters and spaces");
-        }
-
-        // State validation - max 100 chars, alphabetic + spaces only
-        if (state && state.length > 100) {
-          errors.push("State must be less than 100 characters");
-        } else if (state && !/^[A-Za-z\s]*$/.test(state)) {
-          errors.push("State must contain only alphabetic characters and spaces");
-        }
-
-        // Postal code validation - 6-digit number
-        if (postalCode && !/^\d{6}$/.test(postalCode)) {
-          errors.push("Postal code must be a 6-digit number");
-        }
-
-        // Membership status validation - required
-        if (!membershipStatus) {
-          errors.push("Membership status is required");
-        }
-
-        // If there are validation errors, display them
-        if (errors.length > 0) {
-          alert(errors.join("\n"));
-          return false;
-        }
-
-        // Form is valid
-        return true;
+        return isValid;
       } catch (error) {
         console.error("Form validation error:", error);
-        alert("There was an error validating the form. Please check all fields and try again.");
+        showToast("Error", "There was an error validating the form. Please check all fields and try again.", "error");
         return false;
       }
+    }
+
+    // Helper function to display field-specific errors
+    function displayFieldError(fieldId, errorId, message) {
+      const field = document.getElementById(fieldId);
+      const errorElement = document.getElementById(errorId);
+
+      if (field && errorElement) {
+        field.classList.add('is-invalid');
+        errorElement.textContent = message;
+        errorElement.style.display = 'block';
+      }
+    }
+
+    // Function to show toast notifications
+    function showToast(title, message, type = 'info') {
+      // Create toast container if it doesn't exist
+      let toastContainer = document.getElementById('toast-container');
+      if (!toastContainer) {
+        toastContainer = document.createElement('div');
+        toastContainer.id = 'toast-container';
+        toastContainer.className = 'position-fixed top-0 end-0 p-3';
+        toastContainer.style.zIndex = '1050';
+        document.body.appendChild(toastContainer);
+      }
+
+      // Create toast element
+      const toastId = 'toast-' + Date.now();
+      const toast = document.createElement('div');
+      toast.id = toastId;
+      toast.className = `toast align-items-center ${type === 'error' ? 'bg-danger' : type === 'success' ? 'bg-success' : 'bg-info'} text-white border-0`;
+      toast.setAttribute('role', 'alert');
+      toast.setAttribute('aria-live', 'assertive');
+      toast.setAttribute('aria-atomic', 'true');
+
+      // Create toast content
+      toast.innerHTML = `
+        <div class="d-flex">
+          <div class="toast-body">
+            <strong>${title}</strong>: ${message}
+          </div>
+          <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+      `;
+
+      // Add toast to container
+      toastContainer.appendChild(toast);
+
+      // Initialize and show toast
+      const bsToast = new bootstrap.Toast(toast, {
+        autohide: true,
+        delay: 5000
+      });
+      bsToast.show();
+
+      // Remove toast after it's hidden
+      toast.addEventListener('hidden.bs.toast', function() {
+        toast.remove();
+      });
+    }
+
+    // Function to validate a single field
+    function validateField(fieldId, formId) {
+      // Create a temporary form object with just this field
+      const tempForm = document.createElement('form');
+      tempForm.id = formId;
+
+      // Clone the field and append to temp form
+      const field = document.getElementById(fieldId);
+      const fieldClone = field.cloneNode(true);
+      tempForm.appendChild(fieldClone);
+
+      // Validate just this field
+      validateCustomerForm(formId, fieldId);
+    }
+
+    // Add real-time validation to form fields
+    function setupFieldValidation(formId) {
+      const prefix = formId === 'editCustomerForm' ? 'edit' : '';
+      const fieldIds = [
+        prefix + (prefix ? 'F' : 'f') + 'irstName',
+        prefix + (prefix ? 'L' : 'l') + 'astName',
+        prefix + (prefix ? 'E' : 'e') + 'mail',
+        prefix + (prefix ? 'P' : 'p') + 'hone',
+        prefix + (prefix ? 'S' : 's') + 'treet',
+        prefix + (prefix ? 'C' : 'c') + 'ity',
+        prefix + (prefix ? 'S' : 's') + 'tate',
+        prefix + (prefix ? 'P' : 'p') + 'ostalCode',
+        prefix + (prefix ? 'M' : 'm') + 'embershipStatus'
+      ];
+
+      fieldIds.forEach(fieldId => {
+        const field = document.getElementById(fieldId);
+        if (field) {
+          // Add blur event listener to validate when user leaves the field
+          field.addEventListener('blur', function() {
+            validateField(fieldId, formId);
+          });
+        }
+      });
     }
 
     // Add Customer button handler
     const addCustomerBtn = document.getElementById('addCustomerBtn');
     if (addCustomerBtn) {
       addCustomerBtn.addEventListener('click', function() {
+        // Show immediate visual feedback
+        this.classList.add('processing');
+
         // Reset form
         document.getElementById('addCustomerForm').reset();
+
+        // Reset any validation errors
+        const errorElements = document.querySelectorAll('#addCustomerForm .invalid-feedback');
+        errorElements.forEach(el => {
+          el.textContent = '';
+          el.style.display = 'none';
+        });
+
+        const inputElements = document.querySelectorAll('#addCustomerForm .form-control, #addCustomerForm .form-select');
+        inputElements.forEach(el => {
+          el.classList.remove('is-invalid');
+        });
 
         // Show add customer modal
         const addCustomerModal = new bootstrap.Modal(document.getElementById('addCustomerModal'));
         addCustomerModal.show();
+
+        // Remove processing class after modal is shown
+        setTimeout(() => {
+          this.classList.remove('processing');
+        }, 300);
+
+        // Setup field validation
+        setupFieldValidation('addCustomerForm');
       });
     }
 
@@ -2428,17 +2767,24 @@
     const saveCustomerBtn = document.getElementById('saveCustomerBtn');
     if (saveCustomerBtn) {
       saveCustomerBtn.addEventListener('click', function() {
+        // Show immediate visual feedback
+        this.classList.add('processing');
+        this.disabled = true;
+
         const form = document.getElementById('addCustomerForm');
 
         // Validate form before submission
         if (!validateCustomerForm('addCustomerForm')) {
+          // Re-enable button if validation fails
+          this.classList.remove('processing');
+          this.disabled = false;
           return; // Stop if validation fails
         }
 
         // Show spinner during processing
         showSpinner();
 
-        // Prepare form data
+        // Prepare form data - do this before showing spinner to improve perceived performance
         const formData = {
           firstName: document.getElementById('firstName').value.trim(),
           lastName: document.getElementById('lastName').value.trim(),
@@ -2481,15 +2827,18 @@
                   // Reset form
                   form.reset();
 
-                  // Refresh the page to show the new customer
+                  // Refresh the page to show the new customer - reduced delay for better responsiveness
                   setTimeout(() => {
                     window.location.reload();
-                  }, 1500);
+                  }, 800);
                 })
                 .catch(error => {
                   console.error('Error adding customer:', error);
                   hideSpinner();
-                  alert('Failed to add customer. Please try again.');
+                  // Re-enable button on error
+                  this.classList.remove('processing');
+                  this.disabled = false;
+                  showToast('Error', 'Failed to add customer. Please try again.', 'error');
                 });
       });
     }
@@ -2525,6 +2874,18 @@
                   const detailsModal = bootstrap.Modal.getInstance(document.getElementById('customerDetailsModal'));
                   detailsModal.hide();
 
+                  // Reset any validation errors
+                  const errorElements = document.querySelectorAll('#editCustomerForm .invalid-feedback');
+                  errorElements.forEach(el => {
+                    el.textContent = '';
+                    el.style.display = 'none';
+                  });
+
+                  const inputElements = document.querySelectorAll('#editCustomerForm .form-control, #editCustomerForm .form-select');
+                  inputElements.forEach(el => {
+                    el.classList.remove('is-invalid');
+                  });
+
                   // Populate edit form with customer data
                   document.getElementById('editCustomerId').value = customer.customerId;
                   document.getElementById('editUserId').value = customer.userId;
@@ -2541,11 +2902,14 @@
                   // Show edit customer modal
                   const editModal = new bootstrap.Modal(document.getElementById('editCustomerModal'));
                   editModal.show();
+
+                  // Setup field validation for edit form
+                  setupFieldValidation('editCustomerForm');
                 })
                 .catch(error => {
                   console.error('Error fetching customer details for editing:', error);
                   hideSpinner();
-                  alert('Failed to load customer details for editing. Please try again.');
+                  showToast('Error', 'Failed to load customer details for editing. Please try again.', 'error');
                 });
       });
     }
@@ -2615,7 +2979,7 @@
                 .catch(error => {
                   console.error('Error updating customer:', error);
                   hideSpinner();
-                  alert('Failed to update customer. Please try again.');
+                  showToast('Error', 'Failed to update customer. Please try again.', 'error');
                 });
       });
     }
@@ -2667,7 +3031,7 @@
                 hideSpinner();
 
                 if (error.message !== 'Session expired') {
-                  alert('Failed to load customers. Please refresh and try again.');
+                  showToast('Error', 'Failed to load customers. Please refresh and try again.', 'error');
                 }
               });
     }
@@ -2760,7 +3124,7 @@
                   .catch(error => {
                     console.error('Error fetching customer details:', error);
                     hideSpinner();
-                    alert('Failed to load customer details. Please try again.');
+                    showToast('Error', 'Failed to load customer details. Please try again.', 'error');
                   });
         });
       });

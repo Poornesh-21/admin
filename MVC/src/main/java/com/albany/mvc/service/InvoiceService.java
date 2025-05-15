@@ -3,6 +3,7 @@ package com.albany.mvc.service;
 import com.albany.mvc.dto.CompletedServiceDTO;
 import com.albany.mvc.dto.LaborChargeDTO;
 import com.albany.mvc.dto.MaterialItemDTO;
+import com.albany.mvc.util.ModelMapper;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +28,7 @@ public class InvoiceService {
 
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
+    private final ModelMapper modelMapper;
 
     @Value("${api.base-url}")
     private String apiBaseUrl;
@@ -53,6 +55,9 @@ public class InvoiceService {
                         new TypeReference<Map<String, Object>>() {}
                 );
 
+                // Add customer contact information if missing
+                enhanceInvoiceInfo(invoiceInfo);
+
                 log.debug("Successfully fetched invoice info for service ID: {}", serviceId);
                 return invoiceInfo;
             } else {
@@ -62,6 +67,36 @@ public class InvoiceService {
         } catch (Exception e) {
             log.error("Error fetching invoice info: {}", e.getMessage(), e);
             return Collections.emptyMap();
+        }
+    }
+
+    /**
+     * Enhance invoice information with additional data
+     */
+    private void enhanceInvoiceInfo(Map<String, Object> invoiceInfo) {
+        // Add customer phone if missing
+        if (!invoiceInfo.containsKey("customerPhone")) {
+            if (invoiceInfo.containsKey("customer") && invoiceInfo.get("customer") instanceof Map) {
+                Map<String, Object> customer = (Map<String, Object>) invoiceInfo.get("customer");
+                if (customer.containsKey("phoneNumber")) {
+                    invoiceInfo.put("customerPhone", customer.get("phoneNumber"));
+                } else if (customer.containsKey("user") && customer.get("user") instanceof Map) {
+                    Map<String, Object> user = (Map<String, Object>) customer.get("user");
+                    if (user.containsKey("phoneNumber")) {
+                        invoiceInfo.put("customerPhone", user.get("phoneNumber"));
+                    }
+                }
+            }
+        }
+
+        // Normalize membership status
+        if (invoiceInfo.containsKey("membershipStatus")) {
+            String status = (String) invoiceInfo.get("membershipStatus");
+            if (status != null) {
+                status = status.trim();
+                invoiceInfo.put("membershipStatus", status.substring(0, 1).toUpperCase() +
+                        status.substring(1).toLowerCase());
+            }
         }
     }
 
@@ -132,204 +167,77 @@ public class InvoiceService {
     }
 
     /**
-     * Process service data to extract invoice and financial information
+     * Process service data for invoice generation
      */
     public CompletedServiceDTO processServiceForInvoice(Map<String, Object> serviceData) {
         try {
-            CompletedServiceDTO completedService = new CompletedServiceDTO();
+            // Use the model mapper to convert Map to DTO
+            CompletedServiceDTO dto = modelMapper.mapToCompletedServiceDTO(serviceData);
 
-            // Basic service info
-            completedService.setServiceId(getIntegerValue(serviceData, "serviceId"));
-            completedService.setVehicleName(getStringValue(serviceData, "vehicleName"));
-            completedService.setRegistrationNumber(getStringValue(serviceData, "registrationNumber"));
-            completedService.setCustomerName(getStringValue(serviceData, "customerName"));
-            completedService.setCustomerEmail(getStringValue(serviceData, "customerEmail"));
-            completedService.setMembershipStatus(getStringValue(serviceData, "membershipStatus"));
-            completedService.setServiceType(getStringValue(serviceData, "serviceType"));
-            completedService.setAdditionalDescription(getStringValue(serviceData, "additionalDescription"));
-            completedService.setStatus(getStringValue(serviceData, "status"));
-            completedService.setCategory(getStringValue(serviceData, "category"));
-            completedService.setVehicleBrand(getStringValue(serviceData, "vehicleBrand"));
-            completedService.setVehicleModel(getStringValue(serviceData, "vehicleModel"));
+            // Calculate financial details if missing
+            if (dto.getSubtotal() == null || dto.getTax() == null || dto.getTotalCost() == null) {
+                calculateFinancialDetails(dto);
+            }
 
-            // Dates
-            completedService.setRequestDate(getLocalDateValue(serviceData, "requestDate"));
-            completedService.setCompletedDate(getLocalDateValue(serviceData, "completedDate"));
-
-            // Service advisor
-            completedService.setServiceAdvisorName(getStringValue(serviceData, "serviceAdvisorName"));
-            completedService.setServiceAdvisorId(getIntegerValue(serviceData, "serviceAdvisorId"));
-
-            // Financial details
-            completedService.setMaterialsTotal(getBigDecimalValue(serviceData, "materialsTotal"));
-            completedService.setLaborTotal(getBigDecimalValue(serviceData, "laborTotal"));
-            completedService.setDiscount(getBigDecimalValue(serviceData, "discount"));
-            completedService.setSubtotal(getBigDecimalValue(serviceData, "subtotal"));
-            completedService.setTax(getBigDecimalValue(serviceData, "tax"));
-            completedService.setTotalCost(getBigDecimalValue(serviceData, "totalCost"));
-
-            // Materials and labor
-            completedService.setMaterials(getMaterialsList(serviceData));
-            completedService.setLaborCharges(getLaborChargesList(serviceData));
-
-            // Invoice and payment status - updated method names to match renamed fields
-            completedService.setHasBill(getBooleanValue(serviceData, "hasBill"));
-            completedService.setPaid(getBooleanValue(serviceData, "isPaid"));         // Changed from setIsPaid
-            completedService.setHasInvoice(getBooleanValue(serviceData, "hasInvoice"));
-            completedService.setDelivered(getBooleanValue(serviceData, "isDelivered")); // Changed from setIsDelivered
-
-            // Invoice details
-            completedService.setInvoiceId(getIntegerValue(serviceData, "invoiceId"));
-            completedService.setInvoiceDate(getLocalDateValue(serviceData, "invoiceDate"));
-
-            // Notes
-            completedService.setNotes(getStringValue(serviceData, "notes"));
-
-            return completedService;
+            return dto;
         } catch (Exception e) {
-            log.error("Error processing service data for invoice: {}", e.getMessage(), e);
+            log.error("Error processing service for invoice: {}", e.getMessage(), e);
             return new CompletedServiceDTO();
         }
     }
 
     /**
-     * Extract materials list from service data
+     * Calculate financial details for invoice
      */
-    @SuppressWarnings("unchecked")
-    private List<MaterialItemDTO> getMaterialsList(Map<String, Object> serviceData) {
-        try {
-            if (serviceData.containsKey("materials") && serviceData.get("materials") instanceof List) {
-                List<Map<String, Object>> materialsList = (List<Map<String, Object>>) serviceData.get("materials");
-
-                return materialsList.stream()
-                        .map(materialData -> {
-                            MaterialItemDTO material = new MaterialItemDTO();
-                            material.setItemId(getIntegerValue(materialData, "itemId"));
-                            material.setName(getStringValue(materialData, "name"));
-                            material.setCategory(getStringValue(materialData, "category"));
-                            material.setQuantity(getBigDecimalValue(materialData, "quantity"));
-                            material.setUnitPrice(getBigDecimalValue(materialData, "unitPrice"));
-                            material.setTotal(getBigDecimalValue(materialData, "total"));
-                            material.setDescription(getStringValue(materialData, "description"));
-                            return material;
-                        })
-                        .collect(Collectors.toList());
-            }
-        } catch (Exception e) {
-            log.error("Error extracting materials list: {}", e.getMessage(), e);
+    private void calculateFinancialDetails(CompletedServiceDTO dto) {
+        // Materials total calculation
+        BigDecimal materialsTotal = BigDecimal.ZERO;
+        if (dto.getMaterials() != null && !dto.getMaterials().isEmpty()) {
+            materialsTotal = dto.getMaterials().stream()
+                    .map(material -> {
+                        BigDecimal quantity = material.getQuantity() != null ? material.getQuantity() : BigDecimal.ONE;
+                        BigDecimal unitPrice = material.getUnitPrice() != null ? material.getUnitPrice() : BigDecimal.ZERO;
+                        return quantity.multiply(unitPrice);
+                    })
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
         }
 
-        return new ArrayList<>();
-    }
-
-    /**
-     * Extract labor charges list from service data
-     */
-    @SuppressWarnings("unchecked")
-    private List<LaborChargeDTO> getLaborChargesList(Map<String, Object> serviceData) {
-        try {
-            if (serviceData.containsKey("laborCharges") && serviceData.get("laborCharges") instanceof List) {
-                List<Map<String, Object>> laborList = (List<Map<String, Object>>) serviceData.get("laborCharges");
-
-                return laborList.stream()
-                        .map(laborData -> {
-                            LaborChargeDTO labor = new LaborChargeDTO();
-                            labor.setChargeId(getIntegerValue(laborData, "chargeId"));
-                            labor.setDescription(getStringValue(laborData, "description"));
-                            labor.setHours(getBigDecimalValue(laborData, "hours"));
-                            labor.setRatePerHour(getBigDecimalValue(laborData, "ratePerHour"));
-                            labor.setTotal(getBigDecimalValue(laborData, "total"));
-                            return labor;
-                        })
-                        .collect(Collectors.toList());
-            }
-        } catch (Exception e) {
-            log.error("Error extracting labor charges list: {}", e.getMessage(), e);
+        // Labor total calculation
+        BigDecimal laborTotal = BigDecimal.ZERO;
+        if (dto.getLaborCharges() != null && !dto.getLaborCharges().isEmpty()) {
+            laborTotal = dto.getLaborCharges().stream()
+                    .map(labor -> labor.getTotal() != null ? labor.getTotal() : BigDecimal.ZERO)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
         }
 
-        return new ArrayList<>();
-    }
-
-    /**
-     * Safe extraction of String value from a map
-     */
-    private String getStringValue(Map<String, Object> map, String key) {
-        if (map.containsKey(key) && map.get(key) != null) {
-            return map.get(key).toString();
+        // Set calculated totals if not present
+        if (dto.getMaterialsTotal() == null) {
+            dto.setMaterialsTotal(materialsTotal);
         }
-        return null;
-    }
 
-    /**
-     * Safe extraction of Integer value from a map
-     */
-    private Integer getIntegerValue(Map<String, Object> map, String key) {
-        if (map.containsKey(key) && map.get(key) != null) {
-            if (map.get(key) instanceof Integer) {
-                return (Integer) map.get(key);
-            } else if (map.get(key) instanceof Number) {
-                return ((Number) map.get(key)).intValue();
-            } else {
-                try {
-                    return Integer.parseInt(map.get(key).toString());
-                } catch (NumberFormatException e) {
-                    return null;
-                }
-            }
+        if (dto.getLaborTotal() == null) {
+            dto.setLaborTotal(laborTotal);
         }
-        return null;
-    }
 
-    /**
-     * Safe extraction of BigDecimal value from a map
-     */
-    private BigDecimal getBigDecimalValue(Map<String, Object> map, String key) {
-        if (map.containsKey(key) && map.get(key) != null) {
-            if (map.get(key) instanceof BigDecimal) {
-                return (BigDecimal) map.get(key);
-            } else if (map.get(key) instanceof Number) {
-                return BigDecimal.valueOf(((Number) map.get(key)).doubleValue());
-            } else {
-                try {
-                    return new BigDecimal(map.get(key).toString());
-                } catch (NumberFormatException e) {
-                    return null;
-                }
-            }
+        // Calculate premium discount
+        BigDecimal discount = BigDecimal.ZERO;
+        if ("Premium".equalsIgnoreCase(dto.getMembershipStatus())) {
+            // 20% discount on labor
+            discount = dto.getLaborTotal().multiply(new BigDecimal("0.20"));
+            dto.setDiscount(discount);
         }
-        return null;
-    }
 
-    /**
-     * Safe extraction of LocalDate value from a map
-     */
-    private LocalDate getLocalDateValue(Map<String, Object> map, String key) {
-        if (map.containsKey(key) && map.get(key) != null) {
-            if (map.get(key) instanceof LocalDate) {
-                return (LocalDate) map.get(key);
-            } else {
-                try {
-                    return LocalDate.parse(map.get(key).toString());
-                } catch (Exception e) {
-                    return null;
-                }
-            }
-        }
-        return null;
-    }
+        // Calculate subtotal
+        BigDecimal subtotal = dto.getMaterialsTotal().add(dto.getLaborTotal()).subtract(discount);
+        dto.setSubtotal(subtotal);
 
-    /**
-     * Safe extraction of Boolean value from a map
-     */
-    private Boolean getBooleanValue(Map<String, Object> map, String key) {
-        if (map.containsKey(key) && map.get(key) != null) {
-            if (map.get(key) instanceof Boolean) {
-                return (Boolean) map.get(key);
-            } else {
-                return Boolean.parseBoolean(map.get(key).toString());
-            }
-        }
-        return false;
+        // Calculate tax (GST 18%)
+        BigDecimal tax = subtotal.multiply(new BigDecimal("0.18"));
+        dto.setTax(tax);
+
+        // Calculate total cost
+        BigDecimal totalCost = subtotal.add(tax);
+        dto.setTotalCost(totalCost);
     }
 
     /**

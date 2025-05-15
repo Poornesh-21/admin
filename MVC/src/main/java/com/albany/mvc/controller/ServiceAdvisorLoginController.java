@@ -64,6 +64,9 @@ public class ServiceAdvisorLoginController {
             log.info("User logged out, showing success message");
         }
 
+        // Add custom error handler script to improve error messages
+        model.addAttribute("customErrorHandler", true);
+
         return "serviceAdvisor/login";
     }
 
@@ -118,8 +121,18 @@ public class ServiceAdvisorLoginController {
                     .body(Map.of("message", "Unable to connect to authentication server. Please try again later."));
         } catch (Exception e) {
             log.error("Unexpected error during authentication: {}", e.getMessage(), e);
+
+            // Extract user-friendly message from complex error messages
+            String userFriendlyMessage = "An unexpected error occurred";
+
+            String errorMessage = e.getMessage();
+            if (errorMessage != null && errorMessage.contains("Invalid email/password combination")) {
+                userFriendlyMessage = "Invalid email or password. Please try again.";
+                log.info("Extracted user-friendly message from error: {}", userFriendlyMessage);
+            }
+
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("message", "An unexpected error occurred: " + e.getMessage()));
+                    .body(Map.of("message", userFriendlyMessage));
         }
     }
 

@@ -86,6 +86,28 @@
       background: #8a3943;
     }
 
+    /* Error message styling */
+    .error-message {
+      color: var(--danger);
+      font-size: 0.85rem;
+      margin-top: 0.25rem;
+      min-height: 1.2rem;
+      display: none;
+    }
+
+    .error-message.show {
+      display: block;
+    }
+
+    .form-control.is-invalid,
+    .form-select.is-invalid {
+      border-color: var(--danger);
+      background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' width='12' height='12' fill='none' stroke='%23ef5350'%3e%3ccircle cx='6' cy='6' r='4.5'/%3e%3cpath stroke-linejoin='round' d='M5.8 3.6h.4L6 6.5z'/%3e%3ccircle cx='6' cy='8.2' r='.6' fill='%23ef5350' stroke='none'/%3e%3c/svg%3e");
+      background-repeat: no-repeat;
+      background-position: right calc(0.375em + 0.1875rem) center;
+      background-size: calc(0.75em + 0.375rem) calc(0.75em + 0.375rem);
+    }
+
     .app-container {
       display: flex;
       width: 100%;
@@ -1703,20 +1725,24 @@
                 <div class="form-group">
                   <label for="firstName" class="form-label">First Name *</label>
                   <input type="text" class="form-control" id="firstName" name="firstName" required>
+                  <div class="error-message" id="firstName-error"></div>
                 </div>
                 <div class="form-group">
                   <label for="lastName" class="form-label">Last Name *</label>
                   <input type="text" class="form-control" id="lastName" name="lastName" required>
+                  <div class="error-message" id="lastName-error"></div>
                 </div>
               </div>
               <div class="form-row">
                 <div class="form-group">
                   <label for="email" class="form-label">Email Address *</label>
                   <input type="email" class="form-control" id="email" name="email" required>
+                  <div class="error-message" id="email-error"></div>
                 </div>
                 <div class="form-group">
                   <label for="phone" class="form-label">Phone Number *</label>
                   <input type="tel" class="form-control" id="phone" name="phoneNumber" required>
+                  <div class="error-message" id="phone-error"></div>
                 </div>
               </div>
             </div>
@@ -1737,6 +1763,7 @@
                     <option value="Diagnostics">Diagnostics</option>
                     <option value="Customer Service">Customer Service</option>
                   </select>
+                  <div class="error-message" id="department-error"></div>
                 </div>
               </div>
               <div class="alert alert-info mt-3">
@@ -1781,20 +1808,24 @@
                 <div class="form-group">
                   <label for="editFirstName" class="form-label">First Name *</label>
                   <input type="text" class="form-control" id="editFirstName" name="firstName" required>
+                  <div class="error-message" id="editFirstName-error"></div>
                 </div>
                 <div class="form-group">
                   <label for="editLastName" class="form-label">Last Name *</label>
                   <input type="text" class="form-control" id="editLastName" name="lastName" required>
+                  <div class="error-message" id="editLastName-error"></div>
                 </div>
               </div>
               <div class="form-row">
                 <div class="form-group">
                   <label for="editEmail" class="form-label">Email Address *</label>
                   <input type="email" class="form-control" id="editEmail" name="email" required>
+                  <div class="error-message" id="editEmail-error"></div>
                 </div>
                 <div class="form-group">
                   <label for="editPhone" class="form-label">Phone Number *</label>
                   <input type="tel" class="form-control" id="editPhone" name="phoneNumber" required>
+                  <div class="error-message" id="editPhone-error"></div>
                 </div>
               </div>
             </div>
@@ -1815,6 +1846,7 @@
                     <option value="Diagnostics">Diagnostics</option>
                     <option value="Customer Service">Customer Service</option>
                   </select>
+                  <div class="error-message" id="editDepartment-error"></div>
                 </div>
               </div>
               <div class="form-group">
@@ -1945,12 +1977,70 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   function setupEventListeners() {
+    // Modal event listeners for clearing validation errors
+    const addAdvisorModalEl = document.getElementById('addAdvisorModal');
+    if (addAdvisorModalEl) {
+      addAdvisorModalEl.addEventListener('hidden.bs.modal', function() {
+        clearErrorMessage('addAdvisorForm');
+
+        // Remove is-invalid class from all inputs in the form
+        const form = document.getElementById('addAdvisorForm');
+        if (form) {
+          form.querySelectorAll('.is-invalid').forEach(input => {
+            input.classList.remove('is-invalid');
+          });
+
+          // Hide all error messages
+          form.querySelectorAll('.error-message').forEach(error => {
+            error.classList.remove('show');
+            error.textContent = '';
+          });
+        }
+      });
+    }
+
+    const editAdvisorModalEl = document.getElementById('editAdvisorModal');
+    if (editAdvisorModalEl) {
+      editAdvisorModalEl.addEventListener('hidden.bs.modal', function() {
+        clearErrorMessage('editAdvisorForm');
+
+        // Remove is-invalid class from all inputs in the form
+        const form = document.getElementById('editAdvisorForm');
+        if (form) {
+          form.querySelectorAll('.is-invalid').forEach(input => {
+            input.classList.remove('is-invalid');
+          });
+
+          // Hide all error messages
+          form.querySelectorAll('.error-message').forEach(error => {
+            error.classList.remove('show');
+            error.textContent = '';
+          });
+        }
+      });
+    }
+
     // Add service advisor button
     const addAdvisorBtn = document.getElementById('addAdvisorBtn');
     if (addAdvisorBtn) {
       addAdvisorBtn.addEventListener('click', function() {
         // Reset form
-        document.getElementById('addAdvisorForm').reset();
+        const form = document.getElementById('addAdvisorForm');
+        form.reset();
+
+        // Clear any previous error messages
+        clearErrorMessage('addAdvisorForm');
+
+        // Remove is-invalid class from all inputs
+        form.querySelectorAll('.is-invalid').forEach(input => {
+          input.classList.remove('is-invalid');
+        });
+
+        // Hide all error messages
+        form.querySelectorAll('.error-message').forEach(error => {
+          error.classList.remove('show');
+          error.textContent = '';
+        });
 
         // Show add advisor modal
         const addAdvisorModal = new bootstrap.Modal(document.getElementById('addAdvisorModal'));
@@ -2120,6 +2210,33 @@ function showConfirmation(title, message) {
   document.getElementById('confirmationMessage').textContent = message;
   const successModal = new bootstrap.Modal(document.getElementById('successModal'));
   successModal.show();
+}
+
+function showErrorMessage(formId, message) {
+  // Create error container if it doesn't exist
+  let errorContainer = document.getElementById(`${formId}-error-container`);
+
+  if (!errorContainer) {
+    errorContainer = document.createElement('div');
+    errorContainer.id = `${formId}-error-container`;
+    errorContainer.className = 'alert alert-danger mt-3';
+    errorContainer.role = 'alert';
+
+    const form = document.getElementById(formId);
+    if (form) {
+      form.parentNode.insertBefore(errorContainer, form.nextSibling);
+    }
+  }
+
+  errorContainer.textContent = message;
+  errorContainer.style.display = 'block';
+}
+
+function clearErrorMessage(formId) {
+  const errorContainer = document.getElementById(`${formId}-error-container`);
+  if (errorContainer) {
+    errorContainer.style.display = 'none';
+  }
 }
 
 function loadServiceAdvisors() {
@@ -2430,6 +2547,142 @@ function showAdvisorDetails(advisor) {
   detailsModal.show();
 }
 
+// Validation functions
+function validateField(fieldId, errorId, validationFn, errorMessage) {
+  const field = document.getElementById(fieldId);
+  const errorElement = document.getElementById(errorId);
+
+  // Skip validation if field doesn't exist
+  if (!field || !errorElement) return true;
+
+  const isValid = validationFn(field.value);
+
+  if (!isValid) {
+    field.classList.add('is-invalid');
+    errorElement.textContent = errorMessage;
+    errorElement.classList.add('show');
+    return false;
+  } else {
+    field.classList.remove('is-invalid');
+    errorElement.textContent = '';
+    errorElement.classList.remove('show');
+    return true;
+  }
+}
+
+// Validation rules
+function validateName(value) {
+  return value.trim().length >= 1;
+}
+
+function validateEmail(value) {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(value);
+}
+
+function validatePhone(value) {
+  const phoneRegex = /^\d{10}$/;
+  return phoneRegex.test(value.replace(/\D/g, ''));
+}
+
+function validateDepartment(value) {
+  return value.trim() !== '';
+}
+
+// Add event listeners for real-time validation
+function setupFormValidation(formId, fieldValidations) {
+  const form = document.getElementById(formId);
+  if (!form) return;
+
+  // Add blur event listeners to each field
+  Object.keys(fieldValidations).forEach(fieldId => {
+    const field = document.getElementById(fieldId);
+    if (field) {
+      field.addEventListener('blur', () => {
+        const validation = fieldValidations[fieldId];
+        validateField(fieldId, validation.errorId, validation.validationFn, validation.errorMessage);
+      });
+    }
+  });
+}
+
+// Setup validation for both forms
+document.addEventListener('DOMContentLoaded', function() {
+  // Add Advisor Form Validations
+  const addAdvisorValidations = {
+    'firstName': {
+      errorId: 'firstName-error',
+      validationFn: validateName,
+      errorMessage: 'First name must be at least 2 characters'
+    },
+    'lastName': {
+      errorId: 'lastName-error',
+      validationFn: validateName,
+      errorMessage: 'Last name must be at least 1 characters'
+    },
+    'email': {
+      errorId: 'email-error',
+      validationFn: validateEmail,
+      errorMessage: 'Please enter a valid email address'
+    },
+    'phone': {
+      errorId: 'phone-error',
+      validationFn: validatePhone,
+      errorMessage: 'Please enter a valid 10-digit phone number'
+    },
+    'department': {
+      errorId: 'department-error',
+      validationFn: validateDepartment,
+      errorMessage: 'Please select a department'
+    }
+  };
+
+  // Edit Advisor Form Validations
+  const editAdvisorValidations = {
+    'editFirstName': {
+      errorId: 'editFirstName-error',
+      validationFn: validateName,
+      errorMessage: 'First name must be at least 2 characters'
+    },
+    'editLastName': {
+      errorId: 'editLastName-error',
+      validationFn: validateName,
+      errorMessage: 'Last name must be at least 2 characters'
+    },
+    'editEmail': {
+      errorId: 'editEmail-error',
+      validationFn: validateEmail,
+      errorMessage: 'Please enter a valid email address'
+    },
+    'editPhone': {
+      errorId: 'editPhone-error',
+      validationFn: validatePhone,
+      errorMessage: 'Please enter a valid 10-digit phone number'
+    },
+    'editDepartment': {
+      errorId: 'editDepartment-error',
+      validationFn: validateDepartment,
+      errorMessage: 'Please select a department'
+    }
+  };
+
+  setupFormValidation('addAdvisorForm', addAdvisorValidations);
+  setupFormValidation('editAdvisorForm', editAdvisorValidations);
+});
+
+// Validate all fields in a form
+function validateForm(formId, fieldValidations) {
+  let isValid = true;
+
+  Object.keys(fieldValidations).forEach(fieldId => {
+    const validation = fieldValidations[fieldId];
+    const fieldValid = validateField(fieldId, validation.errorId, validation.validationFn, validation.errorMessage);
+    isValid = isValid && fieldValid;
+  });
+
+  return isValid;
+}
+
 function generateRandomPassword() {
   // Generate a password in the format: SA2025-XXXNNN (where X is a letter and N is a number)
   const letters = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; // Excluded I and O to avoid confusion
@@ -2454,9 +2707,37 @@ function saveServiceAdvisor() {
   // Get form
   const form = document.getElementById('addAdvisorForm');
 
-  // Basic form validation
-  if (!form.checkValidity()) {
-    form.reportValidity();
+  // Custom form validation
+  const addAdvisorValidations = {
+    'firstName': {
+      errorId: 'firstName-error',
+      validationFn: validateName,
+      errorMessage: 'First name must be at least 2 characters'
+    },
+    'lastName': {
+      errorId: 'lastName-error',
+      validationFn: validateName,
+      errorMessage: 'Last name must be at least 2 characters'
+    },
+    'email': {
+      errorId: 'email-error',
+      validationFn: validateEmail,
+      errorMessage: 'Please enter a valid email address'
+    },
+    'phone': {
+      errorId: 'phone-error',
+      validationFn: validatePhone,
+      errorMessage: 'Please enter a valid 10-digit phone number'
+    },
+    'department': {
+      errorId: 'department-error',
+      validationFn: validateDepartment,
+      errorMessage: 'Please select a department'
+    }
+  };
+
+  // Validate all fields
+  if (!validateForm('addAdvisorForm', addAdvisorValidations)) {
     return;
   }
 
@@ -2520,8 +2801,8 @@ function saveServiceAdvisor() {
             hideSpinner();
             console.error('Error creating service advisor:', error);
 
-            // Show user-friendly error message
-            alert('Failed to create service advisor. ' +
+            // Show user-friendly error message in the form
+            showErrorMessage('addAdvisorForm', 'Failed to create service advisor. ' +
                     (error.message || 'Please check your connection and try again.'));
           });
 }
@@ -2531,6 +2812,23 @@ function showEditModal(advisorId) {
   const detailsModal = bootstrap.Modal.getInstance(document.getElementById('advisorDetailsModal'));
   if (detailsModal) {
     detailsModal.hide();
+  }
+
+  // Clear any previous error messages
+  const form = document.getElementById('editAdvisorForm');
+  if (form) {
+    clearErrorMessage('editAdvisorForm');
+
+    // Remove is-invalid class from all inputs
+    form.querySelectorAll('.is-invalid').forEach(input => {
+      input.classList.remove('is-invalid');
+    });
+
+    // Hide all error messages
+    form.querySelectorAll('.error-message').forEach(error => {
+      error.classList.remove('show');
+      error.textContent = '';
+    });
   }
 
   showSpinner();
@@ -2569,7 +2867,7 @@ function showEditModal(advisorId) {
           .catch(error => {
             hideSpinner();
             console.error('Error fetching advisor details for editing:', error);
-            alert('Failed to load advisor details for editing. Please try again.');
+            showErrorMessage('editAdvisorForm', 'Failed to load advisor details for editing. Please try again.');
           });
 }
 
@@ -2577,9 +2875,37 @@ function updateServiceAdvisor() {
   // Get form
   const form = document.getElementById('editAdvisorForm');
 
-  // Basic form validation
-  if (!form.checkValidity()) {
-    form.reportValidity();
+  // Custom form validation
+  const editAdvisorValidations = {
+    'editFirstName': {
+      errorId: 'editFirstName-error',
+      validationFn: validateName,
+      errorMessage: 'First name must be at least 2 characters'
+    },
+    'editLastName': {
+      errorId: 'editLastName-error',
+      validationFn: validateName,
+      errorMessage: 'Last name must be at least 2 characters'
+    },
+    'editEmail': {
+      errorId: 'editEmail-error',
+      validationFn: validateEmail,
+      errorMessage: 'Please enter a valid email address'
+    },
+    'editPhone': {
+      errorId: 'editPhone-error',
+      validationFn: validatePhone,
+      errorMessage: 'Please enter a valid 10-digit phone number'
+    },
+    'editDepartment': {
+      errorId: 'editDepartment-error',
+      validationFn: validateDepartment,
+      errorMessage: 'Please select a department'
+    }
+  };
+
+  // Validate all fields
+  if (!validateForm('editAdvisorForm', editAdvisorValidations)) {
     return;
   }
 
@@ -2643,7 +2969,7 @@ function updateServiceAdvisor() {
           .catch(error => {
             hideSpinner();
             console.error('Error updating service advisor:', error);
-            alert('Failed to update service advisor. Please try again.');
+            showErrorMessage('editAdvisorForm', 'Failed to update service advisor. Please try again.');
           });
 }
 

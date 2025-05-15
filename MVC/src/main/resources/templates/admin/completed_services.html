@@ -2238,7 +2238,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/js/bootstrap.bundle.min.js"></script>
 
 <script>
-    // Completed Services System JavaScript
+    // JavaScript to manage completed services
     document.addEventListener('DOMContentLoaded', function() {
         // Initialize app
         initializeApp();
@@ -2682,7 +2682,10 @@
                 <div class="person-info">
                     <div class="person-details">
                         <h5>${service.customerName}</h5>
-                        <p>${service.customerEmail || 'No email provided'}</p>
+                        <p>
+                            <i class="fas fa-envelope me-1 text-muted"></i> ${service.customerEmail || 'No email provided'}<br>
+                            <i class="fas fa-phone me-1 text-muted"></i> ${service.customerPhone || 'No phone provided'}
+                        </p>
                     </div>
                 </div>
             </td>
@@ -2787,7 +2790,7 @@
             <i class="fas fa-check-circle"></i> Completed
         </span>
     `;
-        document.getElementById('viewCompletionDate').textContent = formatDate(service.completedDate || service.updatedAt);
+        document.getElementById('viewCompletionDate').textContent = service.formattedCompletedDate || formatDate(service.completedDate || service.updatedAt);
 
         // Vehicle info
         document.getElementById('viewVehicleName').textContent = service.vehicleName || (service.vehicleBrand + ' ' + service.vehicleModel);
@@ -2796,7 +2799,20 @@
 
         // Customer info
         document.getElementById('viewCustomerName').textContent = service.customerName;
-        document.getElementById('viewCustomerContact').textContent = service.customerEmail || 'Not provided';
+
+        // Update to show both phone and email
+        const customerContactEl = document.getElementById('viewCustomerContact');
+        if (customerContactEl) {
+            let contactInfo = '';
+            if (service.customerPhone) {
+                contactInfo += `<i class="fas fa-phone me-1"></i> ${service.customerPhone}<br>`;
+            }
+            if (service.customerEmail) {
+                contactInfo += `<i class="fas fa-envelope me-1"></i> ${service.customerEmail}`;
+            }
+            customerContactEl.innerHTML = contactInfo || 'No contact information';
+        }
+
         document.getElementById('viewMembership').textContent = service.membershipStatus || 'Standard';
 
         // Service info
@@ -3092,6 +3108,8 @@
                 (service.vehicleName && service.vehicleName.toLowerCase().includes(searchText)) ||
                 (service.registrationNumber && service.registrationNumber.toLowerCase().includes(searchText)) ||
                 (service.customerName && service.customerName.toLowerCase().includes(searchText)) ||
+                (service.customerPhone && service.customerPhone.toLowerCase().includes(searchText)) ||
+                (service.customerEmail && service.customerEmail.toLowerCase().includes(searchText)) ||
                 (service.serviceType && service.serviceType.toLowerCase().includes(searchText)) ||
                 ('req-' + service.serviceId).toLowerCase().includes(searchText)
             );
@@ -3145,7 +3163,10 @@
                     <div class="person-info">
                         <div class="person-details">
                             <h5>${service.customerName}</h5>
-                            <p>${service.customerEmail || 'No email provided'}</p>
+                            <p>
+                                <i class="fas fa-envelope me-1 text-muted"></i> ${service.customerEmail || 'No email provided'}<br>
+                                <i class="fas fa-phone me-1 text-muted"></i> ${service.customerPhone || 'No phone provided'}
+                            </p>
                         </div>
                     </div>
                 </td>
@@ -3330,9 +3351,108 @@
 
     // Generate bill
     function generateBill(service) {
-        // Show bill generation modal with service details
-        // In a real implementation, this would need more code
-        showToast('Info', 'Bill generation would be implemented here', 'info');
+        // Populate bill generation modal with service details
+        document.getElementById('billServiceId').textContent = 'REQ-' + service.serviceId;
+        document.getElementById('billCustomerName').textContent = service.customerName;
+        document.getElementById('billVehicleName').textContent = service.vehicleName;
+        document.getElementById('billVehicleRegistration').textContent = service.registrationNumber;
+        document.getElementById('billMembershipStatus').textContent = service.membershipStatus || 'Standard';
+
+        // Set premium flag for discount display
+        const isPremium = (service.membershipStatus || '').toLowerCase() === 'premium';
+        if (isPremium) {
+            document.getElementById('billPremiumDiscount').style.display = '';
+        } else {
+            document.getElementById('billPremiumDiscount').style.display = 'none';
+        }
+
+        // Set materials and labor totals
+        document.getElementById('billMaterialsTotal').textContent = formatCurrency(service.materialsTotal || 0);
+        document.getElementById('billLaborTotal').textContent = formatCurrency(service.laborTotal || 0);
+
+        // Calculate discount if premium
+        let discount = 0;
+        if (isPremium) {
+            discount = (service.laborTotal || 0) * 0.2;
+            document.getElementById('billDiscountAmount').textContent = formatCurrency(discount);
+        }
+
+        // Calculate subtotal
+        const subtotal = (service.materialsTotal || 0) + (service.laborTotal || 0) - discount;
+        document.getElementById('billSubtotal').textContent = formatCurrency(subtotal);
+
+        // Calculate GST
+        const gst = subtotal * 0.18;
+        document.getElementById('billGST').textContent = formatCurrency(gst);
+
+        // Calculate total
+        const total = subtotal + gst;
+        document.getElementById('billTotal').textContent = formatCurrency(total);
+
+        // Show the modal
+        new bootstrap.Modal(document.getElementById('generateBillModal')).show();
+    }
+
+    // Process bill generation
+    function processBillGeneration() {
+        if (!currentServiceId) {
+            showToast('Error', 'No service selected', 'error');
+            return;
+        }
+
+        // Get bill details
+        const notes = document.getElementById('billNotes').value;
+        const sendEmail = document.getElementById('sendBillEmail').checked;
+
+        // Get token
+        const token = getJwtToken();
+        if (!token) {
+            console.error('No token found');
+            return;
+        }
+
+        // Show spinner
+        showSpinner();
+
+        // Close bill modal
+        bootstrap.Modal.getInstance(document.getElementById('generateBillModal')).hide();
+
+        // Prepare bill data
+        const billData = {
+            notes: notes,
+            sendEmail: sendEmail
+        };
+
+        // Make API request
+        fetch(`/admin/api/vehicle-tracking/service-request/${currentServiceId}/bill?token=${encodeURIComponent(token)}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(billData)
+        })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('API call failed: ' + response.status);
+                }
+                return response.json();
+            })
+            .then(data => {
+                hideSpinner();
+
+                // Show success modal
+                document.getElementById('successTitle').textContent = 'Bill Generated!';
+                document.getElementById('successMessage').textContent = 'The bill has been generated successfully. You can now proceed with payment collection.';
+                new bootstrap.Modal(document.getElementById('successModal')).show();
+
+                // Refresh data
+                refreshCompletedServices();
+            })
+            .catch(error => {
+                hideSpinner();
+                console.error('Error generating bill:', error);
+                showToast('Error', 'Failed to generate bill: ' + error.message, 'error');
+            });
     }
 
     // Open payment modal
@@ -3435,7 +3555,7 @@
         document.getElementById('invoiceVehicleName').textContent = service.vehicleName;
         document.getElementById('invoiceRegistrationNumber').textContent = service.registrationNumber;
         document.getElementById('invoiceServiceType').textContent = service.serviceType;
-        document.getElementById('invoiceCompletionDate').textContent = formatDate(service.completedDate);
+        document.getElementById('invoiceCompletionDate').textContent = service.formattedCompletedDate || formatDate(service.completedDate);
 
         // Set premium badge
         if ((service.membershipStatus || '').toLowerCase() === 'premium') {

@@ -58,6 +58,7 @@ public class ModelMapper {
             dto.setRegistrationNumber(getStringValue(data, "registrationNumber"));
             dto.setCustomerName(getStringValue(data, "customerName"));
             dto.setCustomerEmail(getStringValue(data, "customerEmail"));
+            dto.setCustomerPhone(getStringValue(data, "customerPhone")); // Added phone field
             dto.setMembershipStatus(getStringValue(data, "membershipStatus"));
             dto.setServiceType(getStringValue(data, "serviceType"));
             dto.setAdditionalDescription(getStringValue(data, "additionalDescription"));
@@ -86,11 +87,11 @@ public class ModelMapper {
             dto.setMaterials(getMaterialsList(data));
             dto.setLaborCharges(getLaborChargesList(data));
 
-            // Invoice and payment status - updated method names to match renamed fields
+            // Invoice and payment status
             dto.setHasBill(getBooleanValue(data, "hasBill"));
-            dto.setPaid(getBooleanValue(data, "isPaid"));        // Changed from setIsPaid
+            dto.setPaid(getBooleanValue(data, "isPaid"));
             dto.setHasInvoice(getBooleanValue(data, "hasInvoice"));
-            dto.setDelivered(getBooleanValue(data, "isDelivered")); // Changed from setIsDelivered
+            dto.setDelivered(getBooleanValue(data, "isDelivered"));
 
             // Invoice details
             dto.setInvoiceId(getIntegerValue(data, "invoiceId"));
@@ -137,6 +138,7 @@ public class ModelMapper {
             if (dto.getRegistrationNumber() != null) map.put("registrationNumber", dto.getRegistrationNumber());
             if (dto.getCustomerName() != null) map.put("customerName", dto.getCustomerName());
             if (dto.getCustomerEmail() != null) map.put("customerEmail", dto.getCustomerEmail());
+            if (dto.getCustomerPhone() != null) map.put("customerPhone", dto.getCustomerPhone()); // Added phone field
             if (dto.getMembershipStatus() != null) map.put("membershipStatus", dto.getMembershipStatus());
             if (dto.getServiceType() != null) map.put("serviceType", dto.getServiceType());
             if (dto.getAdditionalDescription() != null) map.put("additionalDescription", dto.getAdditionalDescription());
@@ -174,11 +176,11 @@ public class ModelMapper {
                         .collect(Collectors.toList()));
             }
 
-            // Invoice and payment status - use the same keys for backward compatibility
+            // Invoice and payment status
             map.put("hasBill", dto.isHasBill());
-            map.put("isPaid", dto.isPaid());          // Still use isPaid as the key
+            map.put("isPaid", dto.isPaid());
             map.put("hasInvoice", dto.isHasInvoice());
-            map.put("isDelivered", dto.isDelivered()); // Still use isDelivered as the key
+            map.put("isDelivered", dto.isDelivered());
 
             // Invoice details
             if (dto.getInvoiceId() != null) map.put("invoiceId", dto.getInvoiceId());
@@ -193,7 +195,7 @@ public class ModelMapper {
         return map;
     }
 
-    // Rest of the class methods remain unchanged
+    // Helper methods remain the same but need to be included
 
     /**
      * Map a MaterialItemDTO to a map

@@ -23,6 +23,7 @@ public class CompletedServiceDTO {
     private String registrationNumber;
     private String customerName;
     private String customerEmail;
+    private String customerPhone; // Added phone number field
     private String membershipStatus;
     private String serviceType;
     private String additionalDescription;
@@ -52,11 +53,11 @@ public class CompletedServiceDTO {
     private List<MaterialItemDTO> materials;
     private List<LaborChargeDTO> laborCharges;
 
-    // Invoice and payment status - renamed fields to match Lombok's conventions
+    // Invoice and payment status
     private boolean hasBill;
-    private boolean paid;        // Changed from isPaid
+    private boolean paid;
     private boolean hasInvoice;
-    private boolean delivered;   // Changed from isDelivered
+    private boolean delivered;
 
     // Invoice details
     private Integer invoiceId;
@@ -64,4 +65,28 @@ public class CompletedServiceDTO {
 
     // Additional info
     private String notes;
+
+    // Normalize membership status for consistent display
+    public String getMembershipStatus() {
+        if (membershipStatus == null || membershipStatus.trim().isEmpty()) {
+            return "Standard";
+        }
+        // Capitalize first letter for consistent display
+        String normalized = membershipStatus.trim();
+        return normalized.substring(0, 1).toUpperCase() +
+                normalized.substring(1).toLowerCase();
+    }
+
+    // Helper method to get the combined vehicle name
+    public String getVehicleName() {
+        if (vehicleName != null && !vehicleName.trim().isEmpty()) {
+            return vehicleName;
+        }
+
+        if (vehicleBrand != null && vehicleModel != null) {
+            return vehicleBrand + " " + vehicleModel;
+        }
+
+        return "Unknown Vehicle";
+    }
 }

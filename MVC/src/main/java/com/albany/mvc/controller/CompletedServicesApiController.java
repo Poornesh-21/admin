@@ -41,11 +41,36 @@ public class CompletedServicesApiController {
         try {
             // Use service to fetch completed services
             List<Map<String, Object>> completedServices = completedServicesService.getCompletedServices(validToken);
+
+            // Log the number of services and data verification
+            log.info("Returning {} completed services", completedServices.size());
+            logDataVerification(completedServices);
+
             return ResponseEntity.ok(completedServices);
         } catch (Exception e) {
             log.error("Error fetching completed services: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Collections.emptyList());
         }
+    }
+
+    /**
+     * Log data verification for debugging
+     */
+    private void logDataVerification(List<Map<String, Object>> services) {
+        if (services == null || services.isEmpty()) {
+            log.debug("No services to verify");
+            return;
+        }
+
+        // Check a sample service to verify fields
+        Map<String, Object> sampleService = services.get(0);
+        log.debug("Data verification for sample service:");
+        log.debug("- ServiceId: {}", sampleService.get("serviceId"));
+        log.debug("- VehicleName: {}", sampleService.get("vehicleName"));
+        log.debug("- CustomerName: {}", sampleService.get("customerName"));
+        log.debug("- CustomerEmail: {}", sampleService.get("customerEmail"));
+        log.debug("- CustomerPhone: {}", sampleService.get("customerPhone"));
+        log.debug("- MembershipStatus: {}", sampleService.get("membershipStatus"));
     }
 
     /**
@@ -96,11 +121,15 @@ public class CompletedServicesApiController {
         try {
             // Use service to get service details
             Map<String, Object> serviceDetails = completedServicesService.getServiceDetails(id, validToken);
-            
+
             if (serviceDetails.isEmpty()) {
                 return ResponseEntity.notFound().build();
             }
-            
+
+            // Log data verification
+            log.debug("Service details for ID {}: customerPhone={}, membershipStatus={}",
+                    id, serviceDetails.get("customerPhone"), serviceDetails.get("membershipStatus"));
+
             return ResponseEntity.ok(serviceDetails);
         } catch (Exception e) {
             log.error("Error fetching service details: {}", e.getMessage(), e);
@@ -129,51 +158,16 @@ public class CompletedServicesApiController {
         try {
             // Use service to generate invoice
             Map<String, Object> result = completedServicesService.generateInvoice(id, invoiceDetails, validToken);
-            
+
             if (result.containsKey("error")) {
                 return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(result);
             }
-            
+
             return ResponseEntity.ok(result);
         } catch (Exception e) {
             log.error("Error generating invoice: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Collections.singletonMap("error", "Failed to generate invoice: " + e.getMessage()));
-        }
-    }
-
-    /**
-     * Download invoice for a completed service
-     */
-    @GetMapping("/{id}/invoice/download")
-    public ResponseEntity<byte[]> downloadInvoice(
-            @PathVariable Integer id,
-            @RequestParam(required = false) String token,
-            @RequestHeader(value = "Authorization", required = false) String authHeader,
-            HttpServletRequest request) {
-
-        // Get token from various sources
-        String validToken = getValidToken(token, authHeader, request);
-
-        if (validToken == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new byte[0]);
-        }
-
-        try {
-            // Use service to download invoice
-            byte[] invoiceData = completedServicesService.downloadInvoice(id, validToken);
-            
-            if (invoiceData.length == 0) {
-                return ResponseEntity.notFound().build();
-            }
-            
-            return ResponseEntity.ok()
-                    .header("Content-Type", "application/pdf")
-                    .header("Content-Disposition", "attachment; filename=invoice_" + id + ".pdf")
-                    .body(invoiceData);
-        } catch (Exception e) {
-            log.error("Error downloading invoice: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new byte[0]);
         }
     }
 
@@ -198,11 +192,11 @@ public class CompletedServicesApiController {
         try {
             // Use service to record payment
             Map<String, Object> result = completedServicesService.recordPayment(id, paymentDetails, validToken);
-            
+
             if (result.containsKey("error")) {
                 return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(result);
             }
-            
+
             return ResponseEntity.ok(result);
         } catch (Exception e) {
             log.error("Error recording payment: {}", e.getMessage(), e);
@@ -232,11 +226,11 @@ public class CompletedServicesApiController {
         try {
             // Use service to dispatch vehicle
             Map<String, Object> result = completedServicesService.dispatchVehicle(id, dispatchDetails, validToken);
-            
+
             if (result.containsKey("error")) {
                 return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(result);
             }
-            
+
             return ResponseEntity.ok(result);
         } catch (Exception e) {
             log.error("Error dispatching vehicle: {}", e.getMessage(), e);

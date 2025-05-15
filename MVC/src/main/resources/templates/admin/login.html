@@ -747,9 +747,54 @@
                 },
                 error: function(xhr) {
                     let errorMsg = "Authentication failed. Please check your credentials.";
+
                     if (xhr.responseJSON && xhr.responseJSON.message) {
                         errorMsg = xhr.responseJSON.message;
+
+                        // Check if the error message contains the JSON string with "Invalid email/password combination"
+                        if (errorMsg.includes("Invalid email/password combination")) {
+                            errorMsg = "Invalid email or password. Please try again.";
+                        }
+                    } else if (xhr.responseText) {
+                        try {
+                            // Try to parse the response text as JSON
+                            const responseObj = JSON.parse(xhr.responseText);
+
+                            // Check if the parsed object has a message property
+                            if (responseObj.message) {
+                                // Check if the message contains a JSON string
+                                if (responseObj.message.includes("{")) {
+                                    try {
+                                        // Try to parse the inner JSON string
+                                        const innerJson = JSON.parse(responseObj.message.substring(
+                                            responseObj.message.indexOf("{"),
+                                            responseObj.message.lastIndexOf("}") + 1
+                                        ));
+
+                                        if (innerJson.message) {
+                                            errorMsg = innerJson.message;
+
+                                            // Make the message more user-friendly
+                                            if (errorMsg === "Invalid email/password combination") {
+                                                errorMsg = "Invalid email or password. Please try again.";
+                                            }
+                                        }
+                                    } catch (e) {
+                                        // If parsing fails, use the original message
+                                        errorMsg = responseObj.message;
+                                    }
+                                } else {
+                                    errorMsg = responseObj.message;
+                                }
+                            }
+                        } catch (e) {
+                            // If parsing fails, check if the response contains the specific error message
+                            if (xhr.responseText.includes("Invalid email/password combination")) {
+                                errorMsg = "Invalid email or password. Please try again.";
+                            }
+                        }
                     }
+
                     $("#alertMessage").text(errorMsg);
                     $("#loginAlert").show();
 
