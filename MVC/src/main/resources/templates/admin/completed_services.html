@@ -1248,6 +1248,8 @@
      * @param {number} serviceId - The ID of the service request
      */
     function viewServiceDetails(serviceId) {
+        console.log('Viewing service details for ID:', serviceId);
+
         // Show loading state
         const modal = new bootstrap.Modal(document.getElementById('viewServiceDetailsModal'));
         modal.show();
@@ -1276,9 +1278,13 @@
 
         // Get authentication token
         const token = getAuthToken();
+        console.log('Auth token available:', token ? 'Yes' : 'No');
 
-        // Fetch service details from API
-        fetch(`/admin/api/completed-services/${serviceId}`, {
+        // Fetch service details from API with updated URL and more logging
+        const apiUrl = `/admin/api/services/${serviceId}/details`;
+        console.log('Fetching data from:', apiUrl);
+
+        fetch(apiUrl, {
             method: 'GET',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -1286,13 +1292,14 @@
             }
         })
             .then(response => {
+                console.log('Response status:', response.status);
                 if (!response.ok) {
-                    throw new Error('Failed to fetch service details');
+                    throw new Error(`Failed to fetch service details (Status: ${response.status})`);
                 }
                 return response.json();
             })
             .then(service => {
-                console.log('Received service details:', service);
+                console.log('Received service details:', JSON.stringify(service, null, 2));
 
                 // Store current service and ID globally
                 currentServiceId = serviceId;
@@ -1315,6 +1322,9 @@
                 // Fetch materials and labor charges if not included in service details
                 const materials = service.materials || [];
                 const laborCharges = service.laborCharges || [];
+
+                console.log('Materials data:', materials.length ? materials : 'None');
+                console.log('Labor charges data:', laborCharges.length ? laborCharges : 'None');
 
                 // If materials array is empty but we have materialsUsed, use that instead
                 if (materials.length === 0 && service.materialsUsed && service.materialsUsed.length > 0) {

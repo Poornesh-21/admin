@@ -17,7 +17,6 @@ import java.util.*;
  * Controller for retrieving consolidated service details including materials and labor charges
  */
 @RestController
-@RequestMapping("/admin/api/completed-services")
 @RequiredArgsConstructor
 @Slf4j
 public class ServiceDetailsApiController {
@@ -29,40 +28,143 @@ public class ServiceDetailsApiController {
     private String apiBaseUrl;
 
     /**
-     * Get comprehensive service details including materials, labor charges and invoice info
-     * This endpoint consolidates data from multiple sources into a single response
+     * Original endpoint for getting comprehensive service details
      */
-    @GetMapping("/{serviceId}")
+    @GetMapping("/admin/api/service-details/{serviceId}")
     public ResponseEntity<Map<String, Object>> getConsolidatedServiceDetails(
             @PathVariable Integer serviceId,
             @RequestParam(required = false) String token,
             @RequestHeader(value = "Authorization", required = false) String authHeader,
             HttpServletRequest request) {
 
+        log.info("Request to /admin/api/service-details/{} received", serviceId);
+        return getServiceDetailsInternal(serviceId, token, authHeader, request);
+    }
+
+    /**
+     * Alternative endpoint that uses a different URL pattern
+     */
+    @GetMapping("/admin/api/services/{serviceId}/details")
+    public ResponseEntity<Map<String, Object>> getServiceDetailsAlternate(
+            @PathVariable Integer serviceId,
+            @RequestParam(required = false) String token,
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            HttpServletRequest request) {
+
+        log.info("Request to /admin/api/services/{}/details received", serviceId);
+        return getServiceDetailsInternal(serviceId, token, authHeader, request);
+    }
+
+    /**
+     * Debug endpoint that returns test data
+     */
+    @GetMapping("/admin/api/debug/service-details/{serviceId}")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> debugServiceDetails(
+            @PathVariable Integer serviceId,
+            @RequestParam(required = false) String token) {
+
+        log.info("Debug request for service details ID: {}", serviceId);
+
+        // Create dummy data for testing
+        Map<String, Object> testData = new HashMap<>();
+        testData.put("requestId", serviceId);
+        testData.put("vehicleName", "Test Vehicle " + serviceId);
+        testData.put("registrationNumber", "TEST-" + serviceId);
+        testData.put("customerName", "Test Customer");
+        testData.put("membershipStatus", "Standard");
+        testData.put("completedDate", "2025-05-15");
+
+        // Add materials
+        List<Map<String, Object>> materials = new ArrayList<>();
+        Map<String, Object> material1 = new HashMap<>();
+        material1.put("name", "Engine Oil");
+        material1.put("quantity", 2);
+        material1.put("unitPrice", 150.0);
+        material1.put("total", 300.0);
+        materials.add(material1);
+
+        Map<String, Object> material2 = new HashMap<>();
+        material2.put("name", "Oil Filter");
+        material2.put("quantity", 1);
+        material2.put("unitPrice", 100.0);
+        material2.put("total", 100.0);
+        materials.add(material2);
+
+        testData.put("materials", materials);
+
+        // Add labor charges
+        List<Map<String, Object>> laborCharges = new ArrayList<>();
+        Map<String, Object> labor = new HashMap<>();
+        labor.put("description", "Oil Change Service");
+        labor.put("hours", 1.5);
+        labor.put("ratePerHour", 200.0);
+        labor.put("total", 300.0);
+        laborCharges.add(labor);
+        testData.put("laborCharges", laborCharges);
+
+        // Add calculated values
+        testData.put("calculatedMaterialsTotal", 400.0);
+        testData.put("calculatedLaborTotal", 300.0);
+        testData.put("calculatedSubtotal", 700.0);
+        testData.put("calculatedTax", 126.0);
+        testData.put("calculatedTotal", 826.0);
+
+        // Mock invoice and payment status
+        testData.put("hasInvoice", false);
+        testData.put("isPaid", false);
+        testData.put("isDelivered", false);
+
+        log.info("Returning debug test data for service ID: {}", serviceId);
+        return ResponseEntity.ok(testData);
+    }
+
+    /**
+     * Internal method that implements the actual service details retrieval logic
+     */
+    private ResponseEntity<Map<String, Object>> getServiceDetailsInternal(
+            Integer serviceId,
+            String token,
+            String authHeader,
+            HttpServletRequest request) {
+
         // Get token from various sources
         String validToken = getValidToken(token, authHeader, request);
 
         if (validToken == null) {
+            log.warn("No valid token found for service details request");
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Collections.emptyMap());
         }
 
         try {
+            log.info("Fetching service details for ID: {}", serviceId);
+
             // Step 1: Get basic service details
             Map<String, Object> serviceDetails = getServiceRequestDetails(serviceId, validToken);
+
             if (serviceDetails.isEmpty()) {
+                log.warn("No service details found for ID: {}", serviceId);
                 return ResponseEntity.notFound().build();
             }
+
+            log.info("Found service details, enhancing with additional data");
 
             // Step 2: Get materials used data
             List<Map<String, Object>> materials = getMaterialsForService(serviceId, validToken);
             if (!materials.isEmpty()) {
                 serviceDetails.put("materials", materials);
+                log.info("Added {} materials to service details", materials.size());
+            } else {
+                log.info("No materials found for service ID: {}", serviceId);
             }
 
             // Step 3: Get service tracking data (for labor charges)
             List<Map<String, Object>> serviceTracking = getServiceTrackingForService(serviceId, validToken);
             if (!serviceTracking.isEmpty()) {
                 serviceDetails.put("serviceTracking", serviceTracking);
+                log.info("Added {} tracking entries to service details", serviceTracking.size());
+            } else {
+                log.info("No service tracking entries found for service ID: {}", serviceId);
             }
 
             // Step 4: Get invoice data if it exists
@@ -70,6 +172,9 @@ public class ServiceDetailsApiController {
             if (!invoice.isEmpty()) {
                 serviceDetails.put("invoice", invoice);
                 serviceDetails.put("hasInvoice", true);
+                log.info("Added invoice data to service details");
+            } else {
+                log.info("No invoice found for service ID: {}", serviceId);
             }
 
             // Step 5: Get payment data if it exists
@@ -77,12 +182,12 @@ public class ServiceDetailsApiController {
             if (!payment.isEmpty()) {
                 serviceDetails.put("payment", payment);
                 serviceDetails.put("isPaid", "Completed".equals(payment.get("status")));
+                log.info("Added payment data to service details");
+            } else {
+                log.info("No payment found for service ID: {}", serviceId);
             }
 
-            // Log the number of different data pieces we found
-            log.info("Consolidated service details for ID {}: found {} materials, {} tracking entries, invoice={}, payment={}",
-                    serviceId, materials.size(), serviceTracking.size(), !invoice.isEmpty(), !payment.isEmpty());
-
+            log.info("Successfully consolidated service details for ID: {}", serviceId);
             return ResponseEntity.ok(serviceDetails);
         } catch (Exception e) {
             log.error("Error retrieving consolidated service details: {}", e.getMessage(), e);
@@ -152,9 +257,9 @@ public class ServiceDetailsApiController {
                             response.getBody(),
                             new TypeReference<List<Map<String, Object>>>() {}
                     );
-                    
+
                     if (!materials.isEmpty()) {
-                        log.debug("Retrieved {} materials for service ID {} from primary endpoint", 
+                        log.debug("Retrieved {} materials for service ID {} from primary endpoint",
                                 materials.size(), serviceId);
                         return materials;
                     }
@@ -167,7 +272,7 @@ public class ServiceDetailsApiController {
             // Fallback: Try the alternative materials endpoint
             url = apiBaseUrl + "/service-details/" + serviceId + "/materials";
             log.debug("Fetching materials from alternate endpoint: {}", url);
-            
+
             try {
                 ResponseEntity<String> response = restTemplate.exchange(
                         url,
@@ -181,8 +286,8 @@ public class ServiceDetailsApiController {
                             response.getBody(),
                             new TypeReference<List<Map<String, Object>>>() {}
                     );
-                    
-                    log.debug("Retrieved {} materials for service ID {} from alternate endpoint", 
+
+                    log.debug("Retrieved {} materials for service ID {} from alternate endpoint",
                             materials.size(), serviceId);
                     return materials;
                 }
@@ -194,7 +299,7 @@ public class ServiceDetailsApiController {
             // Final fallback: Check for materials in the MaterialUsage table directly
             url = apiBaseUrl + "/material-usage/service-request/" + serviceId;
             log.debug("Fetching material usage data: {}", url);
-            
+
             try {
                 ResponseEntity<String> response = restTemplate.exchange(
                         url,
@@ -208,8 +313,8 @@ public class ServiceDetailsApiController {
                             response.getBody(),
                             new TypeReference<List<Map<String, Object>>>() {}
                     );
-                    
-                    log.debug("Retrieved {} material usage entries for service ID {}", 
+
+                    log.debug("Retrieved {} material usage entries for service ID {}",
                             materialUsages.size(), serviceId);
                     return materialUsages;
                 }
@@ -251,8 +356,8 @@ public class ServiceDetailsApiController {
                             response.getBody(),
                             new TypeReference<List<Map<String, Object>>>() {}
                     );
-                    
-                    log.debug("Retrieved {} service tracking entries for service ID {}", 
+
+                    log.debug("Retrieved {} service tracking entries for service ID {}",
                             trackingEntries.size(), serviceId);
                     return trackingEntries;
                 }
@@ -264,7 +369,7 @@ public class ServiceDetailsApiController {
             // Alternative endpoint for labor charges
             url = apiBaseUrl + "/labor-charges/service-request/" + serviceId;
             log.debug("Fetching labor charges: {}", url);
-            
+
             try {
                 ResponseEntity<String> response = restTemplate.exchange(
                         url,
@@ -278,27 +383,27 @@ public class ServiceDetailsApiController {
                             response.getBody(),
                             new TypeReference<List<Map<String, Object>>>() {}
                     );
-                    
+
                     // Convert labor charges to tracking format
                     List<Map<String, Object>> convertedEntries = new ArrayList<>();
                     for (Map<String, Object> charge : laborCharges) {
                         Map<String, Object> entry = new HashMap<>();
                         entry.put("trackingId", charge.get("chargeId"));
                         entry.put("workDescription", charge.get("description"));
-                        
+
                         // Convert hours to minutes
                         if (charge.containsKey("hours")) {
                             double hours = parseDouble(charge.get("hours"));
                             entry.put("laborMinutes", (int)(hours * 60));
                         }
-                        
+
                         entry.put("laborCost", charge.get("total"));
                         entry.put("status", "Completed");
-                        
+
                         convertedEntries.add(entry);
                     }
-                    
-                    log.debug("Converted {} labor charges to tracking entries for service ID {}", 
+
+                    log.debug("Converted {} labor charges to tracking entries for service ID {}",
                             convertedEntries.size(), serviceId);
                     return convertedEntries;
                 }
@@ -339,7 +444,7 @@ public class ServiceDetailsApiController {
                             response.getBody(),
                             new TypeReference<Map<String, Object>>() {}
                     );
-                    
+
                     log.debug("Retrieved invoice data for service ID {}", serviceId);
                     return invoice;
                 }
@@ -379,7 +484,7 @@ public class ServiceDetailsApiController {
                             response.getBody(),
                             new TypeReference<Map<String, Object>>() {}
                     );
-                    
+
                     log.debug("Retrieved payment data for service ID {}", serviceId);
                     return payment;
                 }
@@ -418,11 +523,11 @@ public class ServiceDetailsApiController {
      */
     private double parseDouble(Object value) {
         if (value == null) return 0.0;
-        
+
         if (value instanceof Number) {
             return ((Number) value).doubleValue();
         }
-        
+
         try {
             return Double.parseDouble(value.toString());
         } catch (Exception e) {
