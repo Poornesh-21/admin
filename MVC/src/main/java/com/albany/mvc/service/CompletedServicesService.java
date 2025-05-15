@@ -49,8 +49,18 @@ public class CompletedServicesService {
                         new TypeReference<List<Map<String, Object>>>() {}
                 );
 
+                // Debug logging for first item
+                if (!completedServices.isEmpty()) {
+                    log.debug("First service item before enhancement: {}", completedServices.get(0));
+                }
+
                 // Process and enhance each service to ensure all required fields are present
                 completedServices.forEach(this::enhanceServiceData);
+
+                // Debug logging for after enhancement
+                if (!completedServices.isEmpty()) {
+                    log.debug("First service item after enhancement: {}", completedServices.get(0));
+                }
 
                 log.debug("Fetched {} completed services", completedServices.size());
                 return completedServices;
@@ -68,6 +78,48 @@ public class CompletedServicesService {
      * Enhance service data with properly formatted fields
      */
     private void enhanceServiceData(Map<String, Object> service) {
+        // Debug log
+        log.debug("Enhancing service data for ID: {}", service.get("serviceId") != null ?
+                service.get("serviceId") : service.get("requestId"));
+
+        // Ensure consistent ID fields
+        ensureConsistentIdFields(service);
+
+        // Ensure vehicle information is complete
+        enhanceVehicleInfo(service);
+
+        // Ensure customer information is complete
+        enhanceCustomerInfo(service);
+
+        // Format dates for display
+        enhanceServiceDates(service);
+
+        // Ensure financial information is present
+        ensureFinancialData(service);
+
+        // Ensure service status flags are present
+        ensureServiceStatusFlags(service);
+    }
+
+    /**
+     * Ensure consistent ID fields (serviceId/requestId)
+     */
+    private void ensureConsistentIdFields(Map<String, Object> service) {
+        // Make sure we have both serviceId and requestId consistently
+        if (service.containsKey("serviceId") && !service.containsKey("requestId")) {
+            service.put("requestId", service.get("serviceId"));
+        } else if (service.containsKey("requestId") && !service.containsKey("serviceId")) {
+            service.put("serviceId", service.get("requestId"));
+        } else if (!service.containsKey("serviceId") && !service.containsKey("requestId")) {
+            // This shouldn't happen, but just in case
+            log.warn("Service missing both serviceId and requestId");
+        }
+    }
+
+    /**
+     * Ensure vehicle information is complete and consistent
+     */
+    private void enhanceVehicleInfo(Map<String, Object> service) {
         // Ensure vehicle name exists
         if (!service.containsKey("vehicleName") || service.get("vehicleName") == null) {
             String brand = getStringValue(service, "vehicleBrand");
@@ -79,40 +131,167 @@ public class CompletedServicesService {
             }
         }
 
-        // Normalize membership status
-        if (service.containsKey("membershipStatus")) {
-            String status = getStringValue(service, "membershipStatus");
-            if (status != null) {
-                status = status.trim();
-                service.put("membershipStatus", status.substring(0, 1).toUpperCase() +
-                        status.substring(1).toLowerCase());
+        // Ensure registration number is present
+        if (!service.containsKey("registrationNumber") || service.get("registrationNumber") == null) {
+            // Try different possible field names
+            for (String field : Arrays.asList("vehicleRegistration", "regNumber", "registration")) {
+                if (service.containsKey(field) && service.get(field) != null) {
+                    service.put("registrationNumber", service.get(field));
+                    break;
+                }
+            }
+
+            // If still not found, use placeholder
+            if (!service.containsKey("registrationNumber") || service.get("registrationNumber") == null) {
+                service.put("registrationNumber", "Unknown");
+            }
+        }
+
+        // Ensure vehicle category is normalized
+        if (service.containsKey("category")) {
+            String category = getStringValue(service, "category");
+            if (category != null) {
+                // Normalize category to capitalize first letter
+                category = category.trim();
+                service.put("category", category.substring(0, 1).toUpperCase() +
+                        category.substring(1).toLowerCase());
+            }
+        } else if (service.containsKey("vehicleType")) {
+            // If category missing but vehicleType present, use that
+            service.put("category", service.get("vehicleType"));
+        } else {
+            // Default category
+            service.put("category", "Vehicle");
+        }
+    }
+
+    /**
+     * Enhance customer information in service details
+     */
+    private void enhanceCustomerInfo(Map<String, Object> service) {
+        try {
+            // Extract customer name if missing
+            if (!service.containsKey("customerName") || service.get("customerName") == null) {
+                if (service.containsKey("customer") && service.get("customer") instanceof Map) {
+                    Map<String, Object> customer = (Map<String, Object>) service.get("customer");
+
+                    if (customer.containsKey("firstName") && customer.containsKey("lastName")) {
+                        String firstName = getStringValue(customer, "firstName");
+                        String lastName = getStringValue(customer, "lastName");
+                        if (firstName != null && lastName != null) {
+                            service.put("customerName", firstName + " " + lastName);
+                        }
+                    } else if (customer.containsKey("user") && customer.get("user") instanceof Map) {
+                        Map<String, Object> user = (Map<String, Object>) customer.get("user");
+                        if (user.containsKey("firstName") && user.containsKey("lastName")) {
+                            String firstName = getStringValue(user, "firstName");
+                            String lastName = getStringValue(user, "lastName");
+                            if (firstName != null && lastName != null) {
+                                service.put("customerName", firstName + " " + lastName);
+                            }
+                        }
+                    }
+                }
+
+                // If still no name found, set placeholder
+                if (!service.containsKey("customerName") || service.get("customerName") == null) {
+                    service.put("customerName", "Unknown Customer");
+                }
+            }
+
+            // Extract customer phone if missing
+            if (!service.containsKey("customerPhone") || service.get("customerPhone") == null) {
+                // Try to extract from nested customer data
+                if (service.containsKey("customer") && service.get("customer") instanceof Map) {
+                    Map<String, Object> customer = (Map<String, Object>) service.get("customer");
+                    if (customer.containsKey("phoneNumber")) {
+                        service.put("customerPhone", customer.get("phoneNumber"));
+                    } else if (customer.containsKey("user") && customer.get("user") instanceof Map) {
+                        Map<String, Object> user = (Map<String, Object>) customer.get("user");
+                        if (user.containsKey("phoneNumber")) {
+                            service.put("customerPhone", user.get("phoneNumber"));
+                        }
+                    }
+                }
+
+                // If still no phone found, set placeholder
+                if (!service.containsKey("customerPhone") || service.get("customerPhone") == null) {
+                    service.put("customerPhone", "Not available");
+                }
+            }
+
+            // Extract customer email if missing
+            if (!service.containsKey("customerEmail") || service.get("customerEmail") == null) {
+                // Try to extract from nested customer data
+                if (service.containsKey("customer") && service.get("customer") instanceof Map) {
+                    Map<String, Object> customer = (Map<String, Object>) service.get("customer");
+                    if (customer.containsKey("email")) {
+                        service.put("customerEmail", customer.get("email"));
+                    } else if (customer.containsKey("user") && customer.get("user") instanceof Map) {
+                        Map<String, Object> user = (Map<String, Object>) customer.get("user");
+                        if (user.containsKey("email")) {
+                            service.put("customerEmail", user.get("email"));
+                        }
+                    }
+                }
+
+                // If still no email found, set placeholder
+                if (!service.containsKey("customerEmail") || service.get("customerEmail") == null) {
+                    service.put("customerEmail", "Not available");
+                }
+            }
+
+            // Normalize membership status
+            if (service.containsKey("membershipStatus")) {
+                String status = getStringValue(service, "membershipStatus");
+                if (status != null) {
+                    status = status.trim();
+                    service.put("membershipStatus", status.substring(0, 1).toUpperCase() +
+                            status.substring(1).toLowerCase());
+                } else {
+                    service.put("membershipStatus", "Standard");
+                }
             } else {
                 service.put("membershipStatus", "Standard");
             }
-        } else {
-            service.put("membershipStatus", "Standard");
+        } catch (Exception e) {
+            log.error("Error enhancing customer info: {}", e.getMessage(), e);
+            // Set default values in case of error
+            service.putIfAbsent("customerName", "Unknown Customer");
+            service.putIfAbsent("customerPhone", "Not available");
+            service.putIfAbsent("customerEmail", "Not available");
+            service.putIfAbsent("membershipStatus", "Standard");
         }
+    }
 
-        // Extract customer phone if available
-        if (!service.containsKey("customerPhone") || service.get("customerPhone") == null) {
-            // Try to extract from nested customer data
-            if (service.containsKey("customer") && service.get("customer") instanceof Map) {
-                Map<String, Object> customer = (Map<String, Object>) service.get("customer");
-                if (customer.containsKey("phoneNumber")) {
-                    service.put("customerPhone", customer.get("phoneNumber"));
-                } else if (customer.containsKey("user") && customer.get("user") instanceof Map) {
-                    Map<String, Object> user = (Map<String, Object>) customer.get("user");
-                    if (user.containsKey("phoneNumber")) {
-                        service.put("customerPhone", user.get("phoneNumber"));
-                    }
+    /**
+     * Format and enhance date fields in the service map
+     */
+    private void enhanceServiceDates(Map<String, Object> service) {
+        try {
+            // List of date fields to format
+            List<String> dateFields = Arrays.asList("completedDate", "requestDate", "deliveryDate", "updatedAt");
+
+            // Process each date field
+            for (String fieldName : dateFields) {
+                formatDateField(service, fieldName);
+            }
+
+            // Ensure completedDate exists
+            if (!service.containsKey("completedDate") || service.get("completedDate") == null) {
+                // Try using updatedAt as fallback
+                if (service.containsKey("updatedAt") && service.get("updatedAt") != null) {
+                    service.put("completedDate", service.get("updatedAt"));
+                    formatDateField(service, "completedDate");
+                } else {
+                    // Last resort - use current date
+                    service.put("completedDate", LocalDate.now().toString());
+                    formatDateField(service, "completedDate");
                 }
             }
+        } catch (Exception e) {
+            log.error("Error enhancing service dates: {}", e.getMessage(), e);
         }
-
-        // Format dates if needed
-        formatDateField(service, "completedDate");
-        formatDateField(service, "requestDate");
-        formatDateField(service, "deliveryDate");
     }
 
     /**
@@ -132,6 +311,82 @@ public class CompletedServicesService {
             } catch (Exception e) {
                 log.warn("Error formatting date field {}: {}", fieldName, e.getMessage());
             }
+        }
+    }
+
+    /**
+     * Ensure financial data is present and consistent
+     */
+    private void ensureFinancialData(Map<String, Object> service) {
+        try {
+            // Ensure all financial fields have at least default values
+            service.putIfAbsent("materialsTotal", 0.0);
+            service.putIfAbsent("laborTotal", 0.0);
+
+            // Get values with safety checks
+            double materialsTotal = service.get("materialsTotal") instanceof Number ?
+                    ((Number) service.get("materialsTotal")).doubleValue() : 0.0;
+            double laborTotal = service.get("laborTotal") instanceof Number ?
+                    ((Number) service.get("laborTotal")).doubleValue() : 0.0;
+
+            // Calculate discount if premium
+            double discount = 0.0;
+            String membershipStatus = getStringValue(service, "membershipStatus");
+            if (membershipStatus != null && membershipStatus.toLowerCase().contains("premium")) {
+                // 20% discount on labor
+                discount = laborTotal * 0.2;
+                service.put("discount", discount);
+            }
+
+            // Calculate subtotal
+            double subtotal = materialsTotal + laborTotal - discount;
+            service.putIfAbsent("subtotal", subtotal);
+
+            // Calculate tax
+            double tax = subtotal * 0.18; // 18% GST
+            service.putIfAbsent("tax", tax);
+            service.putIfAbsent("gst", tax); // Alternative field name
+
+            // Calculate total cost
+            double totalCost = subtotal + tax;
+            service.putIfAbsent("totalCost", totalCost);
+
+            // Ensure consistency between different field names
+            if (service.containsKey("totalAmount") && !service.containsKey("totalCost")) {
+                service.put("totalCost", service.get("totalAmount"));
+            } else if (service.containsKey("totalCost") && !service.containsKey("totalAmount")) {
+                service.put("totalAmount", service.get("totalCost"));
+            }
+        } catch (Exception e) {
+            log.error("Error ensuring financial data: {}", e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Ensure service status flags are present
+     */
+    private void ensureServiceStatusFlags(Map<String, Object> service) {
+        try {
+            // Ensure service status flags have default values
+            service.putIfAbsent("hasBill", isServiceBillGenerated(getIntegerValue(service, "requestId")));
+            service.putIfAbsent("isPaid", isServicePaid(getIntegerValue(service, "requestId")));
+            service.putIfAbsent("hasInvoice", isInvoiceGenerated(getIntegerValue(service, "requestId")));
+            service.putIfAbsent("isDelivered", isVehicleDelivered(getIntegerValue(service, "requestId")));
+
+            // Ensure alternative field name consistency
+            if (service.containsKey("isPaid") && !service.containsKey("paid")) {
+                service.put("paid", service.get("isPaid"));
+            } else if (service.containsKey("paid") && !service.containsKey("isPaid")) {
+                service.put("isPaid", service.get("paid"));
+            }
+
+            if (service.containsKey("isDelivered") && !service.containsKey("delivered")) {
+                service.put("delivered", service.get("isDelivered"));
+            } else if (service.containsKey("delivered") && !service.containsKey("isDelivered")) {
+                service.put("isDelivered", service.get("delivered"));
+            }
+        } catch (Exception e) {
+            log.error("Error ensuring service status flags: {}", e.getMessage(), e);
         }
     }
 
@@ -157,10 +412,15 @@ public class CompletedServicesService {
                         new TypeReference<Map<String, Object>>() {}
                 );
 
-                // Enhance the service details with additional information
+                log.debug("Raw service details before enhancement: {}", serviceDetails);
+
+                // Apply the standard data enhancement first for consistency
+                enhanceServiceData(serviceDetails);
+
+                // Then apply additional enhancements specific to details view
                 enrichServiceDetails(serviceDetails);
 
-                log.debug("Fetched details for service ID: {}", serviceId);
+                log.debug("Enhanced service details: {}", serviceDetails);
                 return serviceDetails;
             } else {
                 log.warn("Unexpected response status: {}", response.getStatusCode());
@@ -178,29 +438,27 @@ public class CompletedServicesService {
     private void enrichServiceDetails(Map<String, Object> serviceDetails) {
         try {
             // Get service request ID
-            Integer requestId = (Integer) serviceDetails.get("requestId");
+            Integer requestId = getIntegerValue(serviceDetails, "requestId");
             if (requestId == null) return;
-
-            // Enhance customer contact information
-            enhanceCustomerInfo(serviceDetails);
 
             // Add materials info if not present
             if (!serviceDetails.containsKey("materials")) {
                 List<Map<String, Object>> materials = getMaterialsForService(requestId);
                 serviceDetails.put("materials", materials);
 
-                // Calculate materials total
-                double materialsTotal = materials.stream()
-                        .mapToDouble(m -> {
-                            double quantity = m.containsKey("quantity") ?
-                                    parseDoubleOrZero(m.get("quantity")) : 0;
-                            double unitPrice = m.containsKey("unitPrice") ?
-                                    parseDoubleOrZero(m.get("unitPrice")) : 0;
-                            return quantity * unitPrice;
-                        })
-                        .sum();
-
-                serviceDetails.put("materialsTotal", materialsTotal);
+                // Calculate materials total if not present
+                if (!serviceDetails.containsKey("materialsTotal")) {
+                    double materialsTotal = materials.stream()
+                            .mapToDouble(m -> {
+                                double quantity = m.containsKey("quantity") ?
+                                        parseDoubleOrZero(m.get("quantity")) : 0;
+                                double unitPrice = m.containsKey("unitPrice") ?
+                                        parseDoubleOrZero(m.get("unitPrice")) : 0;
+                                return quantity * unitPrice;
+                            })
+                            .sum();
+                    serviceDetails.put("materialsTotal", materialsTotal);
+                }
             }
 
             // Add labor charges if not present
@@ -208,217 +466,28 @@ public class CompletedServicesService {
                 List<Map<String, Object>> laborCharges = getLaborChargesForService(requestId);
                 serviceDetails.put("laborCharges", laborCharges);
 
-                // Calculate labor total
-                double laborTotal = laborCharges.stream()
-                        .mapToDouble(l -> l.containsKey("total") ?
-                                parseDoubleOrZero(l.get("total")) : 0)
-                        .sum();
-
-                serviceDetails.put("laborTotal", laborTotal);
-            }
-
-            // Calculate totals if not present
-            if (!serviceDetails.containsKey("subtotal")) {
-                double materialsTotal = serviceDetails.containsKey("materialsTotal") ?
-                        parseDoubleOrZero(serviceDetails.get("materialsTotal")) : 0;
-                double laborTotal = serviceDetails.containsKey("laborTotal") ?
-                        parseDoubleOrZero(serviceDetails.get("laborTotal")) : 0;
-
-                // Apply premium discount if applicable
-                String membershipStatus = getStringValue(serviceDetails, "membershipStatus");
-                if (membershipStatus != null && membershipStatus.toLowerCase().contains("premium")) {
-                    // 20% discount on labor
-                    double discount = laborTotal * 0.2;
-                    serviceDetails.put("discount", discount);
-                    serviceDetails.put("isPremium", true);
-                    double discountedLabor = laborTotal - discount;
-                    serviceDetails.put("discountedLaborTotal", discountedLabor);
-                    double subtotal = materialsTotal + discountedLabor;
-                    serviceDetails.put("subtotal", subtotal);
-                } else {
-                    serviceDetails.put("isPremium", false);
-                    double subtotal = materialsTotal + laborTotal;
-                    serviceDetails.put("subtotal", subtotal);
+                // Calculate labor total if not present
+                if (!serviceDetails.containsKey("laborTotal")) {
+                    double laborTotal = laborCharges.stream()
+                            .mapToDouble(l -> l.containsKey("total") ?
+                                    parseDoubleOrZero(l.get("total")) : 0)
+                            .sum();
+                    serviceDetails.put("laborTotal", laborTotal);
                 }
-
-                // Get subtotal
-                double subtotal = serviceDetails.containsKey("subtotal") ?
-                        parseDoubleOrZero(serviceDetails.get("subtotal")) :
-                        materialsTotal + laborTotal;
-
-                // Calculate GST (18%)
-                double gst = subtotal * 0.18;
-                serviceDetails.put("gst", gst);
-
-                // Calculate total cost
-                double totalCost = subtotal + gst;
-                serviceDetails.put("totalCost", totalCost);
             }
 
-            // Set workflow status flags if not present
-            serviceDetails.putIfAbsent("hasBill", isServiceBillGenerated(requestId));
-            serviceDetails.putIfAbsent("isPaid", isServicePaid(requestId));
-            serviceDetails.putIfAbsent("hasInvoice", isInvoiceGenerated(requestId));
-            serviceDetails.putIfAbsent("isDelivered", isVehicleDelivered(requestId));
+            // Make sure service advisor name is present
+            if (!serviceDetails.containsKey("serviceAdvisorName") || serviceDetails.get("serviceAdvisorName") == null) {
+                serviceDetails.put("serviceAdvisorName", "Not assigned");
+            }
 
-            // Enhance and normalize vehicle info
-            enhanceVehicleInfo(serviceDetails);
-
-            // Format dates
-            enhanceServiceDates(serviceDetails);
+            // Make sure service type is present
+            if (!serviceDetails.containsKey("serviceType") || serviceDetails.get("serviceType") == null) {
+                serviceDetails.put("serviceType", "General Service");
+            }
 
         } catch (Exception e) {
             log.error("Error enriching service details: {}", e.getMessage(), e);
-        }
-    }
-
-    /**
-     * Enhance customer information in service details
-     */
-    private void enhanceCustomerInfo(Map<String, Object> serviceDetails) {
-        try {
-            // Extract customer phone if available
-            if (!serviceDetails.containsKey("customerPhone") || serviceDetails.get("customerPhone") == null) {
-                // Try to extract from nested customer data
-                if (serviceDetails.containsKey("customer") && serviceDetails.get("customer") instanceof Map) {
-                    Map<String, Object> customer = (Map<String, Object>) serviceDetails.get("customer");
-                    if (customer.containsKey("phoneNumber")) {
-                        serviceDetails.put("customerPhone", customer.get("phoneNumber"));
-                    } else if (customer.containsKey("user") && customer.get("user") instanceof Map) {
-                        Map<String, Object> user = (Map<String, Object>) customer.get("user");
-                        if (user.containsKey("phoneNumber")) {
-                            serviceDetails.put("customerPhone", user.get("phoneNumber"));
-                        }
-                    }
-                }
-            }
-
-            // If unable to find phone, create a placeholder
-            if (!serviceDetails.containsKey("customerPhone") || serviceDetails.get("customerPhone") == null) {
-                serviceDetails.put("customerPhone", "Not available");
-            }
-
-            // Format customer name if available
-            if (!serviceDetails.containsKey("customerName") || serviceDetails.get("customerName") == null) {
-                if (serviceDetails.containsKey("customer") && serviceDetails.get("customer") instanceof Map) {
-                    Map<String, Object> customer = (Map<String, Object>) serviceDetails.get("customer");
-
-                    if (customer.containsKey("firstName") && customer.containsKey("lastName")) {
-                        String firstName = getStringValue(customer, "firstName");
-                        String lastName = getStringValue(customer, "lastName");
-                        if (firstName != null && lastName != null) {
-                            serviceDetails.put("customerName", firstName + " " + lastName);
-                        }
-                    } else if (customer.containsKey("user") && customer.get("user") instanceof Map) {
-                        Map<String, Object> user = (Map<String, Object>) customer.get("user");
-                        if (user.containsKey("firstName") && user.containsKey("lastName")) {
-                            String firstName = getStringValue(user, "firstName");
-                            String lastName = getStringValue(user, "lastName");
-                            if (firstName != null && lastName != null) {
-                                serviceDetails.put("customerName", firstName + " " + lastName);
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Normalize membership status
-            if (serviceDetails.containsKey("membershipStatus")) {
-                String status = getStringValue(serviceDetails, "membershipStatus");
-                if (status != null) {
-                    status = status.trim();
-                    serviceDetails.put("membershipStatus", status.substring(0, 1).toUpperCase() +
-                            status.substring(1).toLowerCase());
-                } else {
-                    serviceDetails.put("membershipStatus", "Standard");
-                }
-            } else {
-                serviceDetails.put("membershipStatus", "Standard");
-            }
-        } catch (Exception e) {
-            log.error("Error enhancing customer info: {}", e.getMessage(), e);
-        }
-    }
-
-    /**
-     * Enhance vehicle information in service details
-     */
-    private void enhanceVehicleInfo(Map<String, Object> serviceDetails) {
-        try {
-            // Ensure vehicle name exists
-            if (!serviceDetails.containsKey("vehicleName") || serviceDetails.get("vehicleName") == null) {
-                String brand = getStringValue(serviceDetails, "vehicleBrand");
-                String model = getStringValue(serviceDetails, "vehicleModel");
-                if (brand != null && model != null) {
-                    serviceDetails.put("vehicleName", brand + " " + model);
-                } else {
-                    serviceDetails.put("vehicleName", "Unknown Vehicle");
-                }
-            }
-
-            // Ensure vehicle category is normalized
-            if (serviceDetails.containsKey("category")) {
-                String category = getStringValue(serviceDetails, "category");
-                if (category != null) {
-                    // Normalize category to capitalize first letter
-                    category = category.trim();
-                    serviceDetails.put("category", category.substring(0, 1).toUpperCase() +
-                            category.substring(1).toLowerCase());
-                }
-            }
-        } catch (Exception e) {
-            log.error("Error enhancing vehicle info: {}", e.getMessage(), e);
-        }
-    }
-
-    /**
-     * Enhance service dates in service details
-     */
-    private void enhanceServiceDates(Map<String, Object> serviceDetails) {
-        try {
-            // Format request date
-            if (serviceDetails.containsKey("requestDate") && serviceDetails.get("requestDate") != null) {
-                Object dateObj = serviceDetails.get("requestDate");
-                if (dateObj instanceof String) {
-                    try {
-                        LocalDate date = LocalDate.parse((String) dateObj);
-                        serviceDetails.put("formattedRequestDate",
-                                date.format(DateTimeFormatter.ofPattern("MMM dd, yyyy")));
-                    } catch (Exception e) {
-                        log.warn("Error parsing request date: {}", e.getMessage());
-                    }
-                }
-            }
-
-            // Format completed date
-            if (serviceDetails.containsKey("completedDate") && serviceDetails.get("completedDate") != null) {
-                Object dateObj = serviceDetails.get("completedDate");
-                if (dateObj instanceof String) {
-                    try {
-                        LocalDate date = LocalDate.parse((String) dateObj);
-                        serviceDetails.put("formattedCompletedDate",
-                                date.format(DateTimeFormatter.ofPattern("MMM dd, yyyy")));
-                    } catch (Exception e) {
-                        log.warn("Error parsing completed date: {}", e.getMessage());
-                    }
-                }
-            }
-
-            // Format delivery date
-            if (serviceDetails.containsKey("deliveryDate") && serviceDetails.get("deliveryDate") != null) {
-                Object dateObj = serviceDetails.get("deliveryDate");
-                if (dateObj instanceof String) {
-                    try {
-                        LocalDate date = LocalDate.parse((String) dateObj);
-                        serviceDetails.put("formattedDeliveryDate",
-                                date.format(DateTimeFormatter.ofPattern("MMM dd, yyyy")));
-                    } catch (Exception e) {
-                        log.warn("Error parsing delivery date: {}", e.getMessage());
-                    }
-                }
-            }
-        } catch (Exception e) {
-            log.error("Error enhancing service dates: {}", e.getMessage(), e);
         }
     }
 
@@ -433,21 +502,39 @@ public class CompletedServicesService {
     }
 
     /**
+     * Get an integer value from a map safely
+     */
+    private Integer getIntegerValue(Map<String, Object> map, String key) {
+        if (map != null && map.containsKey(key) && map.get(key) != null) {
+            if (map.get(key) instanceof Integer) {
+                return (Integer) map.get(key);
+            } else if (map.get(key) instanceof Number) {
+                return ((Number) map.get(key)).intValue();
+            } else if (map.get(key) instanceof String) {
+                try {
+                    return Integer.parseInt((String) map.get(key));
+                } catch (NumberFormatException e) {
+                    return null;
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
      * Get materials used for a service
      */
     private List<Map<String, Object>> getMaterialsForService(Integer requestId) {
         try {
-            // In a production implementation, this would call the API to get real data
+            log.debug("Fetching materials for service ID: {}", requestId);
 
-            // Make an API call to get materials
-            String token = "YOUR_TOKEN"; // You would need to have a proper token here
-            HttpHeaders headers = createAuthHeaders(token);
-            HttpEntity<Void> entity = new HttpEntity<>(headers);
-
-            // This URL would need to be adjusted to match your API
-            String url = apiBaseUrl + "/materials/service/" + requestId;
+            // API call to get materials (actual implementation)
+            String url = apiBaseUrl + "/materials/service-request/" + requestId;
 
             try {
+                HttpHeaders headers = createAuthHeaders(null); // Use placeholder token
+                HttpEntity<Void> entity = new HttpEntity<>(headers);
+
                 ResponseEntity<String> response = restTemplate.exchange(
                         url,
                         HttpMethod.GET,
@@ -466,7 +553,7 @@ public class CompletedServicesService {
                 // Fall back to placeholder data
             }
 
-            // Placeholder data for illustration purposes
+            // Return placeholder data if API call fails
             return new ArrayList<>();
         } catch (Exception e) {
             log.error("Error getting materials for service: {}", e.getMessage(), e);
@@ -479,17 +566,15 @@ public class CompletedServicesService {
      */
     private List<Map<String, Object>> getLaborChargesForService(Integer requestId) {
         try {
-            // In a production implementation, this would call the API to get real data
+            log.debug("Fetching labor charges for service ID: {}", requestId);
 
-            // Make an API call to get labor charges
-            String token = "YOUR_TOKEN"; // You would need to have a proper token here
-            HttpHeaders headers = createAuthHeaders(token);
-            HttpEntity<Void> entity = new HttpEntity<>(headers);
-
-            // This URL would need to be adjusted to match your API
-            String url = apiBaseUrl + "/labor/service/" + requestId;
+            // API call to get labor charges (actual implementation)
+            String url = apiBaseUrl + "/labor/service-request/" + requestId;
 
             try {
+                HttpHeaders headers = createAuthHeaders(null); // Use placeholder token
+                HttpEntity<Void> entity = new HttpEntity<>(headers);
+
                 ResponseEntity<String> response = restTemplate.exchange(
                         url,
                         HttpMethod.GET,
@@ -508,7 +593,7 @@ public class CompletedServicesService {
                 // Fall back to placeholder data
             }
 
-            // Placeholder data for illustration purposes
+            // Return placeholder data if API call fails
             return new ArrayList<>();
         } catch (Exception e) {
             log.error("Error getting labor charges for service: {}", e.getMessage(), e);
@@ -516,7 +601,7 @@ public class CompletedServicesService {
         }
     }
 
-    // Additional methods for service status checks
+    // Additional methods for service status checks with default implementations
     private boolean isServiceBillGenerated(Integer requestId) {
         // In a real implementation, this would check the actual status
         // For now, return true as a placeholder
@@ -630,36 +715,6 @@ public class CompletedServicesService {
         } catch (Exception e) {
             log.error("Error generating invoice: {}", e.getMessage(), e);
             return Collections.singletonMap("error", "Failed to generate invoice: " + e.getMessage());
-        }
-    }
-
-    /**
-     * Download invoice PDF
-     */
-    public byte[] downloadInvoice(Integer serviceId, String token) {
-        try {
-            log.info("Downloading invoice for service ID: {}", serviceId);
-            HttpHeaders headers = createAuthHeaders(token);
-
-            HttpEntity<Void> entity = new HttpEntity<>(headers);
-
-            ResponseEntity<byte[]> response = restTemplate.exchange(
-                    apiBaseUrl + "/invoices/service-request/" + serviceId + "/download",
-                    HttpMethod.GET,
-                    entity,
-                    byte[].class
-            );
-
-            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
-                log.debug("Successfully downloaded invoice PDF for service ID: {}", serviceId);
-                return response.getBody();
-            } else {
-                log.warn("Unexpected response status: {}", response.getStatusCode());
-                return new byte[0];
-            }
-        } catch (Exception e) {
-            log.error("Error downloading invoice: {}", e.getMessage(), e);
-            return new byte[0];
         }
     }
 

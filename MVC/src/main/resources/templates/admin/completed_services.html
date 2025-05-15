@@ -2660,88 +2660,252 @@
         // Add data rows
         for (let i = startIdx; i < endIdx; i++) {
             const service = completedServices[i];
-
-            const row = document.createElement('tr');
-            row.classList.add('active-page');
-            row.dataset.serviceId = service.serviceId;
-
-            row.innerHTML = `
-            <td>REQ-${service.serviceId}</td>
-            <td>
-                <div class="vehicle-info">
-                    <div class="vehicle-icon">
-                        <i class="${service.category === 'Car' ? 'fas fa-car' : service.category === 'Bike' ? 'fas fa-motorcycle' : 'fas fa-truck'}"></i>
-                    </div>
-                    <div class="vehicle-details">
-                        <h5>${service.vehicleName}</h5>
-                        <p>${service.registrationNumber}</p>
-                    </div>
-                </div>
-            </td>
-            <td>
-                <div class="person-info">
-                    <div class="person-details">
-                        <h5>${service.customerName}</h5>
-                        <p>
-                            <i class="fas fa-envelope me-1 text-muted"></i> ${service.customerEmail || 'No email provided'}<br>
-                            <i class="fas fa-phone me-1 text-muted"></i> ${service.customerPhone || 'No phone provided'}
-                        </p>
-                    </div>
-                </div>
-            </td>
-            <td>
-                <span class="membership-badge ${service.membershipStatus?.toLowerCase() === 'premium' ? 'membership-premium' : 'membership-standard'}">
-                    ${service.membershipStatus || 'Standard'}
-                </span>
-            </td>
-            <td>${service.serviceType || 'General Service'}</td>
-            <td>${formatDate(service.completedDate)}</td>
-            <td>${formatCurrency(service.totalCost || 0)}</td>
-            <td>
-                ${service.hasInvoice ?
-                `<span class="status-badge status-completed">
-                        <i class="fas fa-check-circle"></i> Generated
-                    </span>` :
-                `<span class="status-badge status-pending">
-                        <i class="fas fa-clock"></i> Pending
-                    </span>`
-            }
-            </td>
-            <td>
-                <div class="table-actions-cell">
-                    <button class="btn-table-action" onclick="viewServiceDetails(${service.serviceId})">
-                        <i class="fas fa-eye"></i>
-                    </button>
-                    ${service.hasInvoice ?
-                `<button class="btn-table-action success" onclick="downloadInvoiceById(${service.serviceId})">
-                            <i class="fas fa-file-download"></i>
-                        </button>` : ''
-            }
-                </div>
-            </td>
-        `;
-
+            const row = createServiceRow(service);
             tableBody.appendChild(row);
         }
     }
 
-    // Format date
+    // Create a service row
+    function createServiceRow(service) {
+        const row = document.createElement('tr');
+        row.classList.add('active-page');
+        row.dataset.serviceId = service.serviceId || service.requestId;
+
+        // Extract and format data
+        const serviceId = service.serviceId || service.requestId;
+        const vehicleName = service.vehicleName || 'Unknown Vehicle';
+        const registrationNumber = service.registrationNumber || 'N/A';
+
+        // Determine vehicle category and icon
+        const category = service.category || 'Car';
+        const categoryIcon = category.toLowerCase() === 'bike' ? 'fas fa-motorcycle' :
+            category.toLowerCase() === 'truck' ? 'fas fa-truck' : 'fas fa-car';
+
+        // Format customer details
+        const customerName = formatPersonName(service.customerName || 'Not available');
+
+        // Handle email with proper formatting
+        let email = null;
+        if (service.customerEmail) {
+            email = service.customerEmail;
+        } else if (service.email) {
+            email = service.email;
+        } else if (service.customer && service.customer.email) {
+            email = service.customer.email;
+        }
+        const customerEmail = email || 'No email provided';
+
+        // Handle phone with proper formatting
+        let phone = null;
+        if (service.customerPhone) {
+            phone = service.customerPhone;
+        } else if (service.phone) {
+            phone = service.phone;
+        } else if (service.customer && service.customer.phoneNumber) {
+            phone = service.customer.phoneNumber;
+        }
+        const customerPhone = formatPhoneNumber(phone) || 'No phone provided';
+
+        // Format membership status
+        const membershipStatus = formatMembershipStatus(service.membershipStatus || 'Standard');
+
+        // Format service type
+        const serviceType = capitalizeEachWord(service.serviceType || 'General Service');
+
+        // Format date
+        const completedDate = formatDate(service.completedDate || service.completionDate || service.updatedAt);
+
+        // Format amount
+        const totalAmount = formatCurrency(service.totalCost || service.totalAmount || 0);
+
+        // Check invoice status
+        const hasInvoice = service.hasInvoice || false;
+
+        row.innerHTML = `
+        <td>REQ-${serviceId}</td>
+        <td>
+            <div class="vehicle-info">
+                <div class="vehicle-icon">
+                    <i class="${categoryIcon}"></i>
+                </div>
+                <div class="vehicle-details">
+                    <h5>${vehicleName}</h5>
+                    <p>${registrationNumber}</p>
+                </div>
+            </div>
+        </td>
+        <td>
+            <div class="person-info">
+                <div class="person-details">
+                    <h5>${customerName}</h5>
+                    <p>
+                        <i class="fas fa-envelope me-1 text-muted"></i> ${customerEmail}<br>
+                        <i class="fas fa-phone me-1 text-muted"></i> ${customerPhone}
+                    </p>
+                </div>
+            </div>
+        </td>
+        <td>
+            <span class="membership-badge ${membershipStatus.toLowerCase() === 'premium' ? 'membership-premium' : 'membership-standard'}">
+                ${membershipStatus}
+            </span>
+        </td>
+        <td>${serviceType}</td>
+        <td>${completedDate}</td>
+        <td>${totalAmount}</td>
+        <td>
+            ${hasInvoice ?
+            `<span class="status-badge status-completed">
+                    <i class="fas fa-check-circle"></i> Generated
+                </span>` :
+            `<span class="status-badge status-pending">
+                    <i class="fas fa-clock"></i> Pending
+                </span>`
+        }
+        </td>
+        <td>
+            <div class="table-actions-cell">
+                <button class="btn-table-action" onclick="viewServiceDetails(${serviceId})">
+                    <i class="fas fa-eye"></i>
+                </button>
+                ${hasInvoice ?
+            `<button class="btn-table-action success" onclick="downloadInvoiceById(${serviceId})">
+                        <i class="fas fa-file-download"></i>
+                    </button>` : ''
+        }
+            </div>
+        </td>
+    `;
+
+        return row;
+    }
+
+    // Format membership status with proper capitalization
+    function formatMembershipStatus(status) {
+        if (!status) return 'Standard';
+
+        // Convert to string and trim
+        status = String(status).trim();
+
+        // Handle empty string
+        if (status === '') return 'Standard';
+
+        // Make first letter uppercase and rest lowercase
+        return status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
+    }
+
+    // Format a person's name properly
+    function formatPersonName(name) {
+        if (!name) return 'Not available';
+
+        // If it's "Not assigned" or similar, return as is
+        if (name === 'Not assigned' || name === 'Not available') return name;
+
+        // Convert to string and trim
+        name = String(name).trim();
+
+        // Handle empty string
+        if (name === '') return 'Not available';
+
+        // Split by spaces and capitalize each part
+        return name.split(' ')
+            .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+            .join(' ');
+    }
+
+    // Format phone number
+    function formatPhoneNumber(phone) {
+        if (!phone) return '';
+
+        // Convert to string and remove non-digit characters
+        phone = String(phone).trim();
+
+        // Check if it's a valid phone number format
+        if (phone === '' || phone === 'Not available' || phone === 'No phone provided') {
+            return 'Not available';
+        }
+
+        // For Indian phone numbers: if it's a 10-digit number, format as +91 XXXXX XXXXX
+        if (/^\d{10}$/.test(phone.replace(/\D/g, ''))) {
+            const digits = phone.replace(/\D/g, '');
+            return `+91 ${digits.substring(0, 5)} ${digits.substring(5)}`;
+        }
+
+        // Otherwise, return as is
+        return phone;
+    }
+
+    // Capitalize first letter of each word
+    function capitalizeEachWord(text) {
+        if (!text) return '';
+
+        // Convert to string and trim
+        text = String(text).trim();
+
+        // Split by spaces and capitalize first letter of each word
+        return text.split(' ')
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+            .join(' ');
+    }
+
+    // Capitalize only first letter
+    function capitalizeFirstLetter(text) {
+        if (!text) return '';
+
+        // Convert to string and trim
+        text = String(text).trim();
+
+        // Capitalize first letter only
+        return text.charAt(0).toUpperCase() + text.slice(1).toLowerCase();
+    }
+
+    // Format date with better error handling
     function formatDate(dateStr) {
         if (!dateStr) return 'N/A';
 
-        const date = new Date(dateStr);
-        if (isNaN(date.getTime())) return dateStr;
+        try {
+            // Handle different date formats
+            let date;
+            if (typeof dateStr === 'string') {
+                // Try parsing ISO format
+                date = new Date(dateStr);
+            } else if (dateStr instanceof Date) {
+                date = dateStr;
+            } else {
+                return dateStr.toString();
+            }
 
-        const options = { year: 'numeric', month: 'short', day: 'numeric' };
-        return date.toLocaleDateString('en-US', options);
+            if (isNaN(date.getTime())) return dateStr;
+
+            const options = { year: 'numeric', month: 'short', day: 'numeric' };
+            return date.toLocaleDateString('en-US', options);
+        } catch (e) {
+            console.error("Error formatting date:", e);
+            return dateStr || 'N/A';
+        }
     }
 
-    // Format currency
+    // Format currency with better error handling
     function formatCurrency(amount) {
-        if (amount === null || amount === undefined) return '₹0.00';
+        try {
+            // Handle various input types
+            if (amount === null || amount === undefined) return '₹0.00';
 
-        return '₹' + parseFloat(amount).toFixed(2)
-            .replace(/\d(?=(\d{3})+\.)/g, '$&,');
+            // Convert to number if it's a string
+            if (typeof amount === 'string') {
+                // Remove currency symbol and commas
+                amount = amount.replace(/[₹,]/g, '');
+            }
+
+            // Convert to a number and format
+            const numAmount = parseFloat(amount);
+            if (isNaN(numAmount)) return '₹0.00';
+
+            return '₹' + numAmount.toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,');
+        } catch (e) {
+            console.error("Error formatting currency:", e);
+            return '₹0.00';
+        }
     }
 
     // View service details
@@ -2759,7 +2923,28 @@
         // Show spinner
         showSpinner();
 
-        // Fetch service details
+        // Get the table row data first - this contains correctly formatted data
+        const tableRow = document.querySelector(`tr[data-service-id="${serviceId}"]`);
+        let tableData = null;
+
+        if (tableRow) {
+            // Extract data from the table row to use as fallback
+            tableData = {
+                serviceId: serviceId,
+                vehicleName: tableRow.querySelector('.vehicle-details h5')?.textContent?.trim() || '',
+                registrationNumber: tableRow.querySelector('.vehicle-details p')?.textContent?.trim() || '',
+                customerName: tableRow.querySelector('.person-details h5')?.textContent?.trim() || '',
+                customerEmail: tableRow.querySelector('.person-details p')?.textContent?.includes('@') ?
+                    tableRow.querySelector('.person-details p')?.textContent?.trim() : '',
+                membershipStatus: tableRow.querySelector('.membership-badge')?.textContent?.trim() || 'Standard',
+                serviceType: tableRow.cells[4]?.textContent?.trim() || '',
+                completedDate: tableRow.cells[5]?.textContent?.trim() || '',
+                totalCost: tableRow.cells[6]?.textContent?.replace(/[₹,]/g, '') || '0'
+            };
+            console.log("Extracted table data:", tableData);
+        }
+
+        // Fetch service details from API
         fetch(`/admin/api/vehicle-tracking/service-request/${serviceId}?token=${encodeURIComponent(token)}`)
             .then(response => {
                 if (!response.ok) {
@@ -2768,8 +2953,14 @@
                 return response.json();
             })
             .then(data => {
+                // Debug logging
+                console.log("API RESPONSE:", data);
+
+                // Merge API data with table data (preferring API data where available)
+                const mergedData = mergeServiceData(data, tableData);
+
                 hideSpinner();
-                populateServiceDetailsModal(data);
+                populateServiceDetailsModal(mergedData);
 
                 // Show the modal
                 new bootstrap.Modal(document.getElementById('viewServiceDetailsModal')).show();
@@ -2777,51 +2968,133 @@
             .catch(error => {
                 hideSpinner();
                 console.error('Error fetching service details:', error);
-                showToast('Error', 'Failed to fetch service details: ' + error.message, 'error');
+
+                // If API fails but we have table data, use that
+                if (tableData) {
+                    console.log("Using table data as fallback");
+                    populateServiceDetailsModal(tableData);
+                    new bootstrap.Modal(document.getElementById('viewServiceDetailsModal')).show();
+                } else {
+                    showToast('Error', 'Failed to fetch service details: ' + error.message, 'error');
+                }
             });
+    }
+
+    // Helper function to merge API data with table data
+    function mergeServiceData(apiData, tableData) {
+        if (!tableData) return apiData;
+
+        const merged = {...apiData};
+
+        // Only use table data as fallback if API data is missing
+        if (!merged.vehicleName && tableData.vehicleName) merged.vehicleName = tableData.vehicleName;
+        if (!merged.registrationNumber && tableData.registrationNumber) merged.registrationNumber = tableData.registrationNumber;
+        if (!merged.customerName && tableData.customerName) merged.customerName = tableData.customerName;
+        if (!merged.customerEmail && tableData.customerEmail) merged.customerEmail = tableData.customerEmail;
+        if (!merged.membershipStatus && tableData.membershipStatus) merged.membershipStatus = tableData.membershipStatus;
+        if (!merged.serviceType && tableData.serviceType) merged.serviceType = tableData.serviceType;
+        if (!merged.completedDate && tableData.completedDate) merged.completedDate = tableData.completedDate;
+        if ((!merged.totalCost && !merged.totalAmount) && tableData.totalCost) {
+            merged.totalCost = tableData.totalCost;
+        }
+
+        // Ensure vehicle category is set
+        if (!merged.category) {
+            merged.category = merged.vehicleType || (merged.vehicleName?.includes('Bike') ? 'Bike' :
+                merged.vehicleName?.includes('Truck') ? 'Truck' : 'Car');
+        }
+
+        return merged;
     }
 
     // Populate service details modal
     function populateServiceDetailsModal(service) {
+        console.log("Populating modal with:", service);
+
         // Basic info
-        document.getElementById('viewServiceId').textContent = 'REQ-' + service.requestId;
+        document.getElementById('viewServiceId').textContent = 'REQ-' + (service.requestId || service.serviceId || '');
+
+        // Status
         document.getElementById('viewStatus').innerHTML = `
         <span class="status-badge status-completed">
-            <i class="fas fa-check-circle"></i> Completed
+            <i class="fas fa-check-circle"></i> ${service.status || 'Completed'}
         </span>
     `;
-        document.getElementById('viewCompletionDate').textContent = service.formattedCompletedDate || formatDate(service.completedDate || service.updatedAt);
+
+        // Completion Date
+        let completionDate = service.formattedCompletedDate || service.completedDate || service.completionDate || 'N/A';
+        if (completionDate !== 'N/A' && typeof completionDate !== 'string') {
+            completionDate = formatDate(completionDate);
+        }
+        document.getElementById('viewCompletionDate').textContent = completionDate;
 
         // Vehicle info
-        document.getElementById('viewVehicleName').textContent = service.vehicleName || (service.vehicleBrand + ' ' + service.vehicleModel);
-        document.getElementById('viewRegistrationNumber').textContent = service.registrationNumber;
-        document.getElementById('viewVehicleCategory').textContent = service.category || service.vehicleType;
+        document.getElementById('viewVehicleName').textContent = service.vehicleName || 'Unknown Vehicle';
+        document.getElementById('viewRegistrationNumber').textContent = service.registrationNumber || 'N/A';
+        document.getElementById('viewVehicleCategory').textContent = capitalizeFirstLetter(service.category || 'Car');
 
-        // Customer info
-        document.getElementById('viewCustomerName').textContent = service.customerName;
+        // Customer info - Properly format customer name with capitalization
+        const customerName = service.customerName || 'Not available';
+        document.getElementById('viewCustomerName').textContent = formatPersonName(customerName);
 
-        // Update to show both phone and email
+        // Contact info - Carefully extract and format email and phone
         const customerContactEl = document.getElementById('viewCustomerContact');
         if (customerContactEl) {
-            let contactInfo = '';
+            let contactHtml = '';
+
+            // Handle phone number with proper formatting
+            let phoneNumber = null;
             if (service.customerPhone) {
-                contactInfo += `<i class="fas fa-phone me-1"></i> ${service.customerPhone}<br>`;
+                phoneNumber = service.customerPhone;
+            } else if (service.phone) {
+                phoneNumber = service.phone;
+            } else if (service.customer && service.customer.phoneNumber) {
+                phoneNumber = service.customer.phoneNumber;
             }
+
+            if (phoneNumber) {
+                // Format phone number if needed
+                phoneNumber = formatPhoneNumber(phoneNumber);
+                contactHtml += `<i class="fas fa-phone me-1"></i> ${phoneNumber}<br>`;
+            }
+
+            // Handle email with proper formatting
+            let email = null;
             if (service.customerEmail) {
-                contactInfo += `<i class="fas fa-envelope me-1"></i> ${service.customerEmail}`;
+                email = service.customerEmail;
+            } else if (service.email) {
+                email = service.email;
+            } else if (service.customer && service.customer.email) {
+                email = service.customer.email;
             }
-            customerContactEl.innerHTML = contactInfo || 'No contact information';
+
+            if (email) {
+                // Format and validate email
+                email = email.trim().toLowerCase();
+                contactHtml += `<i class="fas fa-envelope me-1"></i> ${email}`;
+            }
+
+            customerContactEl.innerHTML = contactHtml || 'No contact information available';
         }
 
-        document.getElementById('viewMembership').textContent = service.membershipStatus || 'Standard';
+        // Membership - Ensure proper capitalization
+        const membership = service.membershipStatus || 'Standard';
+        document.getElementById('viewMembership').textContent = formatMembershipStatus(membership);
 
-        // Service info
-        document.getElementById('viewServiceType').textContent = service.serviceType || 'General Service';
-        document.getElementById('viewServiceAdvisor').textContent = service.serviceAdvisorName || 'Not assigned';
-        document.getElementById('viewTotalAmount').textContent = formatCurrency(service.totalCost);
+        // Service info - Properly format service type and advisor name
+        document.getElementById('viewServiceType').textContent = capitalizeEachWord(service.serviceType || 'General Service');
+
+        // Format service advisor name properly
+        const advisorName = service.serviceAdvisorName || 'Not assigned';
+        document.getElementById('viewServiceAdvisor').textContent = formatPersonName(advisorName);
+
+        // Total amount
+        const amount = service.totalCost || service.totalAmount || 0;
+        document.getElementById('viewTotalAmount').textContent = formatCurrency(amount);
 
         // Service description
-        document.getElementById('viewServiceDescription').textContent = service.additionalDescription || service.serviceDescription || 'No description provided.';
+        document.getElementById('viewServiceDescription').textContent =
+            service.additionalDescription || service.serviceDescription || 'No description provided.';
 
         // Materials and labor tables
         populateMaterialsTable(service.materials || []);
@@ -2844,7 +3117,7 @@
 
         let materialsTotalCost = 0;
 
-        if (materials.length === 0) {
+        if (!materials || materials.length === 0) {
             const row = document.createElement('tr');
             row.innerHTML = `
             <td colspan="4" class="text-center">No materials recorded for this service.</td>
@@ -2854,13 +3127,18 @@
             materials.forEach(material => {
                 const row = document.createElement('tr');
 
-                const totalItemCost = (material.quantity || 0) * (material.unitPrice || 0);
-                materialsTotalCost += totalItemCost;
+                // Safely get values with fallbacks
+                const name = material.name || 'Unknown Item';
+                const quantity = parseFloat(material.quantity || 1);
+                const unitPrice = parseFloat(material.unitPrice || 0);
+                const totalItemCost = material.total || (quantity * unitPrice);
+
+                materialsTotalCost += parseFloat(totalItemCost);
 
                 row.innerHTML = `
-                <td>${material.name}</td>
-                <td>${material.quantity}</td>
-                <td>${formatCurrency(material.unitPrice)}</td>
+                <td>${name}</td>
+                <td>${quantity}</td>
+                <td>${formatCurrency(unitPrice)}</td>
                 <td>${formatCurrency(totalItemCost)}</td>
             `;
 
@@ -2887,7 +3165,7 @@
 
         let laborTotalCost = 0;
 
-        if (laborCharges.length === 0) {
+        if (!laborCharges || laborCharges.length === 0) {
             const row = document.createElement('tr');
             row.innerHTML = `
             <td colspan="4" class="text-center">No labor charges recorded for this service.</td>
@@ -2897,13 +3175,19 @@
             laborCharges.forEach(labor => {
                 const row = document.createElement('tr');
 
-                laborTotalCost += parseFloat(labor.total || 0);
+                // Safely parse labor values
+                const description = labor.description || 'Service Labor';
+                const hours = parseFloat(labor.hours || 1);
+                const rate = parseFloat(labor.ratePerHour || 0);
+                const total = parseFloat(labor.total || (hours * rate));
+
+                laborTotalCost += total;
 
                 row.innerHTML = `
-                <td>${labor.description}</td>
-                <td>${labor.hours}</td>
-                <td>${formatCurrency(labor.ratePerHour)}</td>
-                <td>${formatCurrency(labor.total)}</td>
+                <td>${description}</td>
+                <td>${hours}</td>
+                <td>${formatCurrency(rate)}</td>
+                <td>${formatCurrency(total)}</td>
             `;
 
                 tableBody.appendChild(row);
@@ -2924,19 +3208,22 @@
 
     // Update invoice summary
     function updateInvoiceSummary(service) {
-        // Get values
-        const materialsTotal = service.materialsTotal || parseFloat(document.getElementById('summaryMaterialsTotal').textContent.replace(/[₹,]/g, '')) || 0;
-        const laborTotal = service.laborTotal || parseFloat(document.getElementById('summaryLaborTotal').textContent.replace(/[₹,]/g, '')) || 0;
+        // Get values with fallbacks
+        const materialsTotal = parseFloat(service.materialsTotal || 0) ||
+            parseFloat(document.getElementById('summaryMaterialsTotal').textContent.replace(/[₹,]/g, '')) || 0;
 
-        // Calculate discount for premium members
-        const isPremium = (service.membershipStatus || '').toLowerCase() === 'premium';
+        const laborTotal = parseFloat(service.laborTotal || 0) ||
+            parseFloat(document.getElementById('summaryLaborTotal').textContent.replace(/[₹,]/g, '')) || 0;
+
+        // Calculate discount for premium members - use properly formatted membership status
+        const membershipStatus = formatMembershipStatus(service.membershipStatus || 'Standard');
+        const isPremium = membershipStatus.toLowerCase() === 'premium';
         const premiumDiscountRow = document.getElementById('premiumDiscountRow');
         let discount = 0;
 
         if (isPremium) {
             // 20% discount on labor
             discount = laborTotal * 0.20;
-
             document.getElementById('summaryDiscount').textContent = '-' + formatCurrency(discount);
             premiumDiscountRow.style.display = '';
         } else {
@@ -2944,15 +3231,15 @@
         }
 
         // Calculate subtotal
-        const subtotal = materialsTotal + laborTotal - discount;
+        const subtotal = parseFloat(service.subtotal || 0) || (materialsTotal + laborTotal - discount);
         document.getElementById('summarySubtotal').textContent = formatCurrency(subtotal);
 
         // Calculate GST (18%)
-        const gst = subtotal * 0.18;
+        const gst = parseFloat(service.gst || service.tax || 0) || (subtotal * 0.18);
         document.getElementById('summaryGST').textContent = formatCurrency(gst);
 
         // Calculate grand total
-        const grandTotal = subtotal + gst;
+        const grandTotal = parseFloat(service.totalCost || service.totalAmount || 0) || (subtotal + gst);
         document.getElementById('summaryGrandTotal').textContent = formatCurrency(grandTotal);
     }
 
@@ -2963,11 +3250,11 @@
             step.classList.remove('active', 'completed');
         });
 
-        // Check service status
+        // Check service status with fallbacks
         const hasBill = service.hasBill === true;
-        const isPaid = service.isPaid === true;
+        const isPaid = service.isPaid === true || service.paid === true;
         const hasInvoice = service.hasInvoice === true;
-        const isDelivered = service.isDelivered === true;
+        const isDelivered = service.isDelivered === true || service.delivered === true;
 
         // Update bill step
         if (hasBill) {
@@ -3010,11 +3297,11 @@
             }
         });
 
-        // Check service status
+        // Check service status with fallbacks
         const hasBill = service.hasBill === true;
-        const isPaid = service.isPaid === true;
+        const isPaid = service.isPaid === true || service.paid === true;
         const hasInvoice = service.hasInvoice === true;
-        const isDelivered = service.isDelivered === true;
+        const isDelivered = service.isDelivered === true || service.delivered === true;
 
         // Add appropriate action buttons
         if (!hasBill) {
@@ -3142,66 +3429,7 @@
 
             // Add filtered services
             filteredServices.forEach(service => {
-                const row = document.createElement('tr');
-                row.classList.add('active-page');
-                row.dataset.serviceId = service.serviceId;
-
-                row.innerHTML = `
-                <td>REQ-${service.serviceId}</td>
-                <td>
-                    <div class="vehicle-info">
-                        <div class="vehicle-icon">
-                            <i class="${service.category === 'Car' ? 'fas fa-car' : service.category === 'Bike' ? 'fas fa-motorcycle' : 'fas fa-truck'}"></i>
-                        </div>
-                        <div class="vehicle-details">
-                            <h5>${service.vehicleName}</h5>
-                            <p>${service.registrationNumber}</p>
-                        </div>
-                    </div>
-                </td>
-                <td>
-                    <div class="person-info">
-                        <div class="person-details">
-                            <h5>${service.customerName}</h5>
-                            <p>
-                                <i class="fas fa-envelope me-1 text-muted"></i> ${service.customerEmail || 'No email provided'}<br>
-                                <i class="fas fa-phone me-1 text-muted"></i> ${service.customerPhone || 'No phone provided'}
-                            </p>
-                        </div>
-                    </div>
-                </td>
-                <td>
-                    <span class="membership-badge ${service.membershipStatus?.toLowerCase() === 'premium' ? 'membership-premium' : 'membership-standard'}">
-                        ${service.membershipStatus || 'Standard'}
-                    </span>
-                </td>
-                <td>${service.serviceType || 'General Service'}</td>
-                <td>${formatDate(service.completedDate)}</td>
-                <td>${formatCurrency(service.totalCost || 0)}</td>
-                <td>
-                    ${service.hasInvoice ?
-                    `<span class="status-badge status-completed">
-                            <i class="fas fa-check-circle"></i> Generated
-                        </span>` :
-                    `<span class="status-badge status-pending">
-                            <i class="fas fa-clock"></i> Pending
-                        </span>`
-                }
-                </td>
-                <td>
-                    <div class="table-actions-cell">
-                        <button class="btn-table-action" onclick="viewServiceDetails(${service.serviceId})">
-                            <i class="fas fa-eye"></i>
-                        </button>
-                        ${service.hasInvoice ?
-                    `<button class="btn-table-action success" onclick="downloadInvoiceById(${service.serviceId})">
-                                <i class="fas fa-file-download"></i>
-                            </button>` : ''
-                }
-                    </div>
-                </td>
-            `;
-
+                const row = createServiceRow(service);
                 tableBody.appendChild(row);
             });
         }
@@ -3308,77 +3536,40 @@
             });
     }
 
-    // Download invoice
-    function downloadInvoice() {
-        if (!currentServiceId) {
-            showToast('Error', 'No service selected', 'error');
-            return;
-        }
-
-        downloadInvoiceById(currentServiceId);
-    }
-
-    // Download invoice by ID
-    function downloadInvoiceById(serviceId) {
-        // Get token
-        const token = getJwtToken();
-        if (!token) {
-            console.error('No token found');
-            return;
-        }
-
-        // Show spinner
-        showSpinner();
-
-        // Create the URL for the download
-        const downloadUrl = `/admin/api/vehicle-tracking/invoice/download/${serviceId}?token=${encodeURIComponent(token)}`;
-
-        // Create an iframe to handle the download
-        const iframe = document.createElement('iframe');
-        iframe.style.display = 'none';
-        iframe.src = downloadUrl;
-
-        // Add to document
-        document.body.appendChild(iframe);
-
-        // Set timeout to remove iframe and hide spinner
-        setTimeout(() => {
-            document.body.removeChild(iframe);
-            hideSpinner();
-            showToast('Success', 'Invoice download initiated', 'success');
-        }, 2000);
-    }
-
     // Generate bill
     function generateBill(service) {
         // Populate bill generation modal with service details
         document.getElementById('billServiceId').textContent = 'REQ-' + service.serviceId;
-        document.getElementById('billCustomerName').textContent = service.customerName;
+        document.getElementById('billCustomerName').textContent = formatPersonName(service.customerName);
         document.getElementById('billVehicleName').textContent = service.vehicleName;
         document.getElementById('billVehicleRegistration').textContent = service.registrationNumber;
-        document.getElementById('billMembershipStatus').textContent = service.membershipStatus || 'Standard';
+        document.getElementById('billMembershipStatus').textContent = formatMembershipStatus(service.membershipStatus);
 
         // Set premium flag for discount display
-        const isPremium = (service.membershipStatus || '').toLowerCase() === 'premium';
+        const isPremium = formatMembershipStatus(service.membershipStatus).toLowerCase() === 'premium';
         if (isPremium) {
             document.getElementById('billPremiumDiscount').style.display = '';
         } else {
             document.getElementById('billPremiumDiscount').style.display = 'none';
         }
 
+        // Calculate financial details
+        const materialsTotal = parseFloat(service.materialsTotal || 0);
+        const laborTotal = parseFloat(service.laborTotal || 0);
+
         // Set materials and labor totals
-        document.getElementById('billMaterialsTotal').textContent = formatCurrency(service.materialsTotal || 0);
-        document.getElementById('billLaborTotal').textContent = formatCurrency(service.laborTotal || 0);
+        document.getElementById('billMaterialsTotal').textContent = formatCurrency(materialsTotal);
+        document.getElementById('billLaborTotal').textContent = formatCurrency(laborTotal);
 
         // Calculate discount if premium
         let discount = 0;
         if (isPremium) {
-            discount = (service.laborTotal || 0) * 0.2;
+            discount = laborTotal * 0.2;
             document.getElementById('billDiscountAmount').textContent = formatCurrency(discount);
         }
 
         // Calculate subtotal
-        const subtotal = (service.materialsTotal || 0) + (service.laborTotal || 0) - discount;
+        const subtotal = materialsTotal + laborTotal - discount;
         document.getElementById('billSubtotal').textContent = formatCurrency(subtotal);
 
         // Calculate GST
@@ -3455,16 +3646,58 @@
             });
     }
 
+    // Download invoice
+    function downloadInvoice() {
+        if (!currentServiceId) {
+            showToast('Error', 'No service selected', 'error');
+            return;
+        }
+
+        downloadInvoiceById(currentServiceId);
+    }
+
+    // Download invoice by ID
+    function downloadInvoiceById(serviceId) {
+        // Get token
+        const token = getJwtToken();
+        if (!token) {
+            console.error('No token found');
+            return;
+        }
+
+        // Show spinner
+        showSpinner();
+
+        // Create the URL for the download
+        const downloadUrl = `/admin/api/vehicle-tracking/invoice/download/${serviceId}?token=${encodeURIComponent(token)}`;
+
+        // Create an iframe to handle the download
+        const iframe = document.createElement('iframe');
+        iframe.style.display = 'none';
+        iframe.src = downloadUrl;
+
+        // Add to document
+        document.body.appendChild(iframe);
+
+        // Set timeout to remove iframe and hide spinner
+        setTimeout(() => {
+            document.body.removeChild(iframe);
+            hideSpinner();
+            showToast('Success', 'Invoice download initiated', 'success');
+        }, 2000);
+    }
+
     // Open payment modal
     function openPaymentModal(service) {
         // Populate payment modal with service details
-        document.getElementById('paymentServiceId').textContent = 'REQ-' + service.serviceId;
-        document.getElementById('paymentCustomerName').textContent = service.customerName;
-        document.getElementById('paymentVehicleName').textContent = service.vehicleName;
-        document.getElementById('paymentAmount').textContent = formatCurrency(service.totalCost);
+        document.getElementById('paymentServiceId').textContent = 'REQ-' + (service.requestId || service.serviceId);
+        document.getElementById('paymentCustomerName').textContent = formatPersonName(service.customerName || 'Unknown Customer');
+        document.getElementById('paymentVehicleName').textContent = service.vehicleName || 'Unknown Vehicle';
+        document.getElementById('paymentAmount').textContent = formatCurrency(service.totalCost || service.totalAmount || 0);
 
         // Set default paid amount
-        document.getElementById('paidAmount').value = parseFloat(service.totalCost).toFixed(2);
+        const totalAmount = parseFloat(service.totalCost || service.totalAmount || 0);
+        document.getElementById('paidAmount').value = totalAmount.toFixed(2);
 
         // Show the modal
         new bootstrap.Modal(document.getElementById('paymentModal')).show();
@@ -3550,26 +3783,49 @@
     // Open invoice modal
     function openInvoiceModal(service) {
         // Populate invoice modal with service details
-        document.getElementById('invoiceServiceId').textContent = 'REQ-' + service.serviceId;
-        document.getElementById('invoiceCustomerName').textContent = service.customerName;
-        document.getElementById('invoiceVehicleName').textContent = service.vehicleName;
-        document.getElementById('invoiceRegistrationNumber').textContent = service.registrationNumber;
-        document.getElementById('invoiceServiceType').textContent = service.serviceType;
-        document.getElementById('invoiceCompletionDate').textContent = service.formattedCompletedDate || formatDate(service.completedDate);
+        document.getElementById('invoiceServiceId').textContent = 'REQ-' + (service.requestId || service.serviceId);
+        document.getElementById('invoiceCustomerName').textContent = formatPersonName(service.customerName || 'Unknown Customer');
+        document.getElementById('invoiceVehicleName').textContent = service.vehicleName || 'Unknown Vehicle';
+        document.getElementById('invoiceRegistrationNumber').textContent = service.registrationNumber || 'N/A';
+        document.getElementById('invoiceServiceType').textContent = capitalizeEachWord(service.serviceType || 'General Service');
+
+        // Format completion date
+        let completionDate = service.formattedCompletedDate || formatDate(service.completedDate) || formatDate(service.updatedAt) || 'N/A';
+        document.getElementById('invoiceCompletionDate').textContent = completionDate;
 
         // Set premium badge
-        if ((service.membershipStatus || '').toLowerCase() === 'premium') {
+        const membershipStatus = formatMembershipStatus(service.membershipStatus || 'Standard');
+        if (membershipStatus.toLowerCase() === 'premium') {
             document.getElementById('premiumBadge').style.display = '';
         } else {
             document.getElementById('premiumBadge').style.display = 'none';
         }
 
+        // Calculate financial details
+        const materialsTotal = parseFloat(service.materialsTotal || document.getElementById('summaryMaterialsTotal').textContent.replace(/[₹,]/g, '') || 0);
+        const laborTotal = parseFloat(service.laborTotal || document.getElementById('summaryLaborTotal').textContent.replace(/[₹,]/g, '') || 0);
+
         // Set financial details
-        document.getElementById('invoiceMaterialsTotal').textContent = formatCurrency(service.materialsTotal || 0);
-        document.getElementById('invoiceLaborTotal').textContent = formatCurrency(service.laborTotal || 0);
-        document.getElementById('invoiceSubtotal').textContent = formatCurrency(service.subtotal || (service.materialsTotal + service.laborTotal));
-        document.getElementById('invoiceGST').textContent = formatCurrency(service.gst || (service.subtotal * 0.18));
-        document.getElementById('invoiceGrandTotal').textContent = formatCurrency(service.totalCost || 0);
+        document.getElementById('invoiceMaterialsTotal').textContent = formatCurrency(materialsTotal);
+        document.getElementById('invoiceLaborTotal').textContent = formatCurrency(laborTotal);
+
+        // Calculate discount for premium members
+        let discount = 0;
+        if (membershipStatus.toLowerCase() === 'premium') {
+            discount = laborTotal * 0.20;
+        }
+
+        // Calculate subtotal
+        const subtotal = materialsTotal + laborTotal - discount;
+        document.getElementById('invoiceSubtotal').textContent = formatCurrency(subtotal);
+
+        // Calculate GST (18%)
+        const gst = subtotal * 0.18;
+        document.getElementById('invoiceGST').textContent = formatCurrency(gst);
+
+        // Calculate grand total
+        const grandTotal = subtotal + gst;
+        document.getElementById('invoiceGrandTotal').textContent = formatCurrency(grandTotal);
 
         // Show the modal
         new bootstrap.Modal(document.getElementById('generateInvoiceModal')).show();
@@ -3640,9 +3896,9 @@
     // Open delivery modal
     function openDeliveryModal(service) {
         // Populate delivery modal with service details
-        document.getElementById('deliveryServiceId').textContent = 'REQ-' + service.serviceId;
-        document.getElementById('deliveryVehicleName').textContent = service.vehicleName;
-        document.getElementById('deliveryRegistrationNumber').textContent = service.registrationNumber;
+        document.getElementById('deliveryServiceId').textContent = 'REQ-' + (service.requestId || service.serviceId);
+        document.getElementById('deliveryVehicleName').textContent = service.vehicleName || 'Unknown Vehicle';
+        document.getElementById('deliveryRegistrationNumber').textContent = service.registrationNumber || 'N/A';
 
         // Reset form fields
         document.getElementById('pickupPerson').value = '';
