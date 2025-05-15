@@ -1030,7 +1030,7 @@
 <script>
     /**
      * Albany Motors - Completed Services JavaScript
-     * This file handles the service details, materials, labor charges, and financial calculations
+     * This file handles the service details, materials, labor charges, and invoice information
      */
 
 // Global variables
@@ -1128,6 +1128,7 @@
                 return response.json();
             })
             .then(data => {
+                console.log('Completed services data:', data);
                 completedServices = data;
                 renderCompletedServicesTable();
             })
@@ -1226,7 +1227,7 @@
                 </span>
             </td>
             <td>${formattedDate}</td>
-            <td>${formatter.format(service.totalAmount || service.totalCost || 0)}</td>
+            <td>${formatter.format(service.totalAmount || service.totalCost || service.calculatedTotal || 0)}</td>
             <td>${invoiceStatus}</td>
             <td>${paymentStatus}</td>
             <td>${deliveryStatus}</td>
@@ -1250,7 +1251,7 @@
     function viewServiceDetails(serviceId) {
         console.log('Viewing service details for ID:', serviceId);
 
-        // Show loading state
+        // Show modal with loading state
         const modal = new bootstrap.Modal(document.getElementById('viewServiceDetailsModal'));
         modal.show();
 
@@ -1280,26 +1281,17 @@
         const token = getAuthToken();
         console.log('Auth token available:', token ? 'Yes' : 'No');
 
-        // Fetch service details from API with updated URL and more logging
-        const apiUrl = `/admin/api/services/${serviceId}/details`;
-        console.log('Fetching data from:', apiUrl);
+        // Try different URLs in order - this helps with API consistency issues
+        const serviceUrls = [
+            `/admin/api/services/${serviceId}/details`,
+            `/admin/api/service-details/${serviceId}`,
+            `/admin/api/completed-services/${serviceId}`
+        ];
 
-        fetch(apiUrl, {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            }
-        })
-            .then(response => {
-                console.log('Response status:', response.status);
-                if (!response.ok) {
-                    throw new Error(`Failed to fetch service details (Status: ${response.status})`);
-                }
-                return response.json();
-            })
+        // Use promises to try each URL until one succeeds
+        tryFetchUrls(serviceUrls, token)
             .then(service => {
-                console.log('Received service details:', JSON.stringify(service, null, 2));
+                console.log('Received service details:', service);
 
                 // Store current service and ID globally
                 currentServiceId = serviceId;
@@ -1319,31 +1311,17 @@
                 const completionDate = getFormattedDate(service);
                 document.getElementById('viewCompletionDate').textContent = completionDate;
 
-                // Fetch materials and labor charges if not included in service details
-                const materials = service.materials || [];
-                const laborCharges = service.laborCharges || [];
+                // Get materials data - handle different possible property names
+                const materials = service.materials || service.materialItems || service.materialsUsed || [];
+                console.log('Materials data:', materials);
+                populateMaterialsTable(materials);
 
-                console.log('Materials data:', materials.length ? materials : 'None');
-                console.log('Labor charges data:', laborCharges.length ? laborCharges : 'None');
+                // Get labor charges - handle different possible property names
+                const laborCharges = service.laborCharges || service.labor || [];
+                console.log('Labor charges data:', laborCharges);
+                populateLaborChargesTable(laborCharges);
 
-                // If materials array is empty but we have materialsUsed, use that instead
-                if (materials.length === 0 && service.materialsUsed && service.materialsUsed.length > 0) {
-                    console.log('Using materialsUsed instead of materials');
-                    populateMaterialsTable(service.materialsUsed);
-                } else {
-                    populateMaterialsTable(materials);
-                }
-
-                // If labor charges array is empty but we have serviceTracking, use that to create labor charges
-                if (laborCharges.length === 0 && service.serviceTracking && service.serviceTracking.length > 0) {
-                    console.log('Creating labor charges from serviceTracking');
-                    const derivedLaborCharges = createLaborChargesFromTracking(service.serviceTracking);
-                    populateLaborChargesTable(derivedLaborCharges);
-                } else {
-                    populateLaborChargesTable(laborCharges);
-                }
-
-                // Update invoice summary with all financial data
+                // Update invoice summary with financial data
                 updateInvoiceSummary(service);
 
                 // Update workflow steps
@@ -1357,25 +1335,52 @@
 
                 // Show error message in tables
                 materialsTableBody.innerHTML = `
-            <tr>
-                <td colspan="4" class="text-center text-danger">
-                    <i class="fas fa-exclamation-circle me-2"></i>
-                    Error loading materials data: ${error.message}
-                </td>
-            </tr>
-        `;
+                <tr>
+                    <td colspan="4" class="text-center text-danger">
+                        <i class="fas fa-exclamation-circle me-2"></i>
+                        Error loading materials data: ${error.message}
+                    </td>
+                </tr>
+            `;
 
                 laborChargesTableBody.innerHTML = `
-            <tr>
-                <td colspan="4" class="text-center text-danger">
-                    <i class="fas fa-exclamation-circle me-2"></i>
-                    Error loading labor charges data: ${error.message}
-                </td>
-            </tr>
-        `;
+                <tr>
+                    <td colspan="4" class="text-center text-danger">
+                        <i class="fas fa-exclamation-circle me-2"></i>
+                        Error loading labor charges data: ${error.message}
+                    </td>
+                </tr>
+            `;
 
                 showToast('Error loading service details: ' + error.message, 'error');
             });
+    }
+
+    /**
+     * Try each URL in sequence until one returns a valid response
+     * @param {Array} urls - Array of URLs to try
+     * @param {string} token - Auth token
+     * @returns {Promise} - Promise that resolves with the service data
+     */
+    function tryFetchUrls(urls, token) {
+        // Use reduce to create a promise chain that tries each URL
+        return urls.reduce((promise, url) => {
+            return promise.catch(() => {
+                console.log(`Trying URL: ${url}`);
+                return fetch(url, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                }).then(response => {
+                    if (!response.ok) {
+                        throw new Error(`Failed to fetch from ${url}: ${response.status}`);
+                    }
+                    return response.json();
+                });
+            });
+        }, Promise.reject(new Error('Starting URL chain')));
     }
 
     /**
@@ -1453,37 +1458,6 @@
     }
 
     /**
-     * Create labor charges from service tracking data
-     * @param {Array} trackingEntries - Array of service tracking entries
-     * @returns {Array} - Formatted labor charges
-     */
-    function createLaborChargesFromTracking(trackingEntries) {
-        if (!trackingEntries || !trackingEntries.length) {
-            return [];
-        }
-
-        return trackingEntries
-            .filter(entry => entry.laborMinutes > 0 || entry.laborCost > 0)
-            .map(entry => {
-                // Convert minutes to hours
-                const hours = entry.laborMinutes ? entry.laborMinutes / 60 : 0;
-
-                // Calculate rate per hour if not directly provided
-                let ratePerHour = 0;
-                if (entry.laborCost && hours > 0) {
-                    ratePerHour = entry.laborCost / hours;
-                }
-
-                return {
-                    description: entry.workDescription || `Service: ${entry.status || 'Work'}`,
-                    hours: parseFloat(hours.toFixed(2)),
-                    ratePerHour: parseFloat(ratePerHour.toFixed(2)),
-                    total: parseFloat(entry.laborCost || 0)
-                };
-            });
-    }
-
-    /**
      * Populate materials table with complete data
      * @param {Array} materials - Array of materials used
      */
@@ -1511,7 +1485,17 @@
         // Process each material item
         materials.forEach(material => {
             // Skip items without name or quantity
-            if (!material.name && !material.quantity) return;
+            if (!material.name && !material.quantity) {
+                // Try to get data from inventoryItem if available
+                if (material.inventoryItem) {
+                    material.name = material.inventoryItem.name;
+                    if (!material.unitPrice) {
+                        material.unitPrice = material.inventoryItem.unitPrice;
+                    }
+                } else {
+                    return; // Skip this item
+                }
+            }
 
             const row = document.createElement('tr');
 
@@ -1521,21 +1505,25 @@
                 itemName = material.inventoryItem.name;
             }
 
-            // Get quantity
-            let quantity = parseFloat(material.quantity || 0);
+            // Get quantity - handle number or string
+            let quantity = typeof material.quantity === 'number' ?
+                material.quantity : parseFloat(material.quantity || 0);
 
             // Get unit price - check various possible properties
             let unitPrice = 0;
             if (material.unitPrice) {
-                unitPrice = parseFloat(material.unitPrice);
+                unitPrice = typeof material.unitPrice === 'number' ?
+                    material.unitPrice : parseFloat(material.unitPrice);
             } else if (material.inventoryItem && material.inventoryItem.unitPrice) {
-                unitPrice = parseFloat(material.inventoryItem.unitPrice);
+                unitPrice = typeof material.inventoryItem.unitPrice === 'number' ?
+                    material.inventoryItem.unitPrice : parseFloat(material.inventoryItem.unitPrice);
             }
 
             // Calculate total
             let total = 0;
             if (material.total) {
-                total = parseFloat(material.total);
+                total = typeof material.total === 'number' ?
+                    material.total : parseFloat(material.total);
             } else {
                 total = quantity * unitPrice;
             }
@@ -1576,6 +1564,37 @@
 
         // Handle empty labor charges array
         if (!laborCharges || laborCharges.length === 0) {
+            // Check if we have service tracking entries with labor costs
+            if (currentService && currentService.serviceTracking &&
+                Array.isArray(currentService.serviceTracking) &&
+                currentService.serviceTracking.length > 0) {
+
+                // Filter tracking entries with labor cost
+                const laborEntries = currentService.serviceTracking.filter(entry =>
+                    entry.laborCost && parseFloat(entry.laborCost) > 0);
+
+                if (laborEntries.length > 0) {
+                    // Extract labor charges from tracking entries
+                    const extractedCharges = laborEntries.map(entry => {
+                        const laborMinutes = entry.laborMinutes || 0;
+                        const hours = laborMinutes / 60;
+                        const laborCost = parseFloat(entry.laborCost);
+                        const ratePerHour = laborMinutes > 0 ? (laborCost * 60 / laborMinutes) : 0;
+
+                        return {
+                            description: entry.workDescription || 'Service Labor',
+                            hours: hours,
+                            ratePerHour: ratePerHour,
+                            total: laborCost
+                        };
+                    });
+
+                    // Populate with extracted charges
+                    return populateLaborChargesTable(extractedCharges);
+                }
+            }
+
+            // If no alternatives, show empty message
             const emptyRow = document.createElement('tr');
             emptyRow.innerHTML = `<td colspan="4" class="text-center">No labor charges recorded for this service</td>`;
             tableBody.appendChild(emptyRow);
@@ -1598,14 +1617,18 @@
             // Get description
             const description = charge.description || 'Service Labor';
 
-            // Get hours and rate
-            let hours = parseFloat(charge.hours || 0);
-            let ratePerHour = parseFloat(charge.ratePerHour || 0);
+            // Get hours and rate - handle number or string
+            let hours = typeof charge.hours === 'number' ?
+                charge.hours : parseFloat(charge.hours || 0);
+
+            let ratePerHour = typeof charge.ratePerHour === 'number' ?
+                charge.ratePerHour : parseFloat(charge.ratePerHour || 0);
 
             // Get or calculate total
             let total = 0;
             if (charge.total) {
-                total = parseFloat(charge.total);
+                total = typeof charge.total === 'number' ?
+                    charge.total : parseFloat(charge.total);
             } else {
                 total = hours * ratePerHour;
             }
@@ -1648,56 +1671,53 @@
             minimumFractionDigits: 2
         });
 
-        // Calculate materials total
+        // Use pre-calculated values if available
         let materialsTotal = 0;
-
-        // First check if materialsTotal is directly provided
-        if (service.materialsTotal !== undefined) {
-            materialsTotal = parseFloat(service.materialsTotal);
-        }
-        // Otherwise calculate from materials array
-        else if (service.materials && service.materials.length > 0) {
-            materialsTotal = service.materials.reduce((total, item) => {
-                let itemTotal = 0;
-                if (item.total) {
-                    itemTotal = parseFloat(item.total);
-                } else {
-                    const quantity = parseFloat(item.quantity || 0);
-                    const unitPrice = item.unitPrice ? parseFloat(item.unitPrice) :
-                        (item.inventoryItem && item.inventoryItem.unitPrice) ?
-                            parseFloat(item.inventoryItem.unitPrice) : 0;
-                    itemTotal = quantity * unitPrice;
-                }
-                return total + itemTotal;
-            }, 0);
-        }
-        // Try materialsUsed if materials is empty
-        else if (service.materialsUsed && service.materialsUsed.length > 0) {
-            materialsTotal = service.materialsUsed.reduce((total, item) => {
-                let itemTotal = 0;
-                if (item.total) {
-                    itemTotal = parseFloat(item.total);
-                } else {
-                    const quantity = parseFloat(item.quantity || 0);
-                    const unitPrice = item.unitPrice ? parseFloat(item.unitPrice) :
-                        (item.inventoryItem && item.inventoryItem.unitPrice) ?
-                            parseFloat(item.inventoryItem.unitPrice) : 0;
-                    itemTotal = quantity * unitPrice;
-                }
-                return total + itemTotal;
-            }, 0);
-        }
-
-        // Calculate labor total
         let laborTotal = 0;
+        let discount = 0;
+        let subtotal = 0;
+        let tax = 0;
+        let total = 0;
 
-        // First check if laborTotal is directly provided
-        if (service.laborTotal !== undefined) {
-            laborTotal = parseFloat(service.laborTotal);
+        // First check pre-calculated values from the backend
+        if (service.calculatedMaterialsTotal !== undefined) {
+            materialsTotal = parseFloat(service.calculatedMaterialsTotal);
+            laborTotal = parseFloat(service.calculatedLaborTotal || 0);
+            discount = parseFloat(service.calculatedDiscount || 0);
+            subtotal = parseFloat(service.calculatedSubtotal || 0);
+            tax = parseFloat(service.calculatedTax || 0);
+            total = parseFloat(service.calculatedTotal || 0);
         }
-        // Otherwise calculate from labor charges array
-        else if (service.laborCharges && service.laborCharges.length > 0) {
-            laborTotal = service.laborCharges.reduce((total, charge) => {
+        // Try standard fields next
+        else if (service.materialsTotal !== undefined) {
+            materialsTotal = parseFloat(service.materialsTotal);
+            laborTotal = parseFloat(service.laborTotal || 0);
+            discount = parseFloat(service.discount || 0);
+            subtotal = parseFloat(service.subtotal || 0);
+            tax = parseFloat(service.tax || service.gst || 0);
+            total = parseFloat(service.total || service.totalCost || service.totalAmount || 0);
+        }
+        // Calculate from materials and labor charges if needed
+        else {
+            // Calculate from materials
+            const materials = service.materials || service.materialItems || service.materialsUsed || [];
+            materialsTotal = materials.reduce((total, item) => {
+                let itemTotal = 0;
+                if (item.total) {
+                    itemTotal = parseFloat(item.total);
+                } else {
+                    const quantity = parseFloat(item.quantity || 0);
+                    const unitPrice = item.unitPrice ? parseFloat(item.unitPrice) :
+                        (item.inventoryItem && item.inventoryItem.unitPrice) ?
+                            parseFloat(item.inventoryItem.unitPrice) : 0;
+                    itemTotal = quantity * unitPrice;
+                }
+                return total + itemTotal;
+            }, 0);
+
+            // Calculate from labor charges
+            const laborCharges = service.laborCharges || service.labor || [];
+            laborTotal = laborCharges.reduce((total, charge) => {
                 if (charge.total) {
                     return total + parseFloat(charge.total);
                 } else {
@@ -1706,38 +1726,33 @@
                     return total + (hours * rate);
                 }
             }, 0);
-        }
-        // Try serviceTracking if laborCharges is empty
-        else if (service.serviceTracking && service.serviceTracking.length > 0) {
-            laborTotal = service.serviceTracking.reduce((total, entry) => {
-                const laborCost = entry.laborCost ? parseFloat(entry.laborCost) : 0;
-                return total + laborCost;
-            }, 0);
+
+            // Calculate discount if premium membership
+            const isPremium = (service.membershipStatus || '').toLowerCase() === 'premium';
+            if (isPremium) {
+                discount = laborTotal * 0.2; // 20% discount on labor
+            }
+
+            // Calculate subtotal
+            subtotal = materialsTotal + laborTotal - discount;
+
+            // Calculate tax (18% GST)
+            tax = subtotal * 0.18;
+
+            // Calculate total
+            total = subtotal + tax;
         }
 
         // Apply membership discount if applicable
-        let discount = 0;
         const isPremium = (service.membershipStatus || '').toLowerCase() === 'premium';
-        const discountRate = 0.3; // 30% discount for premium members
         const premiumDiscountRow = document.getElementById('premiumDiscountRow');
 
-        if (isPremium) {
-            discount = laborTotal * discountRate;
+        if (isPremium && discount > 0) {
             document.getElementById('summaryDiscount').textContent = `-${formatter.format(discount)}`;
             premiumDiscountRow.style.display = '';
         } else {
             premiumDiscountRow.style.display = 'none';
         }
-
-        // Calculate subtotal
-        const subtotal = materialsTotal + laborTotal - discount;
-
-        // Calculate tax (18% GST)
-        const taxRate = 0.18;
-        const tax = subtotal * taxRate;
-
-        // Calculate grand total
-        const total = subtotal + tax;
 
         // Update summary values
         document.getElementById('summaryMaterialsTotal').textContent = formatter.format(materialsTotal);
@@ -1765,16 +1780,22 @@
             step.classList.remove('active', 'completed');
         });
 
-        // Check invoice status
-        const hasInvoice = service.hasInvoice || service.invoiceId ||
-            (service.invoice && service.invoice.invoiceId);
+        // Check invoice status - look at multiple possible flags
+        const hasInvoice = service.hasInvoice ||
+            service.invoiceId ||
+            (service.invoice && service.invoice.invoiceId) ||
+            false;
 
-        // Check payment status
-        const isPaid = service.isPaid || service.paid ||
-            (service.payment && service.payment.status === 'Completed');
+        // Check payment status - look at multiple possible flags
+        const isPaid = service.isPaid ||
+            service.paid ||
+            (service.payment && service.payment.status === 'Completed') ||
+            false;
 
-        // Check delivery status
-        const isDelivered = service.isDelivered || service.delivered;
+        // Check delivery status - look at multiple possible flags
+        const isDelivered = service.isDelivered ||
+            service.delivered ||
+            false;
 
         // Update steps based on service status
         if (hasInvoice) {
@@ -1845,7 +1866,7 @@
             downloadInvoiceBtn.type = 'button';
             downloadInvoiceBtn.className = 'btn-premium secondary me-2';
             downloadInvoiceBtn.innerHTML = '<i class="fas fa-download"></i> Download Invoice';
-            downloadInvoiceBtn.addEventListener('click', () => downloadInvoice(service.requestId));
+            downloadInvoiceBtn.addEventListener('click', () => downloadInvoice(service.requestId || service.serviceId));
             footer.insertBefore(downloadInvoiceBtn, footer.firstChild);
         }
     }
@@ -1879,7 +1900,7 @@
         });
 
         // Set service details
-        document.getElementById('invoiceServiceId').textContent = `REQ-${currentService.requestId}`;
+        document.getElementById('invoiceServiceId').textContent = `REQ-${currentService.requestId || currentService.serviceId}`;
         document.getElementById('invoiceCustomerName').textContent = currentService.customerName;
         document.getElementById('customerEmail').value = currentService.customerEmail || '';
 
@@ -1896,7 +1917,7 @@
         const premiumDiscountRow = document.getElementById('invoicePremiumDiscountRow');
         const premiumBadge = document.getElementById('invoicePremiumBadge');
 
-        if (isPremium) {
+        if (isPremium && discount > 0) {
             document.getElementById('invoiceDiscount').textContent = `-${formatter.format(discount)}`;
             premiumDiscountRow.style.display = '';
             premiumBadge.style.display = '';
@@ -1948,7 +1969,7 @@
 
         // Build request object
         const invoiceRequest = {
-            serviceId: currentServiceId,
+            serviceId: currentService.requestId || currentService.serviceId,
             emailAddress: email,
             sendEmail: sendEmail,
             notes: "Generated from admin portal",
@@ -1965,7 +1986,7 @@
         const token = getAuthToken();
 
         // Call API to generate invoice
-        fetch('/admin/api/invoices/service-request/' + currentServiceId + '/generate', {
+        fetch(`/admin/api/invoices/service-request/${currentService.requestId || currentService.serviceId}/generate`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -2023,7 +2044,7 @@
         if (!currentService) return;
 
         // Set service details
-        document.getElementById('paymentServiceId').textContent = `REQ-${currentService.requestId}`;
+        document.getElementById('paymentServiceId').textContent = `REQ-${currentService.requestId || currentService.serviceId}`;
         document.getElementById('paymentCustomerName').textContent = currentService.customerName;
 
         // Set amount - use calculated total if available
@@ -2067,7 +2088,7 @@
 
         // Build payment request
         const paymentRequest = {
-            serviceId: currentServiceId,
+            serviceId: currentService.requestId || currentService.serviceId,
             paymentMethod: paymentMethod,
             transactionId: transactionId,
             amount: parseFloat(paidAmount),
@@ -2077,21 +2098,15 @@
         // Get token
         const token = getAuthToken();
 
-        // Call API to process payment
-        fetch('/admin/api/vehicle-tracking/process-payment', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(paymentRequest)
-        })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('Failed to process payment');
-                }
-                return response.json();
-            })
+        // Call API to process payment - try multiple possible endpoints
+        const paymentEndpoints = [
+            `/admin/api/vehicle-tracking/process-payment`,
+            `/admin/api/vehicle-tracking/service-request/${currentService.requestId || currentService.serviceId}/payment`,
+            `/admin/api/completed-services/${currentService.requestId || currentService.serviceId}/payment`
+        ];
+
+        // Try each endpoint until one succeeds
+        tryPostUrls(paymentEndpoints, paymentRequest, token)
             .then(data => {
                 // Reset button state
                 confirmBtn.disabled = false;
@@ -2129,13 +2144,42 @@
     }
 
     /**
+     * Try each URL for POST requests in sequence until one returns a valid response
+     * @param {Array} urls - Array of URLs to try
+     * @param {Object} requestData - Data to send in the request
+     * @param {string} token - Auth token
+     * @returns {Promise} - Promise that resolves with the response data
+     */
+    function tryPostUrls(urls, requestData, token) {
+        // Use reduce to create a promise chain that tries each URL
+        return urls.reduce((promise, url) => {
+            return promise.catch(() => {
+                console.log(`Trying POST URL: ${url}`);
+                return fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(requestData)
+                }).then(response => {
+                    if (!response.ok) {
+                        throw new Error(`Failed to POST to ${url}: ${response.status}`);
+                    }
+                    return response.json();
+                });
+            });
+        }, Promise.reject(new Error('Starting POST URL chain')));
+    }
+
+    /**
      * Open delivery modal
      */
     function openDeliveryModal() {
         if (!currentService) return;
 
         // Set service details
-        document.getElementById('deliveryServiceId').textContent = `REQ-${currentService.requestId}`;
+        document.getElementById('deliveryServiceId').textContent = `REQ-${currentService.requestId || currentService.serviceId}`;
 
         // Reset form fields
         document.getElementById('pickupPerson').value = '';
@@ -2210,7 +2254,7 @@
 
         // Build delivery request
         const deliveryRequest = {
-            serviceId: currentServiceId,
+            serviceId: currentService.requestId || currentService.serviceId,
             deliveryType: deliveryMethod,
             notes: "Processed by admin"
         };
@@ -2228,21 +2272,15 @@
         // Get token
         const token = getAuthToken();
 
-        // Call API to process delivery
-        fetch('/admin/api/vehicle-tracking/service-request/' + currentServiceId + '/dispatch', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(deliveryRequest)
-        })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('Failed to process delivery');
-                }
-                return response.json();
-            })
+        // Call API to process delivery - try multiple possible endpoints
+        const deliveryEndpoints = [
+            `/admin/api/vehicle-tracking/service-request/${currentService.requestId || currentService.serviceId}/dispatch`,
+            `/admin/api/completed-services/${currentService.requestId || currentService.serviceId}/dispatch`,
+            `/admin/api/delivery/service-request/${currentService.requestId || currentService.serviceId}`
+        ];
+
+        // Try each endpoint until one succeeds
+        tryPostUrls(deliveryEndpoints, deliveryRequest, token)
             .then(data => {
                 // Reset button state
                 confirmBtn.disabled = false;
