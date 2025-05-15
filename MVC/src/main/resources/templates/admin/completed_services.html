@@ -2493,6 +2493,13 @@
                 return response.json();
             })
             .then(data => {
+                console.log('Raw API response for completed services:', data);
+
+                // Process each service to ensure data consistency
+                data.forEach(service => {
+                    enhanceServiceData(service);
+                });
+
                 completedServices = data;
                 hideSpinner();
 
@@ -2551,6 +2558,512 @@
                 </td>
             `;
             });
+    }
+
+    // Comprehensive function to enhance service data
+    function enhanceServiceData(service) {
+        console.log('Enhancing service data for:', service);
+
+        // Ensure consistent ID fields
+        ensureConsistentIdFields(service);
+
+        // Enhance vehicle information
+        enhanceVehicleInfo(service);
+
+        // Extract and enhance customer information
+        enhanceCustomerInfo(service);
+
+        // Format dates for display
+        enhanceServiceDates(service);
+
+        // Ensure financial information is present
+        ensureFinancialData(service);
+
+        // Ensure service status flags are present
+        ensureServiceStatusFlags(service);
+
+        console.log('Enhanced service data:', service);
+    }
+
+    // Ensure consistent ID fields (serviceId/requestId)
+    function ensureConsistentIdFields(service) {
+        // Make sure we have both serviceId and requestId consistently
+        if (service.serviceId && !service.requestId) {
+            service.requestId = service.serviceId;
+        } else if (service.requestId && !service.serviceId) {
+            service.serviceId = service.requestId;
+        } else if (!service.serviceId && !service.requestId) {
+            // This shouldn't happen, but just in case
+            console.warn("Service missing both serviceId and requestId");
+            service.serviceId = 0;
+            service.requestId = 0;
+        }
+    }
+
+    // Ensure vehicle information is complete and consistent
+    function enhanceVehicleInfo(service) {
+        // Ensure vehicle name exists
+        if (!service.vehicleName || service.vehicleName == null) {
+            // Try to construct from brand and model
+            const brand = getStringValue(service, "vehicleBrand");
+            const model = getStringValue(service, "vehicleModel");
+
+            if (brand && model) {
+                service.vehicleName = brand + " " + model;
+            } else if (service.vehicle && service.vehicle.brand && service.vehicle.model) {
+                service.vehicleName = service.vehicle.brand + " " + service.vehicle.model;
+            } else {
+                service.vehicleName = "Unknown Vehicle";
+            }
+        }
+
+        // Ensure registration number is present
+        if (!service.registrationNumber || service.registrationNumber == null) {
+            // Try different possible field names
+            if (service.vehicleRegistration) {
+                service.registrationNumber = service.vehicleRegistration;
+            } else if (service.regNumber) {
+                service.registrationNumber = service.regNumber;
+            } else if (service.registration) {
+                service.registrationNumber = service.registration;
+            } else if (service.vehicle && service.vehicle.registrationNumber) {
+                service.registrationNumber = service.vehicle.registrationNumber;
+            } else {
+                // If still not found, use placeholder
+                service.registrationNumber = "Unknown";
+            }
+        }
+
+        // Ensure vehicle category is normalized
+        if (!service.category) {
+            if (service.vehicleType) {
+                service.category = service.vehicleType;
+            } else if (service.vehicle && service.vehicle.category) {
+                service.category = service.vehicle.category;
+            } else if (service.vehicleName && service.vehicleName.includes("Bike")) {
+                service.category = "Bike";
+            } else if (service.vehicleName && service.vehicleName.includes("Truck")) {
+                service.category = "Truck";
+            } else {
+                // Default category
+                service.category = "Car";
+            }
+        }
+
+        // Normalize category formatting
+        if (service.category) {
+            service.category = capitalizeFirstLetter(service.category);
+        }
+    }
+
+    // Enhanced function to extract and normalize customer information
+    function enhanceCustomerInfo(service) {
+        try {
+            console.log("Raw customer data before enhancement:",
+                service.customer ? JSON.stringify(service.customer, null, 2) : "No direct customer object");
+
+            // EXTRACTING CUSTOMER NAME
+            if (!service.customerName || service.customerName === null || service.customerName === '') {
+                // Direct extraction from customer object
+                if (service.customer) {
+                    if (typeof service.customer === 'object') {
+                        // Complete customer object with firstName and lastName
+                        if (service.customer.firstName && service.customer.lastName) {
+                            service.customerName = service.customer.firstName + ' ' + service.customer.lastName;
+                        }
+                        // Name in customer.name field
+                        else if (service.customer.name) {
+                            service.customerName = service.customer.name;
+                        }
+                        // Name in user object
+                        else if (service.customer.user) {
+                            if (service.customer.user.firstName && service.customer.user.lastName) {
+                                service.customerName = service.customer.user.firstName + ' ' + service.customer.user.lastName;
+                            } else if (service.customer.user.name) {
+                                service.customerName = service.customer.user.name;
+                            }
+                        }
+                    }
+                    // If customer is just a string name
+                    else if (typeof service.customer === 'string') {
+                        service.customerName = service.customer;
+                    }
+                }
+
+                // Try other possible field locations if still not found
+                if (!service.customerName || service.customerName === null || service.customerName === '') {
+                    if (service.user) {
+                        if (service.user.firstName && service.user.lastName) {
+                            service.customerName = service.user.firstName + ' ' + service.user.lastName;
+                        } else if (service.user.name) {
+                            service.customerName = service.user.name;
+                        }
+                    } else if (service.userName) {
+                        service.customerName = service.userName;
+                    } else if (service.client) {
+                        if (typeof service.client === 'object') {
+                            if (service.client.name) {
+                                service.customerName = service.client.name;
+                            } else if (service.client.firstName && service.client.lastName) {
+                                service.customerName = service.client.firstName + ' ' + service.client.lastName;
+                            }
+                        } else if (typeof service.client === 'string') {
+                            service.customerName = service.client;
+                        }
+                    } else {
+                        service.customerName = "Unknown Customer";
+                    }
+                }
+            }
+
+            // EXTRACTING EMAIL
+            // First clear any invalid values
+            if (service.customerEmail === null || service.customerEmail === 'null' ||
+                service.customerEmail === undefined || service.customerEmail === 'undefined') {
+                service.customerEmail = '';
+            }
+
+            // Now try to extract from various places if not present or empty
+            if (!service.customerEmail || service.customerEmail === '') {
+                // Extract from customer object
+                if (service.customer) {
+                    if (typeof service.customer === 'object') {
+                        if (service.customer.email) {
+                            service.customerEmail = service.customer.email;
+                        } else if (service.customer.user && service.customer.user.email) {
+                            service.customerEmail = service.customer.user.email;
+                        } else if (service.customer.emailAddress) {
+                            service.customerEmail = service.customer.emailAddress;
+                        }
+                    }
+                }
+
+                // Try other possible field locations
+                if (!service.customerEmail || service.customerEmail === '') {
+                    if (service.email) {
+                        service.customerEmail = service.email;
+                    } else if (service.user && service.user.email) {
+                        service.customerEmail = service.user.email;
+                    } else if (service.user && service.user.emailAddress) {
+                        service.customerEmail = service.user.emailAddress;
+                    } else if (service.client && typeof service.client === 'object' && service.client.email) {
+                        service.customerEmail = service.client.email;
+                    } else {
+                        service.customerEmail = "Not available";
+                    }
+                }
+            }
+
+            // EXTRACTING PHONE NUMBER
+            // First clear any invalid values
+            if (service.customerPhone === null || service.customerPhone === 'null' ||
+                service.customerPhone === undefined || service.customerPhone === 'undefined') {
+                service.customerPhone = '';
+            }
+
+            // Now try to extract from various places if not present or empty
+            if (!service.customerPhone || service.customerPhone === '') {
+                // Extract from customer object
+                if (service.customer) {
+                    if (typeof service.customer === 'object') {
+                        if (service.customer.phoneNumber) {
+                            service.customerPhone = service.customer.phoneNumber;
+                        } else if (service.customer.phone) {
+                            service.customerPhone = service.customer.phone;
+                        } else if (service.customer.contact) {
+                            service.customerPhone = service.customer.contact;
+                        } else if (service.customer.mobile) {
+                            service.customerPhone = service.customer.mobile;
+                        } else if (service.customer.mobileNumber) {
+                            service.customerPhone = service.customer.mobileNumber;
+                        } else if (service.customer.user) {
+                            if (service.customer.user.phoneNumber) {
+                                service.customerPhone = service.customer.user.phoneNumber;
+                            } else if (service.customer.user.phone) {
+                                service.customerPhone = service.customer.user.phone;
+                            } else if (service.customer.user.contact) {
+                                service.customerPhone = service.customer.user.contact;
+                            } else if (service.customer.user.mobile) {
+                                service.customerPhone = service.customer.user.mobile;
+                            }
+                        }
+                    }
+                }
+
+                // Try other possible field locations
+                if (!service.customerPhone || service.customerPhone === '') {
+                    if (service.phone) {
+                        service.customerPhone = service.phone;
+                    } else if (service.phoneNumber) {
+                        service.customerPhone = service.phoneNumber;
+                    } else if (service.contact) {
+                        service.customerPhone = service.contact;
+                    } else if (service.mobile) {
+                        service.customerPhone = service.mobile;
+                    } else if (service.user) {
+                        if (service.user.phoneNumber) {
+                            service.customerPhone = service.user.phoneNumber;
+                        } else if (service.user.phone) {
+                            service.customerPhone = service.user.phone;
+                        } else if (service.user.contact) {
+                            service.customerPhone = service.user.contact;
+                        } else if (service.user.mobile) {
+                            service.customerPhone = service.user.mobile;
+                        }
+                    } else if (service.client && typeof service.client === 'object') {
+                        if (service.client.phoneNumber) {
+                            service.customerPhone = service.client.phoneNumber;
+                        } else if (service.client.phone) {
+                            service.customerPhone = service.client.phone;
+                        }
+                    } else {
+                        service.customerPhone = "Not available";
+                    }
+                }
+            }
+
+            // EXTRACTING MEMBERSHIP STATUS
+            // First clear any invalid values
+            if (service.membershipStatus === null || service.membershipStatus === 'null' ||
+                service.membershipStatus === undefined || service.membershipStatus === 'undefined') {
+                service.membershipStatus = '';
+            }
+
+            // Now try to extract from various places if not present or empty
+            if (!service.membershipStatus || service.membershipStatus === '') {
+                // Extract from customer object
+                if (service.customer) {
+                    if (typeof service.customer === 'object') {
+                        if (service.customer.membershipStatus) {
+                            service.membershipStatus = service.customer.membershipStatus;
+                        } else if (service.customer.membership) {
+                            service.membershipStatus = service.customer.membership;
+                        } else if (service.customer.memberType) {
+                            service.membershipStatus = service.customer.memberType;
+                        } else if (service.customer.membershipType) {
+                            service.membershipStatus = service.customer.membershipType;
+                        } else if (service.customer.tier) {
+                            service.membershipStatus = service.customer.tier;
+                        } else if (service.customer.user) {
+                            if (service.customer.user.membershipStatus) {
+                                service.membershipStatus = service.customer.user.membershipStatus;
+                            } else if (service.customer.user.membership) {
+                                service.membershipStatus = service.customer.user.membership;
+                            }
+                        }
+                    }
+                }
+
+                // Try other possible field locations
+                if (!service.membershipStatus || service.membershipStatus === '') {
+                    if (service.membership) {
+                        service.membershipStatus = service.membership;
+                    } else if (service.memberType) {
+                        service.membershipStatus = service.memberType;
+                    } else if (service.membershipType) {
+                        service.membershipStatus = service.membershipType;
+                    } else if (service.tier) {
+                        service.membershipStatus = service.tier;
+                    } else if (service.user) {
+                        if (service.user.membershipStatus) {
+                            service.membershipStatus = service.user.membershipStatus;
+                        } else if (service.user.membership) {
+                            service.membershipStatus = service.user.membership;
+                        }
+                    } else {
+                        // Default value
+                        service.membershipStatus = "Standard";
+                    }
+                }
+            }
+
+            // FORMATTING THE DATA
+            // Format the name properly
+            service.customerName = formatPersonName(service.customerName);
+
+            // Format and validate email - ensure it has an @ symbol
+            service.customerEmail = service.customerEmail.trim();
+            if (!service.customerEmail.includes('@')) {
+                service.customerEmail = "Not available";
+            }
+
+            // Format the phone number
+            service.customerPhone = formatPhoneNumber(service.customerPhone);
+
+            // Format the membership status
+            service.membershipStatus = formatMembershipStatus(service.membershipStatus);
+
+            console.log("Enhanced customer info:", {
+                name: service.customerName,
+                email: service.customerEmail,
+                phone: service.customerPhone,
+                membership: service.membershipStatus
+            });
+        } catch (e) {
+            console.error("Error enhancing customer info:", e);
+            // Set default values in case of error
+            service.customerName = service.customerName || "Unknown Customer";
+            service.customerPhone = service.customerPhone || "Not available";
+            service.customerEmail = service.customerEmail || "Not available";
+            service.membershipStatus = service.membershipStatus || "Standard";
+        }
+    }
+
+
+    // Format and enhance date fields in the service map
+    function enhanceServiceDates(service) {
+        try {
+            // List of date fields to format
+            const dateFields = ['completedDate', 'requestDate', 'deliveryDate', 'updatedAt', 'createdAt', 'completionDate'];
+
+            // Process each date field
+            for (const fieldName of dateFields) {
+                if (service[fieldName] && service[fieldName] !== null) {
+                    try {
+                        // Try to parse and format the date
+                        const date = new Date(service[fieldName]);
+                        if (!isNaN(date.getTime())) {
+                            // Store the original date value
+                            service['original' + capitalizeFirstLetter(fieldName)] = service[fieldName];
+
+                            // Format the date in a user-friendly way
+                            const options = { year: 'numeric', month: 'short', day: 'numeric' };
+                            service['formatted' + capitalizeFirstLetter(fieldName)] = date.toLocaleDateString('en-US', options);
+                        }
+                    } catch (dateError) {
+                        console.warn(`Error formatting date field ${fieldName}:`, dateError);
+                    }
+                }
+            }
+
+            // Ensure completedDate exists
+            if (!service.completedDate || service.completedDate === null) {
+                // Try using updatedAt as fallback
+                if (service.updatedAt) {
+                    service.completedDate = service.updatedAt;
+                    try {
+                        const date = new Date(service.updatedAt);
+                        if (!isNaN(date.getTime())) {
+                            service.formattedCompletedDate = date.toLocaleDateString('en-US', {
+                                year: 'numeric', month: 'short', day: 'numeric'
+                            });
+                        }
+                    } catch (e) {
+                        console.warn("Error formatting fallback completedDate:", e);
+                    }
+                } else if (service.completionDate) {
+                    // Try completionDate as another fallback
+                    service.completedDate = service.completionDate;
+                    try {
+                        const date = new Date(service.completionDate);
+                        if (!isNaN(date.getTime())) {
+                            service.formattedCompletedDate = date.toLocaleDateString('en-US', {
+                                year: 'numeric', month: 'short', day: 'numeric'
+                            });
+                        }
+                    } catch (e) {
+                        console.warn("Error formatting fallback completionDate:", e);
+                    }
+                } else {
+                    // Last resort - use current date
+                    const today = new Date();
+                    service.completedDate = today.toISOString();
+                    service.formattedCompletedDate = today.toLocaleDateString('en-US', {
+                        year: 'numeric', month: 'short', day: 'numeric'
+                    });
+                }
+            }
+        } catch (e) {
+            console.error("Error enhancing service dates:", e);
+        }
+    }
+
+    // Ensure financial data is present and consistent
+    function ensureFinancialData(service) {
+        try {
+            // Get materials total with fallback
+            const materialsTotal = (() => {
+                if (service.materialsTotal !== undefined && service.materialsTotal !== null) {
+                    return parseFloat(service.materialsTotal);
+                }
+
+                // Calculate from materials array if available
+                if (Array.isArray(service.materials) && service.materials.length > 0) {
+                    return service.materials.reduce((sum, item) => {
+                        const quantity = parseFloat(item.quantity || 1);
+                        const unitPrice = parseFloat(item.unitPrice || 0);
+                        return sum + (quantity * unitPrice);
+                    }, 0);
+                }
+
+                return 0;
+            })();
+
+            // Get labor total with fallback
+            const laborTotal = (() => {
+                if (service.laborTotal !== undefined && service.laborTotal !== null) {
+                    return parseFloat(service.laborTotal);
+                }
+
+                // Calculate from labor charges array if available
+                if (Array.isArray(service.laborCharges) && service.laborCharges.length > 0) {
+                    return service.laborCharges.reduce((sum, item) => {
+                        return sum + parseFloat(item.total || 0);
+                    }, 0);
+                }
+
+                return 0;
+            })();
+
+            // Update service with calculated values
+            service.materialsTotal = materialsTotal;
+            service.laborTotal = laborTotal;
+
+            // Calculate discount if premium
+            let discount = 0;
+            if (service.membershipStatus.toLowerCase() === 'premium') {
+                // 20% discount on labor
+                discount = laborTotal * 0.2;
+            }
+            service.discount = discount;
+
+            // Calculate subtotal
+            const subtotal = materialsTotal + laborTotal - discount;
+            service.subtotal = subtotal;
+
+            // Calculate tax
+            const tax = subtotal * 0.18; // 18% GST
+            service.tax = tax;
+            service.gst = tax; // Alternative field name
+
+            // Calculate total cost
+            const totalCost = subtotal + tax;
+            service.totalCost = totalCost;
+            service.totalAmount = totalCost; // For consistency
+        } catch (e) {
+            console.error("Error ensuring financial data:", e);
+
+            // Set default values in case of error
+            service.materialsTotal = 0;
+            service.laborTotal = 0;
+            service.discount = 0;
+            service.subtotal = 0;
+            service.tax = 0;
+            service.gst = 0;
+            service.totalCost = 0;
+            service.totalAmount = 0;
+        }
+    }
+
+    // Ensure service status flags are present
+    function ensureServiceStatusFlags(service) {
+        // Set default values for status flags if they don't exist
+        service.hasBill = service.hasBill === true;
+        service.isPaid = service.isPaid === true || service.paid === true;
+        service.hasInvoice = service.hasInvoice === true;
+        service.isDelivered = service.isDelivered === true || service.delivered === true;
+        service.paid = service.isPaid; // For consistency
+        service.delivered = service.isDelivered; // For consistency
     }
 
     // Show spinner overlay
@@ -2681,101 +3194,81 @@
         const categoryIcon = category.toLowerCase() === 'bike' ? 'fas fa-motorcycle' :
             category.toLowerCase() === 'truck' ? 'fas fa-truck' : 'fas fa-car';
 
-        // Format customer details
-        const customerName = formatPersonName(service.customerName || 'Not available');
+        // Format customer details using our enhanced values
+        const customerName = service.customerName || 'Not available';
+        const customerEmail = service.customerEmail || 'No email provided';
+        const customerPhone = service.customerPhone || 'No phone provided';
 
-        // Handle email with proper formatting
-        let email = null;
-        if (service.customerEmail) {
-            email = service.customerEmail;
-        } else if (service.email) {
-            email = service.email;
-        } else if (service.customer && service.customer.email) {
-            email = service.customer.email;
-        }
-        const customerEmail = email || 'No email provided';
-
-        // Handle phone with proper formatting
-        let phone = null;
-        if (service.customerPhone) {
-            phone = service.customerPhone;
-        } else if (service.phone) {
-            phone = service.phone;
-        } else if (service.customer && service.customer.phoneNumber) {
-            phone = service.customer.phoneNumber;
-        }
-        const customerPhone = formatPhoneNumber(phone) || 'No phone provided';
-
-        // Format membership status
-        const membershipStatus = formatMembershipStatus(service.membershipStatus || 'Standard');
+        // Format membership status using our enhanced value
+        const membershipStatus = service.membershipStatus || 'Standard';
 
         // Format service type
         const serviceType = capitalizeEachWord(service.serviceType || 'General Service');
 
-        // Format date
-        const completedDate = formatDate(service.completedDate || service.completionDate || service.updatedAt);
+        // Format date - use our enhanced formatted date if available
+        const completedDate = service.formattedCompletedDate || formatDate(service.completedDate || service.completionDate || service.updatedAt);
 
-        // Format amount
+        // Format amount using the normalized total cost value
         const totalAmount = formatCurrency(service.totalCost || service.totalAmount || 0);
 
         // Check invoice status
         const hasInvoice = service.hasInvoice || false;
 
         row.innerHTML = `
-        <td>REQ-${serviceId}</td>
-        <td>
-            <div class="vehicle-info">
-                <div class="vehicle-icon">
-                    <i class="${categoryIcon}"></i>
-                </div>
-                <div class="vehicle-details">
-                    <h5>${vehicleName}</h5>
-                    <p>${registrationNumber}</p>
-                </div>
+    <td>REQ-${serviceId}</td>
+    <td>
+        <div class="vehicle-info">
+            <div class="vehicle-icon">
+                <i class="${categoryIcon}"></i>
             </div>
-        </td>
-        <td>
-            <div class="person-info">
-                <div class="person-details">
-                    <h5>${customerName}</h5>
-                    <p>
-                        <i class="fas fa-envelope me-1 text-muted"></i> ${customerEmail}<br>
-                        <i class="fas fa-phone me-1 text-muted"></i> ${customerPhone}
-                    </p>
-                </div>
+            <div class="vehicle-details">
+                <h5>${vehicleName}</h5>
+                <p>${registrationNumber}</p>
             </div>
-        </td>
-        <td>
-            <span class="membership-badge ${membershipStatus.toLowerCase() === 'premium' ? 'membership-premium' : 'membership-standard'}">
-                ${membershipStatus}
-            </span>
-        </td>
-        <td>${serviceType}</td>
-        <td>${completedDate}</td>
-        <td>${totalAmount}</td>
-        <td>
-            ${hasInvoice ?
+        </div>
+    </td>
+    <td>
+        <div class="person-info">
+            <div class="person-details">
+                <h5>${customerName}</h5>
+                <p>
+                    <i class="fas fa-envelope me-1 text-muted"></i> ${customerEmail}<br>
+                    <i class="fas fa-phone me-1 text-muted"></i> ${customerPhone}
+                </p>
+            </div>
+        </div>
+    </td>
+    <td>
+        <span class="membership-badge ${membershipStatus.toLowerCase() === 'premium' ? 'membership-premium' : 'membership-standard'}">
+            ${membershipStatus}
+        </span>
+    </td>
+    <td>${serviceType}</td>
+    <td>${completedDate}</td>
+    <td>${totalAmount}</td>
+    <td>
+        ${hasInvoice ?
             `<span class="status-badge status-completed">
-                    <i class="fas fa-check-circle"></i> Generated
-                </span>` :
+                <i class="fas fa-check-circle"></i> Generated
+            </span>` :
             `<span class="status-badge status-pending">
-                    <i class="fas fa-clock"></i> Pending
-                </span>`
+                <i class="fas fa-clock"></i> Pending
+            </span>`
         }
-        </td>
-        <td>
-            <div class="table-actions-cell">
-                <button class="btn-table-action" onclick="viewServiceDetails(${serviceId})">
-                    <i class="fas fa-eye"></i>
-                </button>
-                ${hasInvoice ?
+    </td>
+    <td>
+        <div class="table-actions-cell">
+            <button class="btn-table-action" onclick="viewServiceDetails(${serviceId})">
+                <i class="fas fa-eye"></i>
+            </button>
+            ${hasInvoice ?
             `<button class="btn-table-action success" onclick="downloadInvoiceById(${serviceId})">
-                        <i class="fas fa-file-download"></i>
-                    </button>` : ''
+                    <i class="fas fa-file-download"></i>
+                </button>` : ''
         }
-            </div>
-        </td>
-    `;
+        </div>
+    </td>
+`;
 
         return row;
     }
@@ -2785,13 +3278,22 @@
         if (!status) return 'Standard';
 
         // Convert to string and trim
-        status = String(status).trim();
+        status = String(status).trim().toLowerCase();
 
         // Handle empty string
         if (status === '') return 'Standard';
 
-        // Make first letter uppercase and rest lowercase
-        return status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
+        // Handle common variations
+        if (status === 'Premium' || status === 'gold' || status === 'vip') {
+            return 'Premium';
+        }
+
+        if (status === 'Standard' || status === 'basic' || status === 'regular' || status === 'normal') {
+            return 'Standard';
+        }
+
+        // Default capitalization for other values
+        return status.charAt(0).toUpperCase() + status.slice(1);
     }
 
     // Format a person's name properly
@@ -2826,9 +3328,14 @@
         }
 
         // For Indian phone numbers: if it's a 10-digit number, format as +91 XXXXX XXXXX
-        if (/^\d{10}$/.test(phone.replace(/\D/g, ''))) {
-            const digits = phone.replace(/\D/g, '');
+        const digits = phone.replace(/\D/g, '');
+        if (/^\d{10}$/.test(digits)) {
             return `+91 ${digits.substring(0, 5)} ${digits.substring(5)}`;
+        }
+
+        // If it's a long number with country code
+        if (/^\d{11,12}$/.test(digits) && (digits.startsWith('91'))) {
+            return `+${digits.substring(0, 2)} ${digits.substring(2, 7)} ${digits.substring(7)}`;
         }
 
         // Otherwise, return as is
@@ -2857,6 +3364,14 @@
 
         // Capitalize first letter only
         return text.charAt(0).toUpperCase() + text.slice(1).toLowerCase();
+    }
+
+    // Helper function to safely get string value from a service object
+    function getStringValue(service, key) {
+        if (service && service[key] !== undefined && service[key] !== null) {
+            return String(service[key]).trim();
+        }
+        return null;
     }
 
     // Format date with better error handling
@@ -2908,7 +3423,7 @@
         }
     }
 
-    // View service details
+    // View service details with improved data handling
     function viewServiceDetails(serviceId) {
         // Save current service ID
         currentServiceId = serviceId;
@@ -2923,7 +3438,7 @@
         // Show spinner
         showSpinner();
 
-        // Get the table row data first - this contains correctly formatted data
+        // Extract the table row data first for use as fallback
         const tableRow = document.querySelector(`tr[data-service-id="${serviceId}"]`);
         let tableData = null;
 
@@ -2934,8 +3449,11 @@
                 vehicleName: tableRow.querySelector('.vehicle-details h5')?.textContent?.trim() || '',
                 registrationNumber: tableRow.querySelector('.vehicle-details p')?.textContent?.trim() || '',
                 customerName: tableRow.querySelector('.person-details h5')?.textContent?.trim() || '',
-                customerEmail: tableRow.querySelector('.person-details p')?.textContent?.includes('@') ?
-                    tableRow.querySelector('.person-details p')?.textContent?.trim() : '',
+                customerEmail: tableRow.querySelector('.person-details p')?.innerText.includes('@') ?
+                    tableRow.querySelector('.person-details p')?.innerText.split('@')[0] + '@' +
+                    tableRow.querySelector('.person-details p')?.innerText.split('@')[1].split('\n')[0] : '',
+                customerPhone: tableRow.querySelector('.person-details p')?.innerText.includes('phone') ?
+                    tableRow.querySelector('.person-details p')?.innerText.split('\n')[1].replace(/[^+0-9 ]/g, '').trim() : '',
                 membershipStatus: tableRow.querySelector('.membership-badge')?.textContent?.trim() || 'Standard',
                 serviceType: tableRow.cells[4]?.textContent?.trim() || '',
                 completedDate: tableRow.cells[5]?.textContent?.trim() || '',
@@ -2944,7 +3462,23 @@
             console.log("Extracted table data:", tableData);
         }
 
-        // Fetch service details from API
+        // First, try to get the service from our existing data
+        const existingService = completedServices.find(s => (s.serviceId == serviceId || s.requestId == serviceId));
+
+        if (existingService) {
+            console.log("Using existing service data:", existingService);
+            hideSpinner();
+
+            // Merge with table data for completeness
+            const mergedData = mergeServiceData(existingService, tableData);
+            populateServiceDetailsModal(mergedData);
+
+            // Show the modal
+            new bootstrap.Modal(document.getElementById('viewServiceDetailsModal')).show();
+            return;
+        }
+
+        // If not found in existing data, fetch from API
         fetch(`/admin/api/vehicle-tracking/service-request/${serviceId}?token=${encodeURIComponent(token)}`)
             .then(response => {
                 if (!response.ok) {
@@ -2955,8 +3489,12 @@
             .then(data => {
                 // Debug logging
                 console.log("API RESPONSE:", data);
+                console.log("Customer data path:", data.customer ? JSON.stringify(data.customer, null, 2) : "No customer object");
 
-                // Merge API data with table data (preferring API data where available)
+                // Enhance the data
+                enhanceServiceData(data);
+
+                // Merge API data with table data
                 const mergedData = mergeServiceData(data, tableData);
 
                 hideSpinner();
@@ -2972,6 +3510,8 @@
                 // If API fails but we have table data, use that
                 if (tableData) {
                     console.log("Using table data as fallback");
+                    // Enhance the table data
+                    enhanceServiceData(tableData);
                     populateServiceDetailsModal(tableData);
                     new bootstrap.Modal(document.getElementById('viewServiceDetailsModal')).show();
                 } else {
@@ -2980,34 +3520,46 @@
             });
     }
 
-    // Helper function to merge API data with table data
+    // Helper function to merge API data with table data - improved version
     function mergeServiceData(apiData, tableData) {
         if (!tableData) return apiData;
 
         const merged = {...apiData};
 
-        // Only use table data as fallback if API data is missing
+        // Only use table data as fallback if API data is missing or incomplete
+
+        // Vehicle information
         if (!merged.vehicleName && tableData.vehicleName) merged.vehicleName = tableData.vehicleName;
         if (!merged.registrationNumber && tableData.registrationNumber) merged.registrationNumber = tableData.registrationNumber;
+
+        // Customer information
         if (!merged.customerName && tableData.customerName) merged.customerName = tableData.customerName;
         if (!merged.customerEmail && tableData.customerEmail) merged.customerEmail = tableData.customerEmail;
+        if (!merged.customerPhone && tableData.customerPhone) merged.customerPhone = tableData.customerPhone;
         if (!merged.membershipStatus && tableData.membershipStatus) merged.membershipStatus = tableData.membershipStatus;
+
+        // Service information
         if (!merged.serviceType && tableData.serviceType) merged.serviceType = tableData.serviceType;
         if (!merged.completedDate && tableData.completedDate) merged.completedDate = tableData.completedDate;
         if ((!merged.totalCost && !merged.totalAmount) && tableData.totalCost) {
             merged.totalCost = tableData.totalCost;
+            merged.totalAmount = tableData.totalCost;
         }
 
         // Ensure vehicle category is set
         if (!merged.category) {
-            merged.category = merged.vehicleType || (merged.vehicleName?.includes('Bike') ? 'Bike' :
-                merged.vehicleName?.includes('Truck') ? 'Truck' : 'Car');
+            merged.category = merged.vehicleType ||
+                (merged.vehicleName?.includes('Bike') ? 'Bike' :
+                    merged.vehicleName?.includes('Truck') ? 'Truck' : 'Car');
         }
+
+        // Make sure we've applied all our data enhancement functions
+        enhanceServiceData(merged);
 
         return merged;
     }
 
-    // Populate service details modal
+    // Populate service details modal with comprehensive data handling
     function populateServiceDetailsModal(service) {
         console.log("Populating modal with:", service);
 
@@ -3021,11 +3573,8 @@
         </span>
     `;
 
-        // Completion Date
-        let completionDate = service.formattedCompletedDate || service.completedDate || service.completionDate || 'N/A';
-        if (completionDate !== 'N/A' && typeof completionDate !== 'string') {
-            completionDate = formatDate(completionDate);
-        }
+        // Completion Date - use formatted date if available
+        let completionDate = service.formattedCompletedDate || formatDate(service.completedDate || service.completionDate || service.updatedAt || 'N/A');
         document.getElementById('viewCompletionDate').textContent = completionDate;
 
         // Vehicle info
@@ -3033,64 +3582,36 @@
         document.getElementById('viewRegistrationNumber').textContent = service.registrationNumber || 'N/A';
         document.getElementById('viewVehicleCategory').textContent = capitalizeFirstLetter(service.category || 'Car');
 
-        // Customer info - Properly format customer name with capitalization
-        const customerName = service.customerName || 'Not available';
-        document.getElementById('viewCustomerName').textContent = formatPersonName(customerName);
+        // Customer info - using our enhanced data
+        document.getElementById('viewCustomerName').textContent = service.customerName || 'Not available';
 
-        // Contact info - Carefully extract and format email and phone
+        // Contact info - using our enhanced data
         const customerContactEl = document.getElementById('viewCustomerContact');
         if (customerContactEl) {
             let contactHtml = '';
 
-            // Handle phone number with proper formatting
-            let phoneNumber = null;
-            if (service.customerPhone) {
-                phoneNumber = service.customerPhone;
-            } else if (service.phone) {
-                phoneNumber = service.phone;
-            } else if (service.customer && service.customer.phoneNumber) {
-                phoneNumber = service.customer.phoneNumber;
+            // Add phone if available
+            if (service.customerPhone && service.customerPhone !== 'Not available') {
+                contactHtml += `<i class="fas fa-phone me-1"></i> ${service.customerPhone}<br>`;
             }
 
-            if (phoneNumber) {
-                // Format phone number if needed
-                phoneNumber = formatPhoneNumber(phoneNumber);
-                contactHtml += `<i class="fas fa-phone me-1"></i> ${phoneNumber}<br>`;
-            }
-
-            // Handle email with proper formatting
-            let email = null;
-            if (service.customerEmail) {
-                email = service.customerEmail;
-            } else if (service.email) {
-                email = service.email;
-            } else if (service.customer && service.customer.email) {
-                email = service.customer.email;
-            }
-
-            if (email) {
-                // Format and validate email
-                email = email.trim().toLowerCase();
-                contactHtml += `<i class="fas fa-envelope me-1"></i> ${email}`;
+            // Add email if available
+            if (service.customerEmail && service.customerEmail !== 'Not available') {
+                contactHtml += `<i class="fas fa-envelope me-1"></i> ${service.customerEmail}`;
             }
 
             customerContactEl.innerHTML = contactHtml || 'No contact information available';
         }
 
-        // Membership - Ensure proper capitalization
-        const membership = service.membershipStatus || 'Standard';
-        document.getElementById('viewMembership').textContent = formatMembershipStatus(membership);
+        // Membership - using our enhanced data
+        document.getElementById('viewMembership').textContent = service.membershipStatus || 'Standard';
 
-        // Service info - Properly format service type and advisor name
+        // Service info
         document.getElementById('viewServiceType').textContent = capitalizeEachWord(service.serviceType || 'General Service');
+        document.getElementById('viewServiceAdvisor').textContent = formatPersonName(service.serviceAdvisorName || 'Not assigned');
 
-        // Format service advisor name properly
-        const advisorName = service.serviceAdvisorName || 'Not assigned';
-        document.getElementById('viewServiceAdvisor').textContent = formatPersonName(advisorName);
-
-        // Total amount
-        const amount = service.totalCost || service.totalAmount || 0;
-        document.getElementById('viewTotalAmount').textContent = formatCurrency(amount);
+        // Total amount - using our calculated financial data
+        document.getElementById('viewTotalAmount').textContent = formatCurrency(service.totalCost || service.totalAmount || 0);
 
         // Service description
         document.getElementById('viewServiceDescription').textContent =
@@ -3100,13 +3621,13 @@
         populateMaterialsTable(service.materials || []);
         populateLaborTable(service.laborCharges || []);
 
-        // Invoice summary
+        // Invoice summary - using our calculated financial data
         updateInvoiceSummary(service);
 
-        // Update workflow steps
+        // Update workflow steps - using our enhanced status data
         updateWorkflowSteps(service);
 
-        // Update action buttons
+        // Update action buttons - using our enhanced status data
         updateServiceActionButtons(service);
     }
 
@@ -3398,7 +3919,8 @@
                 (service.customerPhone && service.customerPhone.toLowerCase().includes(searchText)) ||
                 (service.customerEmail && service.customerEmail.toLowerCase().includes(searchText)) ||
                 (service.serviceType && service.serviceType.toLowerCase().includes(searchText)) ||
-                ('req-' + service.serviceId).toLowerCase().includes(searchText)
+                ('req-' + service.serviceId).toLowerCase().includes(searchText) ||
+                (service.membershipStatus && service.membershipStatus.toLowerCase().includes(searchText))
             );
         });
 
@@ -3510,6 +4032,13 @@
                 return response.json();
             })
             .then(data => {
+                console.log('Filter API response:', data);
+
+                // Process the data to ensure consistency
+                data.forEach(service => {
+                    enhanceServiceData(service);
+                });
+
                 hideSpinner();
 
                 // Update global services array
@@ -3540,22 +4069,22 @@
     function generateBill(service) {
         // Populate bill generation modal with service details
         document.getElementById('billServiceId').textContent = 'REQ-' + service.serviceId;
-        document.getElementById('billCustomerName').textContent = formatPersonName(service.customerName);
+        document.getElementById('billCustomerName').textContent = service.customerName;
         document.getElementById('billVehicleName').textContent = service.vehicleName;
         document.getElementById('billVehicleRegistration').textContent = service.registrationNumber;
-        document.getElementById('billMembershipStatus').textContent = formatMembershipStatus(service.membershipStatus);
+        document.getElementById('billMembershipStatus').textContent = service.membershipStatus;
 
         // Set premium flag for discount display
-        const isPremium = formatMembershipStatus(service.membershipStatus).toLowerCase() === 'premium';
+        const isPremium = service.membershipStatus.toLowerCase() === 'premium';
         if (isPremium) {
             document.getElementById('billPremiumDiscount').style.display = '';
         } else {
             document.getElementById('billPremiumDiscount').style.display = 'none';
         }
 
-        // Calculate financial details
-        const materialsTotal = parseFloat(service.materialsTotal || 0);
-        const laborTotal = parseFloat(service.laborTotal || 0);
+        // Use our calculated financial data
+        const materialsTotal = service.materialsTotal || 0;
+        const laborTotal = service.laborTotal || 0;
 
         // Set materials and labor totals
         document.getElementById('billMaterialsTotal').textContent = formatCurrency(materialsTotal);
@@ -3691,7 +4220,7 @@
     function openPaymentModal(service) {
         // Populate payment modal with service details
         document.getElementById('paymentServiceId').textContent = 'REQ-' + (service.requestId || service.serviceId);
-        document.getElementById('paymentCustomerName').textContent = formatPersonName(service.customerName || 'Unknown Customer');
+        document.getElementById('paymentCustomerName').textContent = service.customerName || 'Unknown Customer';
         document.getElementById('paymentVehicleName').textContent = service.vehicleName || 'Unknown Vehicle';
         document.getElementById('paymentAmount').textContent = formatCurrency(service.totalCost || service.totalAmount || 0);
 
@@ -3784,7 +4313,7 @@
     function openInvoiceModal(service) {
         // Populate invoice modal with service details
         document.getElementById('invoiceServiceId').textContent = 'REQ-' + (service.requestId || service.serviceId);
-        document.getElementById('invoiceCustomerName').textContent = formatPersonName(service.customerName || 'Unknown Customer');
+        document.getElementById('invoiceCustomerName').textContent = service.customerName || 'Unknown Customer';
         document.getElementById('invoiceVehicleName').textContent = service.vehicleName || 'Unknown Vehicle';
         document.getElementById('invoiceRegistrationNumber').textContent = service.registrationNumber || 'N/A';
         document.getElementById('invoiceServiceType').textContent = capitalizeEachWord(service.serviceType || 'General Service');
@@ -3794,16 +4323,16 @@
         document.getElementById('invoiceCompletionDate').textContent = completionDate;
 
         // Set premium badge
-        const membershipStatus = formatMembershipStatus(service.membershipStatus || 'Standard');
+        const membershipStatus = service.membershipStatus || 'Standard';
         if (membershipStatus.toLowerCase() === 'premium') {
             document.getElementById('premiumBadge').style.display = '';
         } else {
             document.getElementById('premiumBadge').style.display = 'none';
         }
 
-        // Calculate financial details
-        const materialsTotal = parseFloat(service.materialsTotal || document.getElementById('summaryMaterialsTotal').textContent.replace(/[₹,]/g, '') || 0);
-        const laborTotal = parseFloat(service.laborTotal || document.getElementById('summaryLaborTotal').textContent.replace(/[₹,]/g, '') || 0);
+        // Use our calculated financial data
+        const materialsTotal = service.materialsTotal || 0;
+        const laborTotal = service.laborTotal || 0;
 
         // Set financial details
         document.getElementById('invoiceMaterialsTotal').textContent = formatCurrency(materialsTotal);
@@ -4037,5 +4566,6 @@
         });
     }
 </script>
+
 </body>
 </html>
