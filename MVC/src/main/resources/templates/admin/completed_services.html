@@ -1122,7 +1122,7 @@
         const token = getAuthToken();
 
         // Fetch data from API
-        fetch('/admin/api/vehicle-tracking/completed-services', {
+        fetch('/admin/api/completed-services', {
             method: 'GET',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -1138,6 +1138,12 @@
             .then(data => {
                 console.log('Completed services data:', data);
                 completedServices = data;
+
+                // Pre-normalize membership statuses for all services
+                completedServices.forEach(service => {
+                    normalizeServiceData(service);
+                });
+
                 renderCompletedServicesTable();
             })
             .catch(error => {
@@ -1156,6 +1162,45 @@
             </tr>
         `;
             });
+    }
+
+    /**
+     * Normalize essential service data
+     * @param {Object} service - The service data to normalize
+     */
+    function normalizeServiceData(service) {
+        // 1. Normalize membership status
+        if (service.membershipStatus) {
+            const status = service.membershipStatus.toString().trim().toLowerCase();
+            if (status === 'premium') {
+                service.membershipStatus = 'Premium';
+            } else {
+                service.membershipStatus = 'Standard';
+            }
+        } else {
+            service.membershipStatus = 'Standard';
+        }
+
+        // 2. Ensure customer name is available
+        if (!service.customerName && service.customer) {
+            if (typeof service.customer === 'object') {
+                const customer = service.customer;
+                if (customer.firstName && customer.lastName) {
+                    service.customerName = `${customer.firstName} ${customer.lastName}`;
+                } else if (customer.user && customer.user.firstName && customer.user.lastName) {
+                    service.customerName = `${customer.user.firstName} ${customer.user.lastName}`;
+                }
+            }
+        }
+
+        // 3. Ensure registration number is available
+        if (!service.registrationNumber) {
+            if (service.vehicleRegistration) {
+                service.registrationNumber = service.vehicleRegistration;
+            } else if (service.vehicle && service.vehicle.registrationNumber) {
+                service.registrationNumber = service.vehicle.registrationNumber;
+            }
+        }
     }
 
     /**
@@ -1215,6 +1260,10 @@
                 'fas fa-motorcycle' : (service.vehicleType || service.category || '').toLowerCase() === 'truck' ?
                     'fas fa-truck' : 'fas fa-car';
 
+            // Ensure the service has the critical data we need
+            const membershipStatus = service.membershipStatus || 'Standard';
+            const membershipClass = membershipStatus === 'Premium' ? 'membership-premium' : 'membership-standard';
+
             row.innerHTML = `
             <td>REQ-${service.requestId || service.serviceId}</td>
             <td>
@@ -1224,14 +1273,14 @@
                     </div>
                     <div class="vehicle-details">
                         <h5>${service.vehicleName || `${service.vehicleBrand || ''} ${service.vehicleModel || ''}`}</h5>
-                        <p>${service.registrationNumber}</p>
+                        <p>${service.registrationNumber || 'Unknown'}</p>
                     </div>
                 </div>
             </td>
-            <td>${service.customerName}</td>
+            <td>${service.customerName || 'Unknown Customer'}</td>
             <td>
-                <span class="membership-badge ${(service.membershipStatus || '').toLowerCase() === 'premium' ? 'membership-premium' : 'membership-standard'}">
-                    ${service.membershipStatus || 'Standard'}
+                <span class="membership-badge ${membershipClass}">
+                    ${membershipStatus}
                 </span>
             </td>
             <td>${formattedDate}</td>
@@ -1249,6 +1298,87 @@
         `;
 
             tableBody.appendChild(row);
+        });
+    }
+
+    /**
+     * Enhance customer information in service details
+     * @param {Object} service - The service data
+     * @returns {Promise} - Promise that resolves when enhancement is complete
+     */
+    function enhanceCustomerInfo(service) {
+        return new Promise((resolve, reject) => {
+            try {
+                // Normalize membership status regardless of whether we need to fetch customer data
+                if (service.membershipStatus) {
+                    const status = service.membershipStatus.toString().trim().toLowerCase();
+                    if (status === 'premium') {
+                        service.membershipStatus = 'Premium';
+                    } else {
+                        service.membershipStatus = 'Standard';
+                    }
+                } else {
+                    service.membershipStatus = 'Standard';
+                }
+
+                // Set other fallbacks right away
+                service.customerName = service.customerName || "Unknown Customer";
+                service.customerEmail = service.customerEmail || "Not available";
+                service.customerPhone = service.customerPhone || "Not available";
+
+                // If we don't have a customerId, can't fetch more details
+                const customerId = service.customerId || (service.customer && service.customer.customerId);
+                if (!customerId) {
+                    resolve(service);
+                    return;
+                }
+
+                // If we need more customer details, fetch them
+                const token = getAuthToken();
+                fetch(`/admin/customers/api/${customerId}`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                })
+                    .then(response => {
+                        if (response.ok) return response.json();
+                        throw new Error('Failed to fetch customer details');
+                    })
+                    .then(customerData => {
+                        if (customerData) {
+                            // Apply the fetched customer data
+                            if (!service.customerName && customerData.firstName && customerData.lastName) {
+                                service.customerName = `${customerData.firstName} ${customerData.lastName}`;
+                            }
+                            if (!service.customerEmail && customerData.email) {
+                                service.customerEmail = customerData.email;
+                            }
+                            if (!service.customerPhone && customerData.phoneNumber) {
+                                service.customerPhone = customerData.phoneNumber;
+                            }
+                            if (customerData.membershipStatus) {
+                                const status = customerData.membershipStatus.toString().trim().toLowerCase();
+                                if (status === 'premium') {
+                                    service.membershipStatus = 'Premium';
+                                } else {
+                                    service.membershipStatus = 'Standard';
+                                }
+                            }
+                            console.log('Enhanced service with customer details:', service);
+                        }
+
+                        resolve(service);
+                    })
+                    .catch(error => {
+                        console.warn('Could not fetch additional customer details:', error);
+                        resolve(service);
+                    });
+            } catch (error) {
+                console.error("Error enhancing customer info:", error);
+                resolve(service); // Resolve with default values rather than rejecting
+            }
         });
     }
 
@@ -1305,15 +1435,23 @@
                 currentServiceId = serviceId;
                 currentService = service;
 
+                // Normalize essential service data first
+                normalizeServiceData(service);
+
+                // Then enhance customer info with an API call if needed
+                return enhanceCustomerInfo(service);
+            })
+            .then(service => {
+                // Now that we have enhanced service data, update the UI
+
                 // Basic service information
                 document.getElementById('viewServiceId').textContent = `REQ-${service.requestId || service.serviceId || ''}`;
                 document.getElementById('viewVehicleName').textContent = getVehicleName(service);
-                document.getElementById('viewRegistrationNumber').textContent = service.registrationNumber || 'N/A';
-                document.getElementById('viewCustomerName').textContent = service.customerName || 'N/A';
+                document.getElementById('viewRegistrationNumber').textContent = getRegistrationNumber(service);
+                document.getElementById('viewCustomerName').textContent = service.customerName || 'Unknown Customer';
 
                 // Properly handle membership status
-                const membershipStatus = service.membershipStatus || 'Standard';
-                document.getElementById('viewMembership').textContent = membershipStatus;
+                document.getElementById('viewMembership').textContent = service.membershipStatus || 'Standard';
 
                 // Format and display completion date
                 const completionDate = getFormattedDate(service);
@@ -1362,6 +1500,27 @@
 
                 showToast('Error loading service details: ' + error.message, 'error');
             });
+    }
+
+    /**
+     * Get the registration number with better fallbacks
+     * @param {Object} service - The service data
+     * @returns {string} The formatted registration number
+     */
+    function getRegistrationNumber(service) {
+        if (service.registrationNumber) {
+            return service.registrationNumber;
+        }
+
+        if (service.vehicleRegistration) {
+            return service.vehicleRegistration;
+        }
+
+        if (service.vehicle && service.vehicle.registrationNumber) {
+            return service.vehicle.registrationNumber;
+        }
+
+        return 'Unknown';
     }
 
     /**
@@ -1735,10 +1894,11 @@
                 }
             }, 0);
 
-            // Calculate discount if premium membership
-            const isPremium = (service.membershipStatus || '').toLowerCase() === 'premium';
+            // Calculate discount based on membership status
+            const isPremium = service.membershipStatus === 'Premium';
             if (isPremium) {
-                discount = laborTotal * 0.2; // 20% discount on labor
+                // Premium members get 20% off labor charges
+                discount = laborTotal * 0.2;
             }
 
             // Calculate subtotal
@@ -1751,8 +1911,8 @@
             total = subtotal + tax;
         }
 
-        // Apply membership discount if applicable
-        const isPremium = (service.membershipStatus || '').toLowerCase() === 'premium';
+        // Apply membership discount visualization
+        const isPremium = service.membershipStatus === 'Premium';
         const premiumDiscountRow = document.getElementById('premiumDiscountRow');
 
         if (isPremium && discount > 0) {
@@ -1921,14 +2081,21 @@
         let total = currentService.calculatedTotal || 0;
 
         // Apply premium discount if applicable
-        const isPremium = (currentService.membershipStatus || '').toLowerCase() === 'premium';
+        const isPremium = currentService.membershipStatus === 'Premium';
         const premiumDiscountRow = document.getElementById('invoicePremiumDiscountRow');
         const premiumBadge = document.getElementById('invoicePremiumBadge');
 
-        if (isPremium && discount > 0) {
-            document.getElementById('invoiceDiscount').textContent = `-${formatter.format(discount)}`;
-            premiumDiscountRow.style.display = '';
+        if (isPremium) {
+            // Show premium badge regardless
             premiumBadge.style.display = '';
+
+            // Only show discount row if there's a discount
+            if (discount > 0) {
+                document.getElementById('invoiceDiscount').textContent = `-${formatter.format(discount)}`;
+                premiumDiscountRow.style.display = '';
+            } else {
+                premiumDiscountRow.style.display = 'none';
+            }
         } else {
             premiumDiscountRow.style.display = 'none';
             premiumBadge.style.display = 'none';
@@ -1987,7 +2154,9 @@
             discount: currentService.calculatedDiscount,
             subtotal: currentService.calculatedSubtotal,
             tax: currentService.calculatedTax,
-            total: currentService.calculatedTotal
+            total: currentService.calculatedTotal,
+            // Include normalized membership status
+            membershipStatus: currentService.membershipStatus
         };
 
         // Get token
