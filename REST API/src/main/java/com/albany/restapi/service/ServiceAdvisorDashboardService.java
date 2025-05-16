@@ -165,6 +165,7 @@ public class ServiceAdvisorDashboardService {
     /**
      * MODIFIED: Method to save materials to a service request
      * This now updates a single tracking record instead of creating new ones
+     * FIXED: Preserves existing labor charges when updating
      */
     @Transactional
     public ServiceMaterialsDTO addMaterialsToServiceRequest(
@@ -177,6 +178,13 @@ public class ServiceAdvisorDashboardService {
 
         // Get the service advisor profile
         ServiceAdvisorProfile advisor = getServiceAdvisorProfile(serviceAdvisorEmail);
+
+        // Get existing tracking record FIRST to preserve labor cost data
+        ServiceTracking tracking = getOrCreateServiceTracking(requestId, advisor, request.getStatus());
+
+        // Store current labor cost and minutes so we don't lose them
+        BigDecimal existingLaborCost = tracking.getLaborCost();
+        Integer existingLaborMinutes = tracking.getLaborMinutes();
 
         // Delete existing material usages if requested
         if (materialsRequest.isReplaceExisting()) {
@@ -225,12 +233,14 @@ public class ServiceAdvisorDashboardService {
             processedMaterials.add(processedItem);
         }
 
-        // Get or create the single tracking record and update it
+        // Update the tracking record with new material cost while preserving labor information
         if (!processedMaterials.isEmpty()) {
-            ServiceTracking tracking = getOrCreateServiceTracking(requestId, advisor, request.getStatus());
-
             // Update the material cost
             tracking.setTotalMaterialCost(totalMaterialsCost);
+
+            // IMPORTANT: Make sure we don't lose the labor information
+            tracking.setLaborCost(existingLaborCost);
+            tracking.setLaborMinutes(existingLaborMinutes);
 
             // Update work description
             String materialsDesc = "Updated materials: " +
@@ -257,8 +267,8 @@ public class ServiceAdvisorDashboardService {
     }
 
     /**
-     * MODIFIED: Add labor charges to a service request
-     * Now updates a single tracking record instead of creating new ones
+     * FIXED: Add labor charges to a service request
+     * Improved error handling and data validation
      */
     @Transactional
     public ServiceBillSummaryDTO addLaborCharges(
@@ -266,49 +276,98 @@ public class ServiceAdvisorDashboardService {
             List<LaborChargeDTO> laborCharges,
             String serviceAdvisorEmail) {
 
-        // Validate service request and service advisor
-        ServiceRequest request = validateServiceRequestAccess(requestId, serviceAdvisorEmail);
+        try {
+            // Log incoming request for debugging
+            log.info("Processing labor charges for request {}: {} charges",
+                    requestId, laborCharges != null ? laborCharges.size() : 0);
 
-        // Get service advisor profile
-        ServiceAdvisorProfile advisor = getServiceAdvisorProfile(serviceAdvisorEmail);
+            if (laborCharges == null || laborCharges.isEmpty()) {
+                log.warn("No labor charges provided for request {}", requestId);
+                return getCurrentBillSummary(requestId);
+            }
 
-        // Calculate total labor cost and minutes
-        BigDecimal totalLaborCost = BigDecimal.ZERO;
-        int totalMinutes = 0;
+            // Validate service request and service advisor
+            ServiceRequest request = validateServiceRequestAccess(requestId, serviceAdvisorEmail);
 
-        for (LaborChargeDTO chargeDTO : laborCharges) {
-            // Calculate total cost and minutes
-            BigDecimal totalCost = chargeDTO.getHours().multiply(chargeDTO.getRatePerHour());
-            totalLaborCost = totalLaborCost.add(totalCost);
+            // Get service advisor profile
+            ServiceAdvisorProfile advisor = getServiceAdvisorProfile(serviceAdvisorEmail);
 
-            // Convert hours to minutes
-            int minutes = chargeDTO.getHours().multiply(new BigDecimal("60")).intValue();
-            totalMinutes += minutes;
+            // Calculate total labor cost and minutes
+            BigDecimal totalLaborCost = BigDecimal.ZERO;
+            int totalMinutes = 0;
+
+            for (LaborChargeDTO chargeDTO : laborCharges) {
+                // Log each charge for debugging
+                log.debug("Processing labor charge: {} hours @ {}/hr",
+                        chargeDTO.getHours(), chargeDTO.getRatePerHour());
+
+                // Validate the labor charge data
+                if (chargeDTO.getHours() == null || chargeDTO.getHours().compareTo(BigDecimal.ZERO) <= 0) {
+                    log.warn("Invalid hours value in labor charge: {}", chargeDTO.getHours());
+                    continue; // Skip this charge
+                }
+
+                if (chargeDTO.getRatePerHour() == null || chargeDTO.getRatePerHour().compareTo(BigDecimal.ZERO) <= 0) {
+                    log.warn("Invalid rate value in labor charge: {}", chargeDTO.getRatePerHour());
+                    continue; // Skip this charge
+                }
+
+                // Calculate total cost and minutes
+                BigDecimal totalCost = chargeDTO.getHours().multiply(chargeDTO.getRatePerHour());
+                totalLaborCost = totalLaborCost.add(totalCost);
+
+                // Convert hours to minutes
+                int minutes = chargeDTO.getHours().multiply(new BigDecimal("60")).intValue();
+                totalMinutes += minutes;
+            }
+
+            // Handle case where all charges were invalid
+            if (totalLaborCost.compareTo(BigDecimal.ZERO) <= 0) {
+                log.warn("No valid labor charges found for request {}", requestId);
+                return getCurrentBillSummary(requestId);
+            }
+
+            // Get or create the tracking record and update it
+            ServiceTracking tracking = getOrCreateServiceTracking(requestId, advisor, request.getStatus());
+
+            // Log the current tracking data
+            log.info("Updating service tracking record: id={}, current labor cost={}, new labor cost={}",
+                    tracking.getTrackingId(), tracking.getLaborCost(), totalLaborCost);
+
+            // Update labor information
+            tracking.setLaborCost(totalLaborCost);
+            tracking.setLaborMinutes(totalMinutes);
+
+            // Don't lose existing material cost data
+            if (tracking.getTotalMaterialCost() == null) {
+                tracking.setTotalMaterialCost(BigDecimal.ZERO);
+            }
+
+            // Update work description
+            String laborDetails = "Updated labor charges: " + laborCharges.size() + " item(s), total: " +
+                    totalMinutes + " minutes @ ₹" +
+                    totalLaborCost.divide(new BigDecimal(Math.max(1, totalMinutes)), 2, RoundingMode.HALF_UP) +
+                    "/minute";
+
+            if (tracking.getWorkDescription() != null && !tracking.getWorkDescription().isEmpty()) {
+                tracking.setWorkDescription(tracking.getWorkDescription() + "; " + laborDetails);
+            } else {
+                tracking.setWorkDescription(laborDetails);
+            }
+
+            // Save the changes
+            tracking = serviceTrackingRepository.save(tracking);
+            log.info("Successfully saved labor charges for request {}: {} minutes, cost={}",
+                    requestId, totalMinutes, totalLaborCost);
+
+            // Return updated bill summary
+            return getCurrentBillSummary(requestId);
+
+        } catch (Exception e) {
+            // Log the full exception for debugging
+            log.error("Error adding labor charges for request {}: {}", requestId, e.getMessage(), e);
+            throw e; // Re-throw so it's handled by the controller
         }
-
-        // Get or create the tracking record and update it
-        ServiceTracking tracking = getOrCreateServiceTracking(requestId, advisor, request.getStatus());
-
-        // Update labor information
-        tracking.setLaborCost(totalLaborCost);
-        tracking.setLaborMinutes(totalMinutes);
-
-        // Update work description
-        String laborDetails = "Updated labor charges: " + laborCharges.size() + " item(s), total: " +
-                totalMinutes + " minutes @ ₹" +
-                totalLaborCost.divide(new BigDecimal(Math.max(1, totalMinutes)), 2, RoundingMode.HALF_UP) +
-                "/minute";
-
-        if (tracking.getWorkDescription() != null && !tracking.getWorkDescription().isEmpty()) {
-            tracking.setWorkDescription(tracking.getWorkDescription() + "; " + laborDetails);
-        } else {
-            tracking.setWorkDescription(laborDetails);
-        }
-
-        serviceTrackingRepository.save(tracking);
-
-        // Return updated bill summary
-        return getCurrentBillSummary(requestId);
     }
 
     /**
@@ -426,7 +485,7 @@ public class ServiceAdvisorDashboardService {
 
     /**
      * MODIFIED: Generate bill for a service
-     * Now updates a single tracking record instead of creating new ones
+     * Now properly preserves all data in a single tracking record
      */
     @Transactional
     public BillResponseDTO generateServiceBill(
@@ -489,11 +548,22 @@ public class ServiceAdvisorDashboardService {
         // Get or create the tracking record and update it
         ServiceTracking tracking = getOrCreateServiceTracking(requestId, advisor, request.getStatus());
 
-        // Update financial information
+        // Make sure tracking record has the correct financial information
+        // This ensures that both materials and labor are properly represented
         tracking.setLaborCost(billRequest.getLaborTotal());
         tracking.setTotalMaterialCost(billRequest.getMaterialsTotal());
 
-        // Update work description
+        // Calculate labor minutes if we have labor cost but no minutes
+        if (billRequest.getLaborTotal().compareTo(BigDecimal.ZERO) > 0 &&
+                (tracking.getLaborMinutes() == null || tracking.getLaborMinutes() == 0)) {
+            // Estimate minutes based on standard rate of ₹65 per hour
+            BigDecimal hourlyRate = new BigDecimal("65");
+            BigDecimal hours = billRequest.getLaborTotal().divide(hourlyRate, 2, RoundingMode.HALF_UP);
+            int minutes = hours.multiply(new BigDecimal("60")).intValue();
+            tracking.setLaborMinutes(minutes);
+        }
+
+        // Update work description with bill generation info
         String billNote = "Generated service bill: " + response.getBillId();
         if (tracking.getWorkDescription() != null && !tracking.getWorkDescription().isEmpty()) {
             tracking.setWorkDescription(tracking.getWorkDescription() + "; " + billNote);
@@ -508,6 +578,7 @@ public class ServiceAdvisorDashboardService {
 
     /**
      * Helper method to get the current bill summary for a service request
+     * FIXED: Better handling of labor and materials data
      */
     private ServiceBillSummaryDTO getCurrentBillSummary(Integer requestId) {
         ServiceBillSummaryDTO bill = new ServiceBillSummaryDTO();
@@ -537,36 +608,48 @@ public class ServiceAdvisorDashboardService {
 
         // Get the single tracking entry (if exists)
         List<ServiceTracking> trackingEntries = serviceTrackingRepository.findByRequestId(requestId);
-        ServiceTracking tracking = !trackingEntries.isEmpty() ? trackingEntries.get(0) : null;
 
         // Set default values
         BigDecimal laborSubtotal = BigDecimal.ZERO;
         List<LaborChargeDTO> laborChargeDTOs = new ArrayList<>();
 
         // Get labor information from tracking if available
-        if (tracking != null && tracking.getLaborCost() != null && tracking.getLaborCost().compareTo(BigDecimal.ZERO) > 0) {
-            BigDecimal hours = BigDecimal.ZERO;
-            if (tracking.getLaborMinutes() != null && tracking.getLaborMinutes() > 0) {
-                hours = new BigDecimal(tracking.getLaborMinutes())
-                        .divide(new BigDecimal("60"), 2, RoundingMode.HALF_UP);
+        if (!trackingEntries.isEmpty()) {
+            ServiceTracking tracking = trackingEntries.get(0);
+
+            if (tracking != null && tracking.getLaborCost() != null && tracking.getLaborCost().compareTo(BigDecimal.ZERO) > 0) {
+                log.info("Found labor cost: {} for request: {}", tracking.getLaborCost(), requestId);
+
+                BigDecimal hours = BigDecimal.ZERO;
+                if (tracking.getLaborMinutes() != null && tracking.getLaborMinutes() > 0) {
+                    hours = new BigDecimal(tracking.getLaborMinutes())
+                            .divide(new BigDecimal("60"), 2, RoundingMode.HALF_UP);
+                }
+
+                BigDecimal ratePerHour = BigDecimal.ZERO;
+                if (tracking.getLaborMinutes() != null && tracking.getLaborMinutes() > 0
+                        && tracking.getLaborCost() != null) {
+                    ratePerHour = tracking.getLaborCost()
+                            .multiply(new BigDecimal("60"))
+                            .divide(new BigDecimal(tracking.getLaborMinutes()), 2, RoundingMode.HALF_UP);
+                }
+
+                LaborChargeDTO laborChargeDTO = new LaborChargeDTO();
+                laborChargeDTO.setDescription("Labor Charge");
+                laborChargeDTO.setHours(hours);
+                laborChargeDTO.setRatePerHour(ratePerHour);
+                laborChargeDTO.setTotal(tracking.getLaborCost());
+
+                laborChargeDTOs.add(laborChargeDTO);
+                laborSubtotal = tracking.getLaborCost();
+            } else {
+                log.info("No labor cost found for request: {}", requestId);
             }
 
-            BigDecimal ratePerHour = BigDecimal.ZERO;
-            if (tracking.getLaborMinutes() != null && tracking.getLaborMinutes() > 0
-                    && tracking.getLaborCost() != null) {
-                ratePerHour = tracking.getLaborCost()
-                        .multiply(new BigDecimal("60"))
-                        .divide(new BigDecimal(tracking.getLaborMinutes()), 2, RoundingMode.HALF_UP);
+            // Get notes from tracking entry
+            if (tracking != null) {
+                bill.setNotes(tracking.getWorkDescription());
             }
-
-            LaborChargeDTO laborChargeDTO = new LaborChargeDTO();
-            laborChargeDTO.setDescription("Labor Charge");
-            laborChargeDTO.setHours(hours);
-            laborChargeDTO.setRatePerHour(ratePerHour);
-            laborChargeDTO.setTotal(tracking.getLaborCost());
-
-            laborChargeDTOs.add(laborChargeDTO);
-            laborSubtotal = tracking.getLaborCost();
         }
 
         // Calculate subtotal, tax and total
@@ -582,11 +665,6 @@ public class ServiceAdvisorDashboardService {
         bill.setSubtotal(subtotal);
         bill.setTax(tax);
         bill.setTotal(total);
-
-        // Get notes from tracking entry
-        if (tracking != null) {
-            bill.setNotes(tracking.getWorkDescription());
-        }
 
         return bill;
     }

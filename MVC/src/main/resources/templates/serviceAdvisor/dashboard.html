@@ -2283,10 +2283,10 @@
         const addLaborBtn = document.getElementById('addLaborBtn');
         if (addLaborBtn) {
             addLaborBtn.addEventListener('click', function() {
-                const hours = parseFloat(document.getElementById('laborHours').value) || 0;
-                const rate = parseFloat(document.getElementById('laborRate').value) || 0;
+                const hours = parseFloat(document.getElementById('laborHours').value);
+                const rate = parseFloat(document.getElementById('laborRate').value);
 
-                if (hours > 0 && rate > 0) {
+                if (!isNaN(hours) && !isNaN(rate) && hours > 0 && rate > 0) {
                     // Using a default description since we removed the description field
                     addLaborCharge("Labor Charge", hours, rate);
 
@@ -3441,9 +3441,28 @@
     }
 
     // Add labor charge
+    // Improved version of addLaborCharge function
     function addLaborCharge(description, hours, rate) {
+        // Convert inputs to proper numbers to avoid issues
+        hours = parseFloat(hours) || 0;
+        rate = parseFloat(rate) || 0;
+
+        // Validate inputs
+        if (hours <= 0 || rate <= 0) {
+            console.warn('Invalid labor charge values:', hours, rate);
+            showNotification('Hours and rate must be greater than zero', 'error');
+            return;
+        }
+
+        // Add to array with proper data types
         window.laborCharges.push({
-            description: "Labor Charge",
+            description: description || "Labor Charge",
+            hours: hours,
+            rate: rate
+        });
+
+        console.log('Added labor charge:', {
+            description: description || "Labor Charge",
             hours: hours,
             rate: rate
         });
@@ -3870,6 +3889,8 @@
     }
 
     // Save service items with improved error handling and feedback
+    // Add debugging to saveServiceItems function
+    // Fixed version of saveServiceItems function
     function saveServiceItems() {
         // Only proceed if we have items to save
         if (window.inventoryItems.length === 0 && window.laborCharges.length === 0) {
@@ -3877,21 +3898,17 @@
             return;
         }
 
-        // Validate inventory quantities against available stock
-        const validation = validateInventoryQuantities();
-        if (!validation.isValid) {
-            showNotification(validation.message, 'error');
-            return;
-        }
+        // Debug output to see what we're saving
+        console.log('Saving service items:');
+        console.log('- Labor charges:', JSON.stringify(window.laborCharges));
+        console.log('- Inventory items:', JSON.stringify(window.inventoryItems));
 
         // Show a saving indicator
         showNotification('Saving service items...', 'info');
 
         // Disable save button to prevent double submission
-        const saveButton = document.getElementById('saveServiceItemsBtn');
-        const saveBillBtn = document.getElementById('saveBillBtn');
+        const saveButton = document.getElementById('saveInvoiceBtn');
         if (saveButton) saveButton.disabled = true;
-        if (saveBillBtn) saveBillBtn.disabled = true;
 
         // Get token and headers
         const token = getAuthToken();
@@ -3900,9 +3917,49 @@
         // Track promises for inventory items and labor charges
         const promises = [];
 
+        // Save labor charges if there are any
+        if (window.laborCharges.length > 0) {
+            console.log('Preparing to save labor charges');
+
+            // Ensure each charge has the proper structure and convert to numbers
+            const charges = window.laborCharges.map(charge => {
+                return {
+                    description: charge.description || 'Labor Charge',
+                    hours: parseFloat(charge.hours) || 0,
+                    ratePerHour: parseFloat(charge.rate) || 0,
+                    total: parseFloat(charge.hours * charge.rate) || 0
+                };
+            });
+
+            console.log('Formatted labor charges for API:', JSON.stringify(charges));
+
+            // Add labor charges promise
+            const laborPromise = fetch(`/serviceAdvisor/api/service/${window.currentRequestId}/labor-charges`, {
+                method: 'POST',
+                headers: headers,
+                body: JSON.stringify(charges)
+            })
+                .then(response => {
+                    console.log('Labor charges response status:', response.status);
+                    if (!response.ok) {
+                        return response.text().then(text => {
+                            console.error('Labor charges error response:', text);
+                            throw new Error(`Failed to save labor charges: ${response.status} - ${text}`);
+                        });
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Labor charges saved successfully:', data);
+                    return data;
+                });
+
+            promises.push(laborPromise);
+        }
+
         // Save inventory items if there are any
         if (window.inventoryItems.length > 0) {
-            console.log('Preparing to save inventory items:', window.inventoryItems);
+            console.log('Preparing to save inventory items');
 
             // Format inventory items for API
             const items = window.inventoryItems.map(item => {
@@ -3929,71 +3986,33 @@
                 body: JSON.stringify(materialsRequest)
             })
                 .then(response => {
+                    console.log('Inventory items response status:', response.status);
                     if (!response.ok) {
                         return response.text().then(text => {
+                            console.error('Inventory items error response:', text);
                             throw new Error(`Failed to save inventory items: ${response.status} - ${text}`);
                         });
                     }
                     return response.json();
+                })
+                .then(data => {
+                    console.log('Inventory items saved successfully:', data);
+                    return data;
                 });
 
             promises.push(inventoryPromise);
         }
 
-        // Save labor charges if there are any
-        if (window.laborCharges.length > 0) {
-            console.log('Preparing to save labor charges:', window.laborCharges);
-
-            // Format labor charges for API
-            const charges = window.laborCharges.map(charge => {
-                return {
-                    description: charge.description || 'Labor Charge',
-                    hours: Number(charge.hours),
-                    ratePerHour: Number(charge.rate),
-                    total: Number(charge.hours * charge.rate)
-                };
-            });
-
-            console.log('Sending labor charges:', JSON.stringify(charges));
-
-            // Add labor charges promise
-            const laborPromise = fetch(`/serviceAdvisor/api/service/${window.currentRequestId}/labor-charges`, {
-                method: 'POST',
-                headers: headers,
-                body: JSON.stringify(charges)
-            })
-                .then(response => {
-                    if (!response.ok) {
-                        return response.text().then(text => {
-                            throw new Error(`Failed to save labor charges: ${response.status} - ${text}`);
-                        });
-                    }
-                    return response.json();
-                });
-
-            promises.push(laborPromise);
-        }
-
         // Wait for all promises to resolve
         Promise.all(promises)
             .then(results => {
-                console.log('Save service items results:', results);
-
-                // Use the latest bill data (from the last result)
-                const latestData = results[results.length - 1];
-                if (latestData && latestData.currentBill) {
-                    loadCurrentBill(latestData.currentBill);
-                }
+                console.log('Save results:', results);
 
                 // Show success notification
-                showNotification('Service items saved successfully!');
-
-                // Refresh inventory after successful save to update stock levels
-                fetchInventoryItems();
+                showNotification('Service items saved successfully!', 'success');
 
                 // Re-enable save button
                 if (saveButton) saveButton.disabled = false;
-                if (saveBillBtn) saveBillBtn.disabled = false;
 
                 // Refresh service details to ensure everything is in sync
                 setTimeout(() => {
@@ -4006,9 +4025,9 @@
 
                 // Re-enable save button
                 if (saveButton) saveButton.disabled = false;
-                if (saveBillBtn) saveBillBtn.disabled = false;
             });
     }
+
 
     // Generate bill with improved error handling
     function generateBill() {
