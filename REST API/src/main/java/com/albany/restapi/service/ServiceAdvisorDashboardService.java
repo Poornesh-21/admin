@@ -113,7 +113,7 @@ public class ServiceAdvisorDashboardService {
         // Request dates
         response.setRequestDate(request.getCreatedAt().toLocalDate());
 
-        // Get service history
+        // Get service history - for display purposes, we'll still show all history entries
         List<ServiceTracking> trackingHistory = serviceTrackingRepository.findByRequestId(requestId);
         response.setServiceHistory(trackingHistory.stream()
                 .map(this::mapToServiceHistoryDTO)
@@ -127,8 +127,44 @@ public class ServiceAdvisorDashboardService {
     }
 
     /**
+     * Helper method to get or create a single tracking record for a service request
+     */
+    private ServiceTracking getOrCreateServiceTracking(Integer requestId, ServiceAdvisorProfile advisor, ServiceRequest.Status status) {
+        // Try to find existing tracking record for this request
+        List<ServiceTracking> existingTrackings = serviceTrackingRepository.findByRequestId(requestId);
+
+        if (!existingTrackings.isEmpty()) {
+            // Return the first tracking record (we'll always update this one)
+            return existingTrackings.get(0);
+        } else {
+            // Create a new tracking entry if none exists
+            ServiceTracking tracking = new ServiceTracking();
+            tracking.setRequestId(requestId);
+            tracking.setStatus(status);
+            tracking.setServiceAdvisor(advisor);
+            tracking.setLaborCost(BigDecimal.ZERO);
+            tracking.setLaborMinutes(0);
+            tracking.setTotalMaterialCost(BigDecimal.ZERO);
+            tracking.setWorkDescription("Service tracking initialized");
+
+            return serviceTrackingRepository.save(tracking);
+        }
+    }
+
+    /**
+     * Helper method to get service advisor profile
+     */
+    private ServiceAdvisorProfile getServiceAdvisorProfile(String serviceAdvisorEmail) {
+        User user = userRepository.findByEmail(serviceAdvisorEmail)
+                .orElseThrow(() -> new RuntimeException("Service advisor not found with email: " + serviceAdvisorEmail));
+
+        return serviceAdvisorProfileRepository.findByUser_UserId(user.getUserId())
+                .orElseThrow(() -> new RuntimeException("Service advisor profile not found for user: " + user.getUserId()));
+    }
+
+    /**
      * MODIFIED: Method to save materials to a service request
-     * This method now expects a complete list of materials and only processes them when explicitly called
+     * This now updates a single tracking record instead of creating new ones
      */
     @Transactional
     public ServiceMaterialsDTO addMaterialsToServiceRequest(
@@ -139,11 +175,8 @@ public class ServiceAdvisorDashboardService {
         // Validate service request and service advisor
         ServiceRequest request = validateServiceRequestAccess(requestId, serviceAdvisorEmail);
 
-        // Get service advisor profile
-        User user = userRepository.findByEmail(serviceAdvisorEmail)
-                .orElseThrow(() -> new RuntimeException("Service advisor not found with email: " + serviceAdvisorEmail));
-        ServiceAdvisorProfile advisor = serviceAdvisorProfileRepository.findByUser_UserId(user.getUserId())
-                .orElseThrow(() -> new RuntimeException("Service advisor profile not found for user: " + user.getUserId()));
+        // Get the service advisor profile
+        ServiceAdvisorProfile advisor = getServiceAdvisorProfile(serviceAdvisorEmail);
 
         // Delete existing material usages if requested
         if (materialsRequest.isReplaceExisting()) {
@@ -192,50 +225,23 @@ public class ServiceAdvisorDashboardService {
             processedMaterials.add(processedItem);
         }
 
-        // Create a consolidated tracking entry for all the materials
+        // Get or create the single tracking record and update it
         if (!processedMaterials.isEmpty()) {
-            // Find or create a service tracking entry
-            Optional<ServiceTracking> latestTrackingOpt = serviceTrackingRepository.findByRequestId(requestId).stream()
-                    .max(Comparator.comparing(ServiceTracking::getUpdatedAt));
+            ServiceTracking tracking = getOrCreateServiceTracking(requestId, advisor, request.getStatus());
 
-            ServiceTracking tracking;
-            if (latestTrackingOpt.isPresent() &&
-                    latestTrackingOpt.get().getStatus() == request.getStatus() &&
-                    ChronoUnit.MINUTES.between(latestTrackingOpt.get().getUpdatedAt(), LocalDateTime.now()) < 30) {
-                // Update the existing tracking entry if it's recent (within 30 minutes) and has the same status
-                tracking = latestTrackingOpt.get();
+            // Update the material cost
+            tracking.setTotalMaterialCost(totalMaterialsCost);
 
-                // Preserve existing labor information
-                if (tracking.getLaborCost() == null) tracking.setLaborCost(BigDecimal.ZERO);
-                if (tracking.getLaborMinutes() == null) tracking.setLaborMinutes(0);
+            // Update work description
+            String materialsDesc = "Updated materials: " +
+                    processedMaterials.stream()
+                            .map(item -> item.getName() + " (" + item.getQuantity() + ")")
+                            .collect(Collectors.joining(", "));
 
-                // Update materials information
-                tracking.setTotalMaterialCost(totalMaterialsCost);
-
-                // Append to existing work description
-                String materialsDesc = "Updated materials: " +
-                        processedMaterials.stream()
-                                .map(item -> item.getName() + " (" + item.getQuantity() + ")")
-                                .collect(Collectors.joining(", "));
-
-                if (tracking.getWorkDescription() != null && !tracking.getWorkDescription().isEmpty()) {
-                    tracking.setWorkDescription(tracking.getWorkDescription() + "; " + materialsDesc);
-                } else {
-                    tracking.setWorkDescription(materialsDesc);
-                }
+            if (tracking.getWorkDescription() != null && !tracking.getWorkDescription().isEmpty()) {
+                tracking.setWorkDescription(tracking.getWorkDescription() + "; " + materialsDesc);
             } else {
-                // Create a new tracking entry
-                tracking = new ServiceTracking();
-                tracking.setRequestId(requestId);
-                tracking.setWorkDescription("Added materials: " +
-                        processedMaterials.stream()
-                                .map(item -> item.getName() + " (" + item.getQuantity() + ")")
-                                .collect(Collectors.joining(", ")));
-                tracking.setStatus(request.getStatus());
-                tracking.setTotalMaterialCost(totalMaterialsCost);
-                tracking.setLaborCost(BigDecimal.ZERO); // Initialize with zero to avoid null
-                tracking.setLaborMinutes(0); // Initialize with zero to avoid null
-                tracking.setServiceAdvisor(advisor);
+                tracking.setWorkDescription(materialsDesc);
             }
 
             serviceTrackingRepository.save(tracking);
@@ -251,7 +257,8 @@ public class ServiceAdvisorDashboardService {
     }
 
     /**
-     * Add labor charges to a service request - using improved tracking
+     * MODIFIED: Add labor charges to a service request
+     * Now updates a single tracking record instead of creating new ones
      */
     @Transactional
     public ServiceBillSummaryDTO addLaborCharges(
@@ -263,10 +270,7 @@ public class ServiceAdvisorDashboardService {
         ServiceRequest request = validateServiceRequestAccess(requestId, serviceAdvisorEmail);
 
         // Get service advisor profile
-        User user = userRepository.findByEmail(serviceAdvisorEmail)
-                .orElseThrow(() -> new RuntimeException("Service advisor not found with email: " + serviceAdvisorEmail));
-        ServiceAdvisorProfile advisor = serviceAdvisorProfileRepository.findByUser_UserId(user.getUserId())
-                .orElseThrow(() -> new RuntimeException("Service advisor profile not found for user: " + user.getUserId()));
+        ServiceAdvisorProfile advisor = getServiceAdvisorProfile(serviceAdvisorEmail);
 
         // Calculate total labor cost and minutes
         BigDecimal totalLaborCost = BigDecimal.ZERO;
@@ -282,63 +286,23 @@ public class ServiceAdvisorDashboardService {
             totalMinutes += minutes;
         }
 
-        // Find or create a consolidated tracking entry for this service operation
-        Optional<ServiceTracking> latestTrackingOpt = serviceTrackingRepository.findByRequestId(requestId).stream()
-                .max(Comparator.comparing(ServiceTracking::getUpdatedAt));
+        // Get or create the tracking record and update it
+        ServiceTracking tracking = getOrCreateServiceTracking(requestId, advisor, request.getStatus());
 
-        ServiceTracking tracking;
-        if (latestTrackingOpt.isPresent() &&
-                latestTrackingOpt.get().getStatus() == request.getStatus() &&
-                ChronoUnit.MINUTES.between(latestTrackingOpt.get().getUpdatedAt(), LocalDateTime.now()) < 30) {
-            // Update the existing tracking entry if it's recent (within 30 minutes) and has the same status
-            tracking = latestTrackingOpt.get();
+        // Update labor information
+        tracking.setLaborCost(totalLaborCost);
+        tracking.setLaborMinutes(totalMinutes);
 
-            // Update labor information
-            tracking.setLaborCost(totalLaborCost);
-            tracking.setLaborMinutes(totalMinutes);
+        // Update work description
+        String laborDetails = "Updated labor charges: " + laborCharges.size() + " item(s), total: " +
+                totalMinutes + " minutes @ ₹" +
+                totalLaborCost.divide(new BigDecimal(Math.max(1, totalMinutes)), 2, RoundingMode.HALF_UP) +
+                "/minute";
 
-            // Preserve existing materials information
-            if (tracking.getTotalMaterialCost() == null) tracking.setTotalMaterialCost(BigDecimal.ZERO);
-
-            // Append to existing work description
-            String laborDetails = "Updated labor charges: " + laborCharges.size() + " item(s), total: " +
-                    totalMinutes + " minutes @ ₹" +
-                    totalLaborCost.divide(new BigDecimal(Math.max(1, totalMinutes)), 2, RoundingMode.HALF_UP) +
-                    "/minute";
-
-            if (tracking.getWorkDescription() != null && !tracking.getWorkDescription().isEmpty()) {
-                tracking.setWorkDescription(tracking.getWorkDescription() + "; " + laborDetails);
-            } else {
-                tracking.setWorkDescription(laborDetails);
-            }
+        if (tracking.getWorkDescription() != null && !tracking.getWorkDescription().isEmpty()) {
+            tracking.setWorkDescription(tracking.getWorkDescription() + "; " + laborDetails);
         } else {
-            // Create a new tracking entry
-            tracking = new ServiceTracking();
-            tracking.setRequestId(requestId);
-
-            // Build description
-            StringBuilder laborDetails = new StringBuilder("Labor charges: ");
-            boolean firstCharge = true;
-
-            for (LaborChargeDTO chargeDTO : laborCharges) {
-                if (!firstCharge) {
-                    laborDetails.append(", ");
-                }
-                laborDetails.append(chargeDTO.getDescription() != null ? chargeDTO.getDescription() : "Labor Charge")
-                        .append(" (")
-                        .append(chargeDTO.getHours())
-                        .append(" hrs @ ₹")
-                        .append(chargeDTO.getRatePerHour())
-                        .append("/hr)");
-                firstCharge = false;
-            }
-
-            tracking.setWorkDescription(laborDetails.toString());
-            tracking.setStatus(request.getStatus());
-            tracking.setLaborCost(totalLaborCost);
-            tracking.setLaborMinutes(totalMinutes);
-            tracking.setTotalMaterialCost(BigDecimal.ZERO); // Initialize with zero to avoid null
-            tracking.setServiceAdvisor(advisor);
+            tracking.setWorkDescription(laborDetails);
         }
 
         serviceTrackingRepository.save(tracking);
@@ -348,7 +312,8 @@ public class ServiceAdvisorDashboardService {
     }
 
     /**
-     * Update service request status
+     * MODIFIED: Update service request status
+     * Now updates a single tracking record instead of creating new ones
      */
     @Transactional
     public Map<String, Object> updateServiceStatus(
@@ -362,58 +327,31 @@ public class ServiceAdvisorDashboardService {
         ServiceRequest request = validateServiceRequestAccess(requestId, serviceAdvisorEmail);
 
         // Get service advisor profile
-        User user = userRepository.findByEmail(serviceAdvisorEmail)
-                .orElseThrow(() -> new RuntimeException("Service advisor not found with email: " + serviceAdvisorEmail));
-        ServiceAdvisorProfile advisor = serviceAdvisorProfileRepository.findByUser_UserId(user.getUserId())
-                .orElseThrow(() -> new RuntimeException("Service advisor profile not found for user: " + user.getUserId()));
+        ServiceAdvisorProfile advisor = getServiceAdvisorProfile(serviceAdvisorEmail);
 
         // Update service request status
         ServiceRequest.Status oldStatus = request.getStatus();
         request.setStatus(newStatus);
         serviceRequestRepository.save(request);
 
-        // Try to update the most recent tracking entry if it's very recent (within 5 minutes)
-        Optional<ServiceTracking> veryRecentTracking = serviceTrackingRepository.findByRequestId(requestId).stream()
-                .max(Comparator.comparing(ServiceTracking::getUpdatedAt))
-                .filter(t -> ChronoUnit.MINUTES.between(t.getUpdatedAt(), LocalDateTime.now()) < 5);
+        // Get or create the single tracking record and update it
+        ServiceTracking tracking = getOrCreateServiceTracking(requestId, advisor, newStatus);
 
-        ServiceTracking tracking;
-        if (veryRecentTracking.isPresent()) {
-            // Update very recent entry if it exists
-            tracking = veryRecentTracking.get();
-            tracking.setStatus(newStatus);
+        // Update status in tracking
+        tracking.setStatus(newStatus);
 
-            // Append to work description
-            String statusUpdateNote = "Status updated from " + oldStatus + " to " + newStatus;
-            if (notes != null && !notes.isEmpty()) {
-                statusUpdateNote += ": " + notes;
-            }
-
-            if (tracking.getWorkDescription() != null && !tracking.getWorkDescription().isEmpty()) {
-                tracking.setWorkDescription(tracking.getWorkDescription() + "; " + statusUpdateNote);
-            } else {
-                tracking.setWorkDescription(statusUpdateNote);
-            }
-
-            // Ensure other fields are not null
-            if (tracking.getLaborCost() == null) tracking.setLaborCost(BigDecimal.ZERO);
-            if (tracking.getLaborMinutes() == null) tracking.setLaborMinutes(0);
-            if (tracking.getTotalMaterialCost() == null) tracking.setTotalMaterialCost(BigDecimal.ZERO);
-        } else {
-            // Create a new tracking entry
-            tracking = new ServiceTracking();
-            tracking.setRequestId(requestId);
-            tracking.setWorkDescription(notes != null && !notes.isEmpty() ?
-                    "Status updated from " + oldStatus + " to " + newStatus + ": " + notes :
-                    "Status updated from " + oldStatus + " to " + newStatus);
-            tracking.setStatus(newStatus);
-            tracking.setServiceAdvisor(advisor);
-
-            // Initialize with zeros to avoid nulls
-            tracking.setLaborCost(BigDecimal.ZERO);
-            tracking.setLaborMinutes(0);
-            tracking.setTotalMaterialCost(BigDecimal.ZERO);
+        // Update work description
+        String statusUpdateNote = "Status updated from " + oldStatus + " to " + newStatus;
+        if (notes != null && !notes.isEmpty()) {
+            statusUpdateNote += ": " + notes;
         }
+
+        if (tracking.getWorkDescription() != null && !tracking.getWorkDescription().isEmpty()) {
+            tracking.setWorkDescription(tracking.getWorkDescription() + "; " + statusUpdateNote);
+        } else {
+            tracking.setWorkDescription(statusUpdateNote);
+        }
+
         serviceTrackingRepository.save(tracking);
 
         // Prepare response
@@ -422,7 +360,7 @@ public class ServiceAdvisorDashboardService {
         response.put("oldStatus", oldStatus.name());
         response.put("newStatus", newStatus.name());
         response.put("timestamp", LocalDateTime.now());
-        response.put("updatedBy", user.getFirstName() + " " + user.getLastName());
+        response.put("updatedBy", advisor.getUser().getFirstName() + " " + advisor.getUser().getLastName());
 
         // Send notification to customer if requested
         if (notifyCustomer) {
@@ -455,8 +393,7 @@ public class ServiceAdvisorDashboardService {
     }
 
     /**
-     * NEW METHOD: Get inventory item details
-     * This method allows the frontend to display inventory information before adding it
+     * Get inventory item details
      */
     public InventoryItemDTO getInventoryItemDetails(Integer itemId) {
         InventoryItem item = inventoryItemRepository.findById(itemId)
@@ -488,7 +425,8 @@ public class ServiceAdvisorDashboardService {
     }
 
     /**
-     * Generate bill for a service
+     * MODIFIED: Generate bill for a service
+     * Now updates a single tracking record instead of creating new ones
      */
     @Transactional
     public BillResponseDTO generateServiceBill(
@@ -500,10 +438,7 @@ public class ServiceAdvisorDashboardService {
         ServiceRequest request = validateServiceRequestAccess(requestId, serviceAdvisorEmail);
 
         // Get service advisor profile
-        User user = userRepository.findByEmail(serviceAdvisorEmail)
-                .orElseThrow(() -> new RuntimeException("Service advisor not found with email: " + serviceAdvisorEmail));
-        ServiceAdvisorProfile advisor = serviceAdvisorProfileRepository.findByUser_UserId(user.getUserId())
-                .orElseThrow(() -> new RuntimeException("Service advisor profile not found for user: " + user.getUserId()));
+        ServiceAdvisorProfile advisor = getServiceAdvisorProfile(serviceAdvisorEmail);
 
         // Create bill response
         BillResponseDTO response = new BillResponseDTO();
@@ -551,38 +486,21 @@ public class ServiceAdvisorDashboardService {
         // Create a download URL
         response.setDownloadUrl("/api/bills/" + response.getBillId() + "/download");
 
-        // Try to update an existing tracking entry if it's recent
-        Optional<ServiceTracking> recentTracking = serviceTrackingRepository.findByRequestId(requestId).stream()
-                .max(Comparator.comparing(ServiceTracking::getUpdatedAt))
-                .filter(t -> ChronoUnit.MINUTES.between(t.getUpdatedAt(), LocalDateTime.now()) < 15);
+        // Get or create the tracking record and update it
+        ServiceTracking tracking = getOrCreateServiceTracking(requestId, advisor, request.getStatus());
 
-        ServiceTracking tracking;
-        if (recentTracking.isPresent()) {
-            // Update recent entry
-            tracking = recentTracking.get();
+        // Update financial information
+        tracking.setLaborCost(billRequest.getLaborTotal());
+        tracking.setTotalMaterialCost(billRequest.getMaterialsTotal());
 
-            // Preserve existing fields
-            if (tracking.getLaborCost() == null) tracking.setLaborCost(billRequest.getLaborTotal());
-            if (tracking.getTotalMaterialCost() == null) tracking.setTotalMaterialCost(billRequest.getMaterialsTotal());
-
-            // Append bill generation info to description
-            String billNote = "Generated service bill: " + response.getBillId();
-            if (tracking.getWorkDescription() != null && !tracking.getWorkDescription().isEmpty()) {
-                tracking.setWorkDescription(tracking.getWorkDescription() + "; " + billNote);
-            } else {
-                tracking.setWorkDescription(billNote);
-            }
+        // Update work description
+        String billNote = "Generated service bill: " + response.getBillId();
+        if (tracking.getWorkDescription() != null && !tracking.getWorkDescription().isEmpty()) {
+            tracking.setWorkDescription(tracking.getWorkDescription() + "; " + billNote);
         } else {
-            // Create a new tracking entry
-            tracking = new ServiceTracking();
-            tracking.setRequestId(requestId);
-            tracking.setWorkDescription("Generated service bill: " + response.getBillId());
-            tracking.setStatus(request.getStatus());
-            tracking.setLaborCost(billRequest.getLaborTotal());
-            tracking.setTotalMaterialCost(billRequest.getMaterialsTotal());
-            tracking.setServiceAdvisor(advisor);
-            tracking.setLaborMinutes(0); // Initialize to avoid null
+            tracking.setWorkDescription(billNote);
         }
+
         serviceTrackingRepository.save(tracking);
 
         return response;
@@ -617,48 +535,38 @@ public class ServiceAdvisorDashboardService {
             materials.add(materialItem);
         }
 
-        // Get all service tracking entries and extract labor charges more effectively
+        // Get the single tracking entry (if exists)
         List<ServiceTracking> trackingEntries = serviceTrackingRepository.findByRequestId(requestId);
+        ServiceTracking tracking = !trackingEntries.isEmpty() ? trackingEntries.get(0) : null;
 
-        // Calculate labor subtotal and prepare charges for response
+        // Set default values
         BigDecimal laborSubtotal = BigDecimal.ZERO;
         List<LaborChargeDTO> laborChargeDTOs = new ArrayList<>();
 
-        // Find entries with labor costs
-        List<ServiceTracking> entriesWithLabor = trackingEntries.stream()
-                .filter(tracking -> tracking.getLaborCost() != null && tracking.getLaborCost().compareTo(BigDecimal.ZERO) > 0)
-                .collect(Collectors.toList());
-
-        if (!entriesWithLabor.isEmpty()) {
-            // Get the most recent entry with labor cost
-            ServiceTracking latestLaborEntry = entriesWithLabor.stream()
-                    .max(Comparator.comparing(ServiceTracking::getUpdatedAt))
-                    .orElse(null);
-
-            if (latestLaborEntry != null) {
-                BigDecimal hours = BigDecimal.ZERO;
-                if (latestLaborEntry.getLaborMinutes() != null && latestLaborEntry.getLaborMinutes() > 0) {
-                    hours = new BigDecimal(latestLaborEntry.getLaborMinutes())
-                            .divide(new BigDecimal("60"), 2, RoundingMode.HALF_UP);
-                }
-
-                BigDecimal ratePerHour = BigDecimal.ZERO;
-                if (latestLaborEntry.getLaborMinutes() != null && latestLaborEntry.getLaborMinutes() > 0
-                        && latestLaborEntry.getLaborCost() != null) {
-                    ratePerHour = latestLaborEntry.getLaborCost()
-                            .multiply(new BigDecimal("60"))
-                            .divide(new BigDecimal(latestLaborEntry.getLaborMinutes()), 2, RoundingMode.HALF_UP);
-                }
-
-                LaborChargeDTO laborChargeDTO = new LaborChargeDTO();
-                laborChargeDTO.setDescription("Labor Charge");
-                laborChargeDTO.setHours(hours);
-                laborChargeDTO.setRatePerHour(ratePerHour);
-                laborChargeDTO.setTotal(latestLaborEntry.getLaborCost());
-
-                laborChargeDTOs.add(laborChargeDTO);
-                laborSubtotal = latestLaborEntry.getLaborCost();
+        // Get labor information from tracking if available
+        if (tracking != null && tracking.getLaborCost() != null && tracking.getLaborCost().compareTo(BigDecimal.ZERO) > 0) {
+            BigDecimal hours = BigDecimal.ZERO;
+            if (tracking.getLaborMinutes() != null && tracking.getLaborMinutes() > 0) {
+                hours = new BigDecimal(tracking.getLaborMinutes())
+                        .divide(new BigDecimal("60"), 2, RoundingMode.HALF_UP);
             }
+
+            BigDecimal ratePerHour = BigDecimal.ZERO;
+            if (tracking.getLaborMinutes() != null && tracking.getLaborMinutes() > 0
+                    && tracking.getLaborCost() != null) {
+                ratePerHour = tracking.getLaborCost()
+                        .multiply(new BigDecimal("60"))
+                        .divide(new BigDecimal(tracking.getLaborMinutes()), 2, RoundingMode.HALF_UP);
+            }
+
+            LaborChargeDTO laborChargeDTO = new LaborChargeDTO();
+            laborChargeDTO.setDescription("Labor Charge");
+            laborChargeDTO.setHours(hours);
+            laborChargeDTO.setRatePerHour(ratePerHour);
+            laborChargeDTO.setTotal(tracking.getLaborCost());
+
+            laborChargeDTOs.add(laborChargeDTO);
+            laborSubtotal = tracking.getLaborCost();
         }
 
         // Calculate subtotal, tax and total
@@ -675,14 +583,9 @@ public class ServiceAdvisorDashboardService {
         bill.setTax(tax);
         bill.setTotal(total);
 
-        // Get notes from most recent tracking entry
-        if (!trackingEntries.isEmpty()) {
-            Optional<ServiceTracking> latestEntry = trackingEntries.stream()
-                    .max(Comparator.comparing(ServiceTracking::getUpdatedAt));
-
-            if (latestEntry.isPresent()) {
-                bill.setNotes(latestEntry.get().getWorkDescription());
-            }
+        // Get notes from tracking entry
+        if (tracking != null) {
+            bill.setNotes(tracking.getWorkDescription());
         }
 
         return bill;
@@ -758,6 +661,7 @@ public class ServiceAdvisorDashboardService {
 
     /**
      * Helper method to map ServiceTracking to ServiceHistoryDTO
+     * This is still used for display purposes to maintain history view
      */
     private ServiceHistoryDTO mapToServiceHistoryDTO(ServiceTracking tracking) {
         ServiceHistoryDTO historyDTO = new ServiceHistoryDTO();

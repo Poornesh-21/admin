@@ -569,9 +569,10 @@
 
         <div class="sidebar-content">
             <div class="nav-section">
+                <div class="nav-section-title">Main</div>
                 <ul class="sidebar-menu">
                     <li class="sidebar-menu-item">
-                        <a href="#" class="sidebar-menu-link">
+                        <a th:href="@{/admin/dashboard}" class="sidebar-menu-link">
                             <i class="fas fa-tachometer-alt"></i>
                             <span>Dashboard</span>
                         </a>
@@ -580,33 +581,40 @@
             </div>
 
             <div class="nav-section">
+                <div class="nav-section-title">Management</div>
                 <ul class="sidebar-menu">
                     <li class="sidebar-menu-item">
-                        <a href="#" class="sidebar-menu-link">
+                        <a th:href="@{/admin/service-requests}" class="sidebar-menu-link">
                             <i class="fas fa-clipboard-list"></i>
                             <span>Service Requests</span>
                         </a>
                     </li>
                     <li class="sidebar-menu-item">
-                        <a href="#" class="sidebar-menu-link">
+                        <a th:href="@{/admin/vehicles}" class="sidebar-menu-link">
                             <i class="fas fa-car"></i>
                             <span>Vehicles</span>
                         </a>
                     </li>
                     <li class="sidebar-menu-item">
-                        <a href="#" class="sidebar-menu-link">
+                        <a th:href="@{/admin/customers}" class="sidebar-menu-link">
                             <i class="fas fa-users"></i>
                             <span>Customers</span>
                         </a>
                     </li>
                     <li class="sidebar-menu-item">
-                        <a href="#" class="sidebar-menu-link">
+                        <a th:href="@{/admin/service-advisors}" class="sidebar-menu-link">
+                            <i class="fas fa-user-tie"></i>
+                            <span>Service Advisors</span>
+                        </a>
+                    </li>
+                    <li class="sidebar-menu-item">
+                        <a th:href="@{/admin/inventory}" class="sidebar-menu-link">
                             <i class="fas fa-boxes"></i>
                             <span>Inventory</span>
                         </a>
                     </li>
                     <li class="sidebar-menu-item">
-                        <a href="#" class="sidebar-menu-link active">
+                        <a th:href="@{/admin/completed-services}" class="sidebar-menu-link active">
                             <i class="fas fa-check-circle"></i>
                             <span>Completed Services</span>
                         </a>
@@ -617,7 +625,7 @@
 
         <div class="sidebar-footer">
             <div class="user-info">
-                <div class="user-name">Admin User</div>
+                <div class="user-name">Arthur Morgan</div>
                 <div class="user-role">Administrator</div>
             </div>
             <button class="logout-btn">
