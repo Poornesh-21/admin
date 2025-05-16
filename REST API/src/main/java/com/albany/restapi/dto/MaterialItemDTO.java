@@ -12,8 +12,9 @@ import java.math.BigDecimal;
 @AllArgsConstructor
 @NoArgsConstructor
 public class MaterialItemDTO {
-    private Integer itemId;  // Added this field
+    private Integer itemId;
     private String name;
+    private String description; // Added description field
     private BigDecimal quantity;
     private BigDecimal unitPrice;
     private BigDecimal total;

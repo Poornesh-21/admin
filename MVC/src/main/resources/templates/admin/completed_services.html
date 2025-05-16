@@ -664,7 +664,6 @@
                         <th>Service ID</th>
                         <th>Vehicle</th>
                         <th>Customer</th>
-                        <th>Membership</th>
                         <th>Completion Date</th>
                         <th>Total Amount</th>
                         <th>Invoice</th>
@@ -1040,6 +1039,7 @@
     /**
      * Albany Motors - Completed Services JavaScript
      * This file handles the service details, materials, labor charges, and invoice information
+     * With comprehensive fixes for membership status display issues
      */
 
 // Global variables
@@ -1052,6 +1052,93 @@
         initializeEventListeners();
         loadCompletedServices();
     });
+
+    /**
+     * Enhanced debugging function to specifically trace membership status issues
+     */
+    function traceMembershipStatus(service, location) {
+        console.group(`🔍 Membership Trace (${location})`);
+        console.log(`Service ID: ${service.requestId || service.serviceId}`);
+
+        // Log all possible membership locations
+        console.log(`Direct membershipStatus: "${service.membershipStatus}"`);
+
+        if (service.customer) {
+            console.log(`customer.membershipStatus: "${service.customer.membershipStatus}"`);
+
+            if (service.customer.user) {
+                console.log(`customer.user.membershipStatus: "${service.customer.user.membershipStatus}"`);
+            }
+        }
+
+        // Log the determined premium status
+        const isPremium = isMembershipPremium(service);
+        console.log(`isPremium: ${isPremium}`);
+        console.log(`Determined status: "${isPremium ? 'Premium' : 'Standard'}"`);
+        console.groupEnd();
+    }
+
+    /**
+     * Unified function to determine if a service has premium membership
+     * This ensures consistent logic across the entire application
+     */
+    function isMembershipPremium(service) {
+        // Check service.membershipStatus first
+        if (service.membershipStatus) {
+            const status = String(service.membershipStatus).toLowerCase().trim();
+            if (status.includes('premium')) {
+                return true;
+            }
+        }
+
+        // Check customer object next
+        if (service.customer) {
+            if (service.customer.membershipStatus) {
+                const status = String(service.customer.membershipStatus).toLowerCase().trim();
+                if (status.includes('premium')) {
+                    return true;
+                }
+            }
+
+            // Check nested user object if it exists
+            if (service.customer.user && service.customer.user.membershipStatus) {
+                const status = String(service.customer.user.membershipStatus).toLowerCase().trim();
+                if (status.includes('premium')) {
+                    return true;
+                }
+            }
+        }
+
+        // Check raw customer membership status if available
+        if (service.rawCustomerMembershipStatus) {
+            const status = String(service.rawCustomerMembershipStatus).toLowerCase().trim();
+            if (status.includes('premium')) {
+                return true;
+            }
+        }
+
+        // Check enhanced customer data if available
+        if (service.enhancedCustomerData && service.enhancedCustomerData.membershipStatus) {
+            const status = String(service.enhancedCustomerData.membershipStatus).toLowerCase().trim();
+            if (status.includes('premium')) {
+                return true;
+            }
+        }
+
+        // Finally check premium fields
+        if (service.isPremium || service.premium) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Get standardized membership status string
+     */
+    function getMembershipStatus(service) {
+        return isMembershipPremium(service) ? 'Premium' : 'Standard';
+    }
 
     /**
      * Initialize all event listeners for the page
@@ -1108,9 +1195,10 @@
      * Debug function to help troubleshoot membership status issues
      */
     function debugServiceData() {
-        console.log("----- SERVICE DATA DEBUGGING -----");
+        console.group("----- SERVICE DATA DEBUGGING -----");
         if (!completedServices || !Array.isArray(completedServices)) {
             console.log("No services or invalid data structure:", completedServices);
+            console.groupEnd();
             return;
         }
 
@@ -1123,10 +1211,10 @@
         completedServices.forEach(service => {
             if (!service) return;
 
-            const status = service.membershipStatus || 'unknown';
-            if (status.toLowerCase().includes('premium')) {
+            const isPremium = isMembershipPremium(service);
+            if (isPremium) {
                 premiumCount++;
-            } else if (status.toLowerCase().includes('standard')) {
+            } else {
                 standardCount++;
             }
 
@@ -1134,7 +1222,7 @@
             if (premiumCount <= 2 || standardCount <= 2) {
                 console.log(`Service ID: ${service.requestId || service.serviceId}`);
                 console.log(`- Customer: ${service.customerName || 'Unknown'}`);
-                console.log(`- Membership: ${service.membershipStatus || 'Unknown'}`);
+                console.log(`- Membership: ${getMembershipStatus(service)}`);
                 console.log(`- Raw membership data:`, service.membershipStatus);
 
                 // Check if there's a customer object with membership info
@@ -1146,7 +1234,7 @@
 
         console.log(`Premium members: ${premiumCount}`);
         console.log(`Standard members: ${standardCount}`);
-        console.log("----- END DEBUGGING -----");
+        console.groupEnd();
     }
 
     /**
@@ -1157,24 +1245,16 @@
             return;
         }
 
+        // CRITICAL FIX: Use our unified logic
         completedServices.forEach(service => {
             if (!service) return;
 
-            // Extract and fix any membership status values
-            let membershipStatus = service.membershipStatus || '';
+            // Use our unified membership determination
+            const isPremium = isMembershipPremium(service);
+            service.membershipStatus = isPremium ? 'Premium' : 'Standard';
 
-            // If it's an object or has unexpected format, try to extract string value
-            if (typeof membershipStatus === 'object') {
-                membershipStatus = String(membershipStatus).trim();
-            }
-
-            // Force proper formatting - CRITICAL FIX
-            if (typeof membershipStatus === 'string' && membershipStatus.toLowerCase().trim().includes('premium')) {
-                service.membershipStatus = 'Premium';
-                console.log(`Set service ${service.requestId || service.serviceId} to Premium`);
-            } else {
-                service.membershipStatus = 'Standard';
-            }
+            // Trace the final state
+            traceMembershipStatus(service, 'fixMembershipData');
         });
     }
 
@@ -1182,30 +1262,15 @@
      * Normalize essential service data with more robust checking
      */
     function normalizeServiceData(service) {
-        // 1. Normalize membership status with more robust checking
-        if (service.membershipStatus) {
-            // Handle different cases and formats
-            const status = String(service.membershipStatus).trim().toLowerCase();
-            if (status.includes('premium')) {
-                service.membershipStatus = 'Premium';
-                console.log(`normalizeServiceData: Set service ${service.requestId || service.serviceId} to Premium`);
-            } else {
-                service.membershipStatus = 'Standard';
-            }
-        } else {
-            // Check if membershipStatus exists in customer object
-            if (service.customer && service.customer.membershipStatus) {
-                const status = String(service.customer.membershipStatus).trim().toLowerCase();
-                if (status.includes('premium')) {
-                    service.membershipStatus = 'Premium';
-                    console.log(`normalizeServiceData (from customer): Set service ${service.requestId || service.serviceId} to Premium`);
-                } else {
-                    service.membershipStatus = 'Standard';
-                }
-            } else {
-                service.membershipStatus = 'Standard';
-            }
-        }
+        // First check if service is valid
+        if (!service) return;
+
+        // CRITICAL FIX: Use our unified membership status determination
+        const isPremium = isMembershipPremium(service);
+        service.membershipStatus = isPremium ? 'Premium' : 'Standard';
+
+        // Trace status after setting it
+        traceMembershipStatus(service, 'normalizeServiceData');
 
         // 2. Ensure customer name is available
         if (!service.customerName || service.customerName === 'Unknown Customer') {
@@ -1245,13 +1310,6 @@
                 service.registrationNumber = service.vehicle.registrationNumber;
             }
         }
-
-        // 4. Debug information for troubleshooting
-        console.log('After normalization:', {
-            serviceId: service.serviceId || service.requestId,
-            customerName: service.customerName,
-            membershipStatus: service.membershipStatus
-        });
     }
 
     /**
@@ -1352,7 +1410,7 @@
     function enhanceCustomerInfo(service) {
         return new Promise((resolve, reject) => {
             try {
-                // First normalize what we have
+                // Begin with basic normalization
                 normalizeServiceData(service);
 
                 // If we don't have a customerId, try to find it in various places
@@ -1373,6 +1431,13 @@
                 // If we still don't have a customerId, resolve with what we have
                 if (!customerId) {
                     console.log('No customerId found for service:', service.serviceId || service.requestId);
+
+                    // CRITICAL FIX: Still apply our unified membership determination
+                    const isPremium = isMembershipPremium(service);
+                    service.membershipStatus = isPremium ? 'Premium' : 'Standard';
+
+                    traceMembershipStatus(service, 'enhanceCustomerInfo - no customerId');
+
                     resolve(service);
                     return;
                 }
@@ -1409,31 +1474,60 @@
                                 service.customerPhone = customerData.phoneNumber;
                             }
 
+                            // CRITICAL FIX: Save raw membership status from customer
                             if (customerData.membershipStatus) {
-                                // Normalize the membership status with more flexible checking
+                                // Store the raw value from the customer API
+                                service.rawCustomerMembershipStatus = customerData.membershipStatus;
+
+                                // Check specifically for Premium
                                 const status = String(customerData.membershipStatus).trim().toLowerCase();
                                 if (status.includes('premium')) {
+                                    console.log('Setting Premium status from customer data for service ID:',
+                                        service.requestId || service.serviceId);
+
+                                    // Set this directly - it will take precedence
                                     service.membershipStatus = 'Premium';
-                                    console.log(`enhanceCustomerInfo: Set service ${service.requestId || service.serviceId} to Premium from customer data`);
-                                } else {
+                                }
+                                // Only overwrite with Standard if we don't already have Premium status
+                                else if (service.membershipStatus !== 'Premium') {
                                     service.membershipStatus = 'Standard';
                                 }
                             }
 
-                            console.log('Enhanced service with customer details:', {
-                                customerName: service.customerName,
-                                membershipStatus: service.membershipStatus
-                            });
+                            // Store the customer data directly for future reference
+                            service.enhancedCustomerData = customerData;
+
+                            // Trace the membership data
+                            traceMembershipStatus(service, 'enhanceCustomerInfo - after fetch');
                         }
+
+                        // CRITICAL FIX: Apply our unified logic one final time
+                        const isPremium = isMembershipPremium(service);
+                        service.membershipStatus = isPremium ? 'Premium' : 'Standard';
+
+                        // Final trace
+                        traceMembershipStatus(service, 'enhanceCustomerInfo - final');
 
                         resolve(service);
                     })
                     .catch(error => {
                         console.warn('Could not fetch additional customer details:', error);
+
+                        // CRITICAL FIX: Still apply our unified membership determination
+                        const isPremium = isMembershipPremium(service);
+                        service.membershipStatus = isPremium ? 'Premium' : 'Standard';
+
                         resolve(service); // Resolve with current data rather than rejecting
                     });
             } catch (error) {
                 console.error("Error enhancing customer info:", error);
+
+                // CRITICAL FIX: Still apply our unified membership determination
+                if (service) {
+                    const isPremium = isMembershipPremium(service);
+                    service.membershipStatus = isPremium ? 'Premium' : 'Standard';
+                }
+
                 resolve(service); // Resolve with default values rather than rejecting
             }
         });
@@ -1518,16 +1612,37 @@
                 `${service.vehicleBrand} ${service.vehicleModel}` :
                 'Unknown Vehicle');
 
-        // CRITICAL FIX: Ensure the service has the critical data we need
-        const membershipStatus = service.membershipStatus || 'Standard';
+        // FIXED: Direct membership status handling at display time
+        // Extract the raw membership value from wherever it might be
+        let rawMembershipStatus = service.membershipStatus;
 
-        // Debug the actual membership status value
-        console.log(`Rendering service ${service.requestId || service.serviceId} with membership status: "${membershipStatus}"`);
+        // Try to get from nested customer object if it exists but service.membershipStatus doesn't
+        if ((!rawMembershipStatus || rawMembershipStatus === 'Standard') && service.customer) {
+            if (typeof service.customer === 'object' && service.customer.membershipStatus) {
+                rawMembershipStatus = service.customer.membershipStatus;
+            }
+        }
 
-        // More flexible check for premium - check if it contains 'premium' anywhere in the string
-        const isPremium = typeof membershipStatus === 'string' && membershipStatus.toLowerCase().trim().includes('premium');
-        console.log(`Service ${service.requestId || service.serviceId} isPremium: ${isPremium}, membershipStatus: "${membershipStatus}"`);
+        // Convert the raw value to a string we can work with
+        let membershipStatusStr = "";
+        if (rawMembershipStatus) {
+            if (typeof rawMembershipStatus === 'object') {
+                // Handle object format by converting to string
+                membershipStatusStr = JSON.stringify(rawMembershipStatus);
+            } else {
+                membershipStatusStr = String(rawMembershipStatus).trim();
+            }
+        }
+
+        // Definitively determine if premium based on content of string
+        const isPremium = isMembershipPremium(service);
+
+        // Set the actual display value and class
+        const membershipStatus = isPremium ? 'Premium' : 'Standard';
         const membershipClass = isPremium ? 'membership-premium' : 'membership-standard';
+
+        console.log(`FIXED: Service ${service.requestId || service.serviceId} membership: raw="${rawMembershipStatus}",
+                 processed="${membershipStatusStr}", isPremium=${isPremium}, final="${membershipStatus}"`);
 
         // Customer name with fallback
         const customerName = service.customerName || 'Unknown Customer';
@@ -1546,11 +1661,6 @@
             </div>
         </td>
         <td>${customerName}</td>
-        <td>
-            <span class="membership-badge ${membershipClass}">
-                ${membershipStatus}
-            </span>
-        </td>
         <td>${formattedDate}</td>
         <td>${formatter.format(service.totalAmount || service.totalCost || service.calculatedTotal || 0)}</td>
         <td>${invoiceStatus}</td>
@@ -1620,13 +1730,28 @@
                 currentServiceId = serviceId;
                 currentService = service;
 
-                // Normalize essential service data first
+                // CRITICAL FIX: Apply our unified membership determination
+                const isPremium = isMembershipPremium(service);
+                service.membershipStatus = isPremium ? 'Premium' : 'Standard';
+
+                // Trace membership status to debug
+                traceMembershipStatus(service, 'viewServiceDetails - after fetch');
+
+                // Normalize essential service data
                 normalizeServiceData(service);
 
                 // Then enhance customer info with an API call if needed
                 return enhanceCustomerInfo(service);
             })
             .then(service => {
+                // CRITICAL FIX: Apply membership determination again after enhancing customer info
+                // This ensures we catch any updates from the customer info enhancement
+                const isPremium = isMembershipPremium(service);
+                service.membershipStatus = isPremium ? 'Premium' : 'Standard';
+
+                // Trace the final state for debugging
+                traceMembershipStatus(service, 'viewServiceDetails - final');
+
                 // Now that we have enhanced service data, update the UI
 
                 // Basic service information
@@ -1635,10 +1760,8 @@
                 document.getElementById('viewRegistrationNumber').textContent = getRegistrationNumber(service);
                 document.getElementById('viewCustomerName').textContent = service.customerName || 'Unknown Customer';
 
-                // Properly handle membership status
-                const modalMembershipStatus = service.membershipStatus || 'Standard';
-                console.log(`Setting modal membership status to: "${modalMembershipStatus}"`);
-                document.getElementById('viewMembership').textContent = modalMembershipStatus;
+                // CRITICAL FIX: Always use our unified membership status getter
+                document.getElementById('viewMembership').textContent = getMembershipStatus(service);
 
                 // Format and display completion date
                 const completionDate = getFormattedDate(service);
@@ -2069,9 +2192,9 @@
                 }
             }, 0);
 
-            // Calculate discount based on membership status
-            const isPremium = typeof service.membershipStatus === 'string' &&
-                service.membershipStatus.toLowerCase().includes('premium');
+            // CRITICAL FIX: Calculate discount based on our unified membership determination
+            const isPremium = isMembershipPremium(service);
+
             if (isPremium) {
                 // Premium members get 20% off labor charges
                 discount = laborTotal * 0.2;
@@ -2087,9 +2210,8 @@
             total = subtotal + tax;
         }
 
-        // Apply membership discount visualization
-        const isPremium = typeof service.membershipStatus === 'string' &&
-            service.membershipStatus.toLowerCase().includes('premium');
+        // CRITICAL FIX: Apply premium discount visualization based on our unified determination
+        const isPremium = isMembershipPremium(service);
         const premiumDiscountRow = document.getElementById('premiumDiscountRow');
 
         if (isPremium && discount > 0) {
@@ -2255,8 +2377,7 @@
         let total = currentService.calculatedTotal || 0;
 
         // Apply premium discount if applicable
-        const isPremium = typeof currentService.membershipStatus === 'string' &&
-            currentService.membershipStatus.toLowerCase().includes('premium');
+        const isPremium = isMembershipPremium(currentService);
         const premiumDiscountRow = document.getElementById('invoicePremiumDiscountRow');
         const premiumBadge = document.getElementById('invoicePremiumBadge');
 
@@ -2331,7 +2452,7 @@
             tax: currentService.calculatedTax,
             total: currentService.calculatedTotal,
             // Include normalized membership status
-            membershipStatus: currentService.membershipStatus
+            membershipStatus: getMembershipStatus(currentService)
         };
 
         // Get token
@@ -2720,6 +2841,43 @@
             toastEl.remove();
         });
     }
+
+    /**
+     * Test function to verify membership badge on a specific row (run in console)
+     */
+    window.testMembershipBadge = function(serviceId) {
+        // Find the matching service
+        const service = completedServices.find(s =>
+            (s.serviceId == serviceId || s.requestId == serviceId));
+
+        if (!service) {
+            console.error(`Service with ID ${serviceId} not found`);
+            return;
+        }
+
+        // Trace all membership data
+        traceMembershipStatus(service, 'testMembershipBadge');
+
+        // Create a new row with our fixed function
+        const row = createServiceTableRow(service);
+
+        // Log the HTML to check the badge
+        console.log('Row HTML:', row.innerHTML);
+
+        // Check if the badge has correct class
+        const isPremium = isMembershipPremium(service);
+        const expectedClass = isPremium ? 'membership-premium' : 'membership-standard';
+
+        // Find the badge in the generated HTML and check class
+        const badgeMatch = row.innerHTML.match(/membership-badge\s+(membership-[a-z]+)/);
+        if (badgeMatch) {
+            const actualClass = badgeMatch[1];
+            console.log(`Badge class: ${actualClass}, Expected: ${expectedClass}`);
+            console.log(`Badge class is ${actualClass === expectedClass ? 'CORRECT ✅' : 'WRONG ❌'}`);
+        } else {
+            console.error('Could not find membership badge in HTML');
+        }
+    };
 </script>
 </body>
 </html>
