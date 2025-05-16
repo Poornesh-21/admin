@@ -1169,7 +1169,7 @@
             }
 
             // Force proper formatting - CRITICAL FIX
-            if (typeof membershipStatus === 'string' && membershipStatus.toLowerCase().includes('premium')) {
+            if (typeof membershipStatus === 'string' && membershipStatus.toLowerCase().trim().includes('premium')) {
                 service.membershipStatus = 'Premium';
                 console.log(`Set service ${service.requestId || service.serviceId} to Premium`);
             } else {
@@ -1188,6 +1188,7 @@
             const status = String(service.membershipStatus).trim().toLowerCase();
             if (status.includes('premium')) {
                 service.membershipStatus = 'Premium';
+                console.log(`normalizeServiceData: Set service ${service.requestId || service.serviceId} to Premium`);
             } else {
                 service.membershipStatus = 'Standard';
             }
@@ -1197,6 +1198,7 @@
                 const status = String(service.customer.membershipStatus).trim().toLowerCase();
                 if (status.includes('premium')) {
                     service.membershipStatus = 'Premium';
+                    console.log(`normalizeServiceData (from customer): Set service ${service.requestId || service.serviceId} to Premium`);
                 } else {
                     service.membershipStatus = 'Standard';
                 }
@@ -1412,6 +1414,7 @@
                                 const status = String(customerData.membershipStatus).trim().toLowerCase();
                                 if (status.includes('premium')) {
                                     service.membershipStatus = 'Premium';
+                                    console.log(`enhanceCustomerInfo: Set service ${service.requestId || service.serviceId} to Premium from customer data`);
                                 } else {
                                     service.membershipStatus = 'Standard';
                                 }
@@ -1522,7 +1525,8 @@
         console.log(`Rendering service ${service.requestId || service.serviceId} with membership status: "${membershipStatus}"`);
 
         // More flexible check for premium - check if it contains 'premium' anywhere in the string
-        const isPremium = typeof membershipStatus === 'string' && membershipStatus.toLowerCase().includes('premium');
+        const isPremium = typeof membershipStatus === 'string' && membershipStatus.toLowerCase().trim().includes('premium');
+        console.log(`Service ${service.requestId || service.serviceId} isPremium: ${isPremium}, membershipStatus: "${membershipStatus}"`);
         const membershipClass = isPremium ? 'membership-premium' : 'membership-standard';
 
         // Customer name with fallback
@@ -1632,7 +1636,9 @@
                 document.getElementById('viewCustomerName').textContent = service.customerName || 'Unknown Customer';
 
                 // Properly handle membership status
-                document.getElementById('viewMembership').textContent = service.membershipStatus || 'Standard';
+                const modalMembershipStatus = service.membershipStatus || 'Standard';
+                console.log(`Setting modal membership status to: "${modalMembershipStatus}"`);
+                document.getElementById('viewMembership').textContent = modalMembershipStatus;
 
                 // Format and display completion date
                 const completionDate = getFormattedDate(service);
