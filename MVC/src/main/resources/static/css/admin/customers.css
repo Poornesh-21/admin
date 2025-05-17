@@ -303,6 +303,37 @@ body::before {
     transform: translateY(-2px);
 }
 
+/* Add processing state for buttons */
+.btn-premium.processing {
+    position: relative;
+    pointer-events: none;
+    opacity: 0.8;
+}
+
+.btn-premium.processing::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 1.5rem;
+    height: 1.5rem;
+    margin-top: -0.75rem;
+    margin-left: -0.75rem;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+    border-top-color: white;
+    animation: button-spin 0.8s linear infinite;
+}
+
+@keyframes button-spin {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
 .btn-premium.secondary {
     background-color: var(--bg-light);
     color: var(--secondary-color);

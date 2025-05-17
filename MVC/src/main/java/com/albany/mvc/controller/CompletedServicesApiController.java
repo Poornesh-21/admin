@@ -9,6 +9,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.*;
 
 /**
@@ -44,8 +46,6 @@ public class CompletedServicesApiController {
 
             // Log the number of services and data verification
             log.info("Returning {} completed services", completedServices.size());
-            logDataVerification(completedServices);
-
             return ResponseEntity.ok(completedServices);
         } catch (Exception e) {
             log.error("Error fetching completed services: {}", e.getMessage(), e);
@@ -54,23 +54,53 @@ public class CompletedServicesApiController {
     }
 
     /**
-     * Log data verification for debugging
+     * NEW ENDPOINT: Get invoice details for a service
      */
-    private void logDataVerification(List<Map<String, Object>> services) {
-        if (services == null || services.isEmpty()) {
-            log.debug("No services to verify");
-            return;
+    @GetMapping("/{id}/invoice-details")
+    public ResponseEntity<Map<String, Object>> getServiceInvoiceDetails(
+            @PathVariable Integer id,
+            @RequestParam(required = false) String token,
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            HttpServletRequest request) {
+
+        // Get valid token
+        String validToken = getValidToken(token, authHeader, request);
+
+        if (validToken == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Collections.emptyMap());
         }
 
-        // Check a sample service to verify fields
-        Map<String, Object> sampleService = services.get(0);
-        log.debug("Data verification for sample service:");
-        log.debug("- ServiceId: {}", sampleService.get("serviceId"));
-        log.debug("- VehicleName: {}", sampleService.get("vehicleName"));
-        log.debug("- CustomerName: {}", sampleService.get("customerName"));
-        log.debug("- CustomerEmail: {}", sampleService.get("customerEmail"));
-        log.debug("- CustomerPhone: {}", sampleService.get("customerPhone"));
-        log.debug("- MembershipStatus: {}", sampleService.get("membershipStatus"));
+        try {
+            // Try to get invoice details from service - use getServiceDetails method
+            Map<String, Object> serviceDetails = completedServicesService.getServiceDetails(id, validToken);
+
+            // If service details exist but don't have materials/labor data, add default data
+            if (!serviceDetails.isEmpty()) {
+                // Add default materials if missing
+                if (!serviceDetails.containsKey("materials") || serviceDetails.get("materials") == null) {
+                    serviceDetails.put("materials", new ArrayList<>());
+                    serviceDetails.put("materialsTotal", BigDecimal.ZERO);
+                }
+
+                // Add default labor charges if missing
+                if (!serviceDetails.containsKey("laborCharges") || serviceDetails.get("laborCharges") == null) {
+                    serviceDetails.put("laborCharges", new ArrayList<>());
+                    serviceDetails.put("laborTotal", BigDecimal.ZERO);
+                }
+
+                // Calculate financial totals even if they're missing
+                ensureFinancialTotals(serviceDetails);
+            }
+
+            log.debug("Service details for invoice: {}", serviceDetails);
+            return ResponseEntity.ok(serviceDetails);
+        } catch (Exception e) {
+            log.error("Error fetching invoice details for service {}: {}", id, e.getMessage(), e);
+
+            // Return a minimal structure with default values rather than empty map
+            Map<String, Object> fallbackData = createFallbackInvoiceData(id);
+            return ResponseEntity.ok(fallbackData);
+        }
     }
 
     /**
@@ -125,10 +155,6 @@ public class CompletedServicesApiController {
             if (serviceDetails.isEmpty()) {
                 return ResponseEntity.notFound().build();
             }
-
-            // Log data verification
-            log.debug("Service details for ID {}: customerPhone={}, membershipStatus={}",
-                    id, serviceDetails.get("customerPhone"), serviceDetails.get("membershipStatus"));
 
             return ResponseEntity.ok(serviceDetails);
         } catch (Exception e) {
@@ -240,6 +266,62 @@ public class CompletedServicesApiController {
     }
 
     /**
+     * Create fallback invoice data when API fails
+     */
+    private Map<String, Object> createFallbackInvoiceData(Integer serviceId) {
+        Map<String, Object> fallback = new HashMap<>();
+
+        // Basic service info
+        fallback.put("requestId", serviceId);
+        fallback.put("serviceId", serviceId);
+        fallback.put("vehicleName", "Unknown Vehicle");
+        fallback.put("registrationNumber", "Unknown");
+        fallback.put("customerName", "Unknown Customer");
+        fallback.put("membershipStatus", "Standard");
+        fallback.put("completedDate", LocalDate.now());
+
+        // Empty financial data
+        fallback.put("materials", new ArrayList<>());
+        fallback.put("laborCharges", new ArrayList<>());
+        fallback.put("materialsTotal", BigDecimal.ZERO);
+        fallback.put("laborTotal", BigDecimal.ZERO);
+        fallback.put("subtotal", BigDecimal.ZERO);
+        fallback.put("tax", BigDecimal.ZERO);
+        fallback.put("grandTotal", BigDecimal.ZERO);
+
+        return fallback;
+    }
+
+    /**
+     * Ensure all financial totals are calculated and present
+     */
+    private void ensureFinancialTotals(Map<String, Object> data) {
+        // Get existing values or default to zero
+        BigDecimal materialsTotal = getBigDecimalValue(data, "materialsTotal", BigDecimal.ZERO);
+        BigDecimal laborTotal = getBigDecimalValue(data, "laborTotal", BigDecimal.ZERO);
+
+        // Calculate discount if premium
+        BigDecimal discount = BigDecimal.ZERO;
+        String membershipStatus = getStringValue(data, "membershipStatus", "Standard");
+        if ("Premium".equalsIgnoreCase(membershipStatus)) {
+            discount = laborTotal.multiply(new BigDecimal("0.20"));
+            data.put("discount", discount);
+        }
+
+        // Calculate subtotal
+        BigDecimal subtotal = materialsTotal.add(laborTotal).subtract(discount);
+        data.put("subtotal", subtotal);
+
+        // Calculate tax
+        BigDecimal tax = subtotal.multiply(new BigDecimal("0.18"));
+        data.put("tax", tax);
+
+        // Calculate grand total
+        BigDecimal grandTotal = subtotal.add(tax);
+        data.put("grandTotal", grandTotal);
+    }
+
+    /**
      * Helper method to get token from various sources
      */
     private String getValidToken(String tokenParam, String authHeader, HttpServletRequest request) {
@@ -263,5 +345,36 @@ public class CompletedServicesApiController {
         }
 
         return null;
+    }
+
+    /**
+     * Helper method to get BigDecimal value from a map with default
+     */
+    private BigDecimal getBigDecimalValue(Map<String, Object> map, String key, BigDecimal defaultValue) {
+        if (map != null && map.containsKey(key) && map.get(key) != null) {
+            Object value = map.get(key);
+            if (value instanceof BigDecimal) {
+                return (BigDecimal) value;
+            } else if (value instanceof Number) {
+                return new BigDecimal(value.toString());
+            } else {
+                try {
+                    return new BigDecimal(value.toString());
+                } catch (Exception e) {
+                    return defaultValue;
+                }
+            }
+        }
+        return defaultValue;
+    }
+
+    /**
+     * Helper method to get String value from a map with default
+     */
+    private String getStringValue(Map<String, Object> map, String key, String defaultValue) {
+        if (map != null && map.containsKey(key) && map.get(key) != null) {
+            return map.get(key).toString();
+        }
+        return defaultValue;
     }
 }
