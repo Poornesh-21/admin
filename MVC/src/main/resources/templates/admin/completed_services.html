@@ -1083,7 +1083,7 @@
      * This ensures consistent logic across the entire application
      */
     function isMembershipPremium(service) {
-        // Check service.membershipStatus first
+        // Check direct membership status
         if (service.membershipStatus) {
             const status = String(service.membershipStatus).toLowerCase().trim();
             if (status.includes('premium')) {
@@ -1091,42 +1091,16 @@
             }
         }
 
-        // Check customer object next
-        if (service.customer) {
-            if (service.customer.membershipStatus) {
-                const status = String(service.customer.membershipStatus).toLowerCase().trim();
-                if (status.includes('premium')) {
-                    return true;
-                }
-            }
-
-            // Check nested user object if it exists
-            if (service.customer.user && service.customer.user.membershipStatus) {
-                const status = String(service.customer.user.membershipStatus).toLowerCase().trim();
-                if (status.includes('premium')) {
-                    return true;
-                }
-            }
-        }
-
-        // Check raw customer membership status if available
-        if (service.rawCustomerMembershipStatus) {
-            const status = String(service.rawCustomerMembershipStatus).toLowerCase().trim();
+        // Check nested customer membership
+        if (service.customer && service.customer.membershipStatus) {
+            const status = String(service.customer.membershipStatus).toLowerCase().trim();
             if (status.includes('premium')) {
                 return true;
             }
         }
 
-        // Check enhanced customer data if available
-        if (service.enhancedCustomerData && service.enhancedCustomerData.membershipStatus) {
-            const status = String(service.enhancedCustomerData.membershipStatus).toLowerCase().trim();
-            if (status.includes('premium')) {
-                return true;
-            }
-        }
-
-        // Finally check premium fields
-        if (service.isPremium || service.premium) {
+        // Check isPremium or premium flags
+        if (service.isPremium || service.premium || service.isPremiumMember) {
             return true;
         }
 
@@ -1137,7 +1111,9 @@
      * Get standardized membership status string
      */
     function getMembershipStatus(service) {
-        return isMembershipPremium(service) ? 'Premium' : 'Standard';
+        // Check for premium membership through various properties
+        const isPremium = isMembershipPremium(service);
+        return isPremium ? 'Premium' : 'Standard';
     }
 
     /**
@@ -1682,103 +1658,66 @@
      * View service details - fetches and displays all data related to a service request
      */
     function viewServiceDetails(serviceId) {
-        console.log('Viewing service details for ID:', serviceId);
-
-        // Show modal with loading state
+        // Show modal
         const modal = new bootstrap.Modal(document.getElementById('viewServiceDetailsModal'));
         modal.show();
 
-        const materialsTableBody = document.getElementById('materialsTableBody');
-        const laborChargesTableBody = document.getElementById('laborChargesTableBody');
+        // Load basic service details
+        loadBasicServiceDetails(serviceId);
 
-        // Show loading indicators
-        materialsTableBody.innerHTML = `
-        <tr>
-            <td colspan="4" class="text-center">
-                <div class="spinner-border spinner-border-sm text-wine" role="status"></div>
-                <span class="ms-2">Loading materials data...</span>
-            </td>
-        </tr>
-    `;
+        // Load invoice data separately for better error handling
+        loadInvoiceData(serviceId);
+    }
 
-        laborChargesTableBody.innerHTML = `
-        <tr>
-            <td colspan="4" class="text-center">
-                <div class="spinner-border spinner-border-sm text-wine" role="status"></div>
-                <span class="ms-2">Loading labor charges data...</span>
-            </td>
-        </tr>
-    `;
+    // Initialize event listeners
+    document.addEventListener('DOMContentLoaded', function() {
+        // Add event listener for view service buttons
+        document.addEventListener('click', function(e) {
+            if (e.target.classList.contains('view-service-btn') || e.target.closest('.view-service-btn')) {
+                const btn = e.target.classList.contains('view-service-btn') ? e.target : e.target.closest('.view-service-btn');
+                const serviceId = btn.getAttribute('data-id');
+                viewServiceDetails(serviceId);
+            }
+        });
+    });
 
-        // Get authentication token
+    function loadBasicServiceDetails(serviceId) {
+        // Store current service ID for later use
+        currentServiceId = serviceId;
+
+        // Set loading states for basic info
+        document.getElementById('viewServiceId').textContent = `REQ-${serviceId}`;
+        document.getElementById('viewVehicleName').textContent = 'Loading...';
+        document.getElementById('viewRegistrationNumber').textContent = 'Loading...';
+        document.getElementById('viewCustomerName').textContent = 'Loading...';
+        document.getElementById('viewMembership').textContent = 'Loading...';
+        document.getElementById('viewCompletionDate').textContent = 'Loading...';
+
+        // Get token
         const token = getAuthToken();
-        console.log('Auth token available:', token ? 'Yes' : 'No');
 
-        // Try different URLs in order - this helps with API consistency issues
+        // Try different URLs for service details
         const serviceUrls = [
+            `/admin/api/completed-services/${serviceId}`,
             `/admin/api/services/${serviceId}/details`,
-            `/admin/api/service-details/${serviceId}`,
-            `/admin/api/completed-services/${serviceId}`
+            `/admin/api/service-details/${serviceId}`
         ];
 
-        // Use promises to try each URL until one succeeds
+        // Try each URL until one works
         tryFetchUrls(serviceUrls, token)
             .then(service => {
-                console.log('Received service details:', service);
+                console.log('Service details loaded:', service);
 
-                // Store current service and ID globally
-                currentServiceId = serviceId;
+                // Store current service for later use
                 currentService = service;
 
-                // CRITICAL FIX: Apply our unified membership determination
-                const isPremium = isMembershipPremium(service);
-                service.membershipStatus = isPremium ? 'Premium' : 'Standard';
-
-                // Trace membership status to debug
-                traceMembershipStatus(service, 'viewServiceDetails - after fetch');
-
-                // Normalize essential service data
-                normalizeServiceData(service);
-
-                // Then enhance customer info with an API call if needed
-                return enhanceCustomerInfo(service);
-            })
-            .then(service => {
-                // CRITICAL FIX: Apply membership determination again after enhancing customer info
-                // This ensures we catch any updates from the customer info enhancement
-                const isPremium = isMembershipPremium(service);
-                service.membershipStatus = isPremium ? 'Premium' : 'Standard';
-
-                // Trace the final state for debugging
-                traceMembershipStatus(service, 'viewServiceDetails - final');
-
-                // Now that we have enhanced service data, update the UI
-
-                // Basic service information
-                document.getElementById('viewServiceId').textContent = `REQ-${service.requestId || service.serviceId || ''}`;
+                // Update basic information fields
+                document.getElementById('viewServiceId').textContent = `REQ-${service.requestId || service.serviceId || serviceId}`;
                 document.getElementById('viewVehicleName').textContent = getVehicleName(service);
                 document.getElementById('viewRegistrationNumber').textContent = getRegistrationNumber(service);
                 document.getElementById('viewCustomerName').textContent = service.customerName || 'Unknown Customer';
-
-                // CRITICAL FIX: Always use our unified membership status getter
                 document.getElementById('viewMembership').textContent = getMembershipStatus(service);
-
-                // Format and display completion date
-                const completionDate = getFormattedDate(service);
-                document.getElementById('viewCompletionDate').textContent = completionDate;
-
-                // Get materials data - handle different possible property names
-                const materials = service.materials || service.materialItems || service.materialsUsed || [];
-                console.log('Materials data:', materials);
-                populateMaterialsTable(materials);
-
-                // Get labor charges - handle different possible property names
-                const laborCharges = service.laborCharges || service.labor || [];
-                console.log('Labor charges data:', laborCharges);
-                populateLaborChargesTable(laborCharges);
-
-                // Update invoice summary with financial data
-                updateInvoiceSummary(service);
+                document.getElementById('viewCompletionDate').textContent = getFormattedDate(service);
 
                 // Update workflow steps
                 updateWorkflowSteps(service);
@@ -1787,27 +1726,17 @@
                 updateFooterButtons(service);
             })
             .catch(error => {
-                console.error('Error fetching service details:', error);
+                console.error('Error loading service details:', error);
 
-                // Show error message in tables
-                materialsTableBody.innerHTML = `
-                <tr>
-                    <td colspan="4" class="text-center text-danger">
-                        <i class="fas fa-exclamation-circle me-2"></i>
-                        Error loading materials data: ${error.message}
-                    </td>
-                </tr>
-            `;
+                // Keep the service ID but show error for other fields
+                document.getElementById('viewServiceId').textContent = `REQ-${serviceId}`;
+                document.getElementById('viewVehicleName').textContent = 'Error loading details';
+                document.getElementById('viewRegistrationNumber').textContent = 'Error loading details';
+                document.getElementById('viewCustomerName').textContent = 'Error loading details';
+                document.getElementById('viewMembership').textContent = 'Error loading details';
+                document.getElementById('viewCompletionDate').textContent = 'Error loading details';
 
-                laborChargesTableBody.innerHTML = `
-                <tr>
-                    <td colspan="4" class="text-center text-danger">
-                        <i class="fas fa-exclamation-circle me-2"></i>
-                        Error loading labor charges data: ${error.message}
-                    </td>
-                </tr>
-            `;
-
+                // Show error notification
                 showToast('Error loading service details: ' + error.message, 'error');
             });
     }
@@ -1835,7 +1764,6 @@
      * Try each URL in sequence until one returns a valid response
      */
     function tryFetchUrls(urls, token) {
-        // Use reduce to create a promise chain that tries each URL
         return urls.reduce((promise, url) => {
             return promise.catch(() => {
                 console.log(`Trying URL: ${url}`);
@@ -1854,6 +1782,7 @@
             });
         }, Promise.reject(new Error('Starting URL chain')));
     }
+
 
     /**
      * Extract and format the vehicle name from service data
@@ -1881,16 +1810,14 @@
      * Format completion date from various possible date fields
      */
     function getFormattedDate(service) {
-        // Try different possible date fields
-        const possibleDateFields = [
+        // Try various date fields
+        const dateFields = [
             'completionDate', 'completedDate', 'updatedAt',
             'formattedCompletedDate', 'formattedCompletionDate'
         ];
 
         let dateValue = null;
-
-        // Find the first valid date field
-        for (const field of possibleDateFields) {
+        for (const field of dateFields) {
             if (service[field]) {
                 dateValue = service[field];
                 break;
@@ -1928,19 +1855,23 @@
     /**
      * Populate materials table with complete data
      */
+    /**
+     * Populate materials table with improved handling for empty and invalid data
+     */
     function populateMaterialsTable(materials) {
         const tableBody = document.getElementById('materialsTableBody');
         tableBody.innerHTML = '';
 
         // Handle empty materials array
         if (!materials || materials.length === 0) {
-            const emptyRow = document.createElement('tr');
-            emptyRow.innerHTML = `<td colspan="4" class="text-center">No materials used in this service</td>`;
-            tableBody.appendChild(emptyRow);
+            tableBody.innerHTML = `
+            <tr><td colspan="4" class="text-center">No materials used in this service</td></tr>
+        `;
+            document.getElementById('summaryMaterialsTotal').textContent = formatCurrency(0);
             return;
         }
 
-        // Format numbers for currency
+        // Format currency
         const formatter = new Intl.NumberFormat('en-IN', {
             style: 'currency',
             currency: 'INR',
@@ -1949,48 +1880,23 @@
 
         let materialTotal = 0;
 
-        // Process each material item
+        // Process each material
         materials.forEach(material => {
-            // Skip items without name or quantity
-            if (!material.name && !material.quantity) {
-                // Try to get data from inventoryItem if available
-                if (material.inventoryItem) {
-                    material.name = material.inventoryItem.name;
-                    if (!material.unitPrice) {
-                        material.unitPrice = material.inventoryItem.unitPrice;
-                    }
-                } else {
-                    return; // Skip this item
-                }
-            }
+            if (!material) return;
 
             const row = document.createElement('tr');
 
-            // Get item name - check various possible properties
-            let itemName = material.name;
-            if (!itemName && material.inventoryItem) {
-                itemName = material.inventoryItem.name;
-            }
+            // Get item name with fallback
+            const itemName = material.name || 'Unknown Item';
 
-            // Get quantity - handle number or string
-            let quantity = typeof material.quantity === 'number' ?
-                material.quantity : parseFloat(material.quantity || 0);
+            // Get quantity and unit price with fallbacks
+            const quantity = parseFloatSafe(material.quantity, 1);
+            const unitPrice = parseFloatSafe(material.unitPrice, 0);
 
-            // Get unit price - check various possible properties
-            let unitPrice = 0;
-            if (material.unitPrice) {
-                unitPrice = typeof material.unitPrice === 'number' ?
-                    material.unitPrice : parseFloat(material.unitPrice);
-            } else if (material.inventoryItem && material.inventoryItem.unitPrice) {
-                unitPrice = typeof material.inventoryItem.unitPrice === 'number' ?
-                    material.inventoryItem.unitPrice : parseFloat(material.inventoryItem.unitPrice);
-            }
-
-            // Calculate total
-            let total = 0;
+            // Get or calculate total
+            let total;
             if (material.total) {
-                total = typeof material.total === 'number' ?
-                    material.total : parseFloat(material.total);
+                total = parseFloatSafe(material.total, 0);
             } else {
                 total = quantity * unitPrice;
             }
@@ -2000,7 +1906,7 @@
 
             // Create the row
             row.innerHTML = `
-            <td>${itemName || 'Unknown Item'}</td>
+            <td>${itemName}</td>
             <td>${quantity}</td>
             <td>${formatter.format(unitPrice)}</td>
             <td>${formatter.format(total)}</td>
@@ -2009,17 +1915,40 @@
             tableBody.appendChild(row);
         });
 
-        // Add total row
-        const totalRow = document.createElement('tr');
-        totalRow.innerHTML = `
-        <td colspan="3" class="text-end fw-bold">Total</td>
-        <td class="fw-bold">${formatter.format(materialTotal)}</td>
-    `;
-        tableBody.appendChild(totalRow);
+        // Add total row if we have multiple items
+        if (materials.length > 1) {
+            const totalRow = document.createElement('tr');
+            totalRow.innerHTML = `
+            <td colspan="3" class="text-end fw-bold">Total</td>
+            <td class="fw-bold">${formatter.format(materialTotal)}</td>
+        `;
+            tableBody.appendChild(totalRow);
+        }
 
-        // Update materials total in summary
+        // Update summary
         document.getElementById('summaryMaterialsTotal').textContent = formatter.format(materialTotal);
     }
+
+    function getAuthToken() {
+        // Try URL parameter
+        const urlParams = new URLSearchParams(window.location.search);
+        const tokenParam = urlParams.get('token');
+        if (tokenParam) return tokenParam;
+
+        // Try session storage
+        const sessionToken = sessionStorage.getItem('jwt-token');
+        if (sessionToken) return sessionToken;
+
+        // Try local storage
+        const localToken = localStorage.getItem('jwt-token');
+        if (localToken) return localToken;
+
+        // Try the session variable if it exists
+        if (typeof token !== 'undefined') return token;
+
+        return '';
+    }
+
 
     /**
      * Populate labor charges table
@@ -2030,44 +1959,14 @@
 
         // Handle empty labor charges array
         if (!laborCharges || laborCharges.length === 0) {
-            // Check if we have service tracking entries with labor costs
-            if (currentService && currentService.serviceTracking &&
-                Array.isArray(currentService.serviceTracking) &&
-                currentService.serviceTracking.length > 0) {
-
-                // Filter tracking entries with labor cost
-                const laborEntries = currentService.serviceTracking.filter(entry =>
-                    entry.laborCost && parseFloat(entry.laborCost) > 0);
-
-                if (laborEntries.length > 0) {
-                    // Extract labor charges from tracking entries
-                    const extractedCharges = laborEntries.map(entry => {
-                        const laborMinutes = entry.laborMinutes || 0;
-                        const hours = laborMinutes / 60;
-                        const laborCost = parseFloat(entry.laborCost);
-                        const ratePerHour = laborMinutes > 0 ? (laborCost * 60 / laborMinutes) : 0;
-
-                        return {
-                            description: entry.workDescription || 'Service Labor',
-                            hours: hours,
-                            ratePerHour: ratePerHour,
-                            total: laborCost
-                        };
-                    });
-
-                    // Populate with extracted charges
-                    return populateLaborChargesTable(extractedCharges);
-                }
-            }
-
-            // If no alternatives, show empty message
-            const emptyRow = document.createElement('tr');
-            emptyRow.innerHTML = `<td colspan="4" class="text-center">No labor charges recorded for this service</td>`;
-            tableBody.appendChild(emptyRow);
+            tableBody.innerHTML = `
+            <tr><td colspan="4" class="text-center">No labor charges recorded for this service</td></tr>
+        `;
+            document.getElementById('summaryLaborTotal').textContent = formatCurrency(0);
             return;
         }
 
-        // Format numbers for currency
+        // Format currency
         const formatter = new Intl.NumberFormat('en-IN', {
             style: 'currency',
             currency: 'INR',
@@ -2078,23 +1977,21 @@
 
         // Process each labor charge
         laborCharges.forEach(charge => {
+            if (!charge) return;
+
             const row = document.createElement('tr');
 
-            // Get description
+            // Get description with fallback
             const description = charge.description || 'Service Labor';
 
-            // Get hours and rate - handle number or string
-            let hours = typeof charge.hours === 'number' ?
-                charge.hours : parseFloat(charge.hours || 0);
-
-            let ratePerHour = typeof charge.ratePerHour === 'number' ?
-                charge.ratePerHour : parseFloat(charge.ratePerHour || 0);
+            // Get hours and rate with fallbacks
+            const hours = parseFloatSafe(charge.hours, 0);
+            const ratePerHour = parseFloatSafe(charge.ratePerHour, 0);
 
             // Get or calculate total
-            let total = 0;
+            let total;
             if (charge.total) {
-                total = typeof charge.total === 'number' ?
-                    charge.total : parseFloat(charge.total);
+                total = parseFloatSafe(charge.total, 0);
             } else {
                 total = hours * ratePerHour;
             }
@@ -2113,128 +2010,62 @@
             tableBody.appendChild(row);
         });
 
-        // Add total row
-        const totalRow = document.createElement('tr');
-        totalRow.innerHTML = `
-        <td colspan="3" class="text-end fw-bold">Total</td>
-        <td class="fw-bold">${formatter.format(laborTotal)}</td>
-    `;
-        tableBody.appendChild(totalRow);
+        // Add total row if we have multiple items
+        if (laborCharges.length > 1) {
+            const totalRow = document.createElement('tr');
+            totalRow.innerHTML = `
+            <td colspan="3" class="text-end fw-bold">Total</td>
+            <td class="fw-bold">${formatter.format(laborTotal)}</td>
+        `;
+            tableBody.appendChild(totalRow);
+        }
 
-        // Update labor total in summary
+        // Update summary
         document.getElementById('summaryLaborTotal').textContent = formatter.format(laborTotal);
+    }
+
+    function formatCurrency(amount) {
+        return new Intl.NumberFormat('en-IN', {
+            style: 'currency',
+            currency: 'INR',
+            minimumFractionDigits: 2
+        }).format(amount);
     }
 
     /**
      * Update invoice summary with all financial details
      */
-    function updateInvoiceSummary(service) {
-        // Format numbers for currency
+    function updateInvoiceSummary(data) {
+        // Format currency
         const formatter = new Intl.NumberFormat('en-IN', {
             style: 'currency',
             currency: 'INR',
             minimumFractionDigits: 2
         });
 
-        // Use pre-calculated values if available
-        let materialsTotal = 0;
-        let laborTotal = 0;
-        let discount = 0;
-        let subtotal = 0;
-        let tax = 0;
-        let total = 0;
+        // Get values with fallbacks
+        const materialsTotal = parseFloatSafe(data.materialsTotal, 0);
+        const laborTotal = parseFloatSafe(data.laborTotal, 0);
+        const discount = parseFloatSafe(data.discount, 0);
+        const subtotal = parseFloatSafe(data.subtotal, 0);
+        const tax = parseFloatSafe(data.tax, 0);
+        const grandTotal = parseFloatSafe(data.grandTotal, 0);
 
-        // First check pre-calculated values from the backend
-        if (service.calculatedMaterialsTotal !== undefined) {
-            materialsTotal = parseFloat(service.calculatedMaterialsTotal);
-            laborTotal = parseFloat(service.calculatedLaborTotal || 0);
-            discount = parseFloat(service.calculatedDiscount || 0);
-            subtotal = parseFloat(service.calculatedSubtotal || 0);
-            tax = parseFloat(service.calculatedTax || 0);
-            total = parseFloat(service.calculatedTotal || 0);
-        }
-        // Try standard fields next
-        else if (service.materialsTotal !== undefined) {
-            materialsTotal = parseFloat(service.materialsTotal);
-            laborTotal = parseFloat(service.laborTotal || 0);
-            discount = parseFloat(service.discount || 0);
-            subtotal = parseFloat(service.subtotal || 0);
-            tax = parseFloat(service.tax || service.gst || 0);
-            total = parseFloat(service.total || service.totalCost || service.totalAmount || 0);
-        }
-        // Calculate from materials and labor charges if needed
-        else {
-            // Calculate from materials
-            const materials = service.materials || service.materialItems || service.materialsUsed || [];
-            materialsTotal = materials.reduce((total, item) => {
-                let itemTotal = 0;
-                if (item.total) {
-                    itemTotal = parseFloat(item.total);
-                } else {
-                    const quantity = parseFloat(item.quantity || 0);
-                    const unitPrice = item.unitPrice ? parseFloat(item.unitPrice) :
-                        (item.inventoryItem && item.inventoryItem.unitPrice) ?
-                            parseFloat(item.inventoryItem.unitPrice) : 0;
-                    itemTotal = quantity * unitPrice;
-                }
-                return total + itemTotal;
-            }, 0);
-
-            // Calculate from labor charges
-            const laborCharges = service.laborCharges || service.labor || [];
-            laborTotal = laborCharges.reduce((total, charge) => {
-                if (charge.total) {
-                    return total + parseFloat(charge.total);
-                } else {
-                    const hours = parseFloat(charge.hours || 0);
-                    const rate = parseFloat(charge.ratePerHour || 0);
-                    return total + (hours * rate);
-                }
-            }, 0);
-
-            // CRITICAL FIX: Calculate discount based on our unified membership determination
-            const isPremium = isMembershipPremium(service);
-
-            if (isPremium) {
-                // Premium members get 20% off labor charges
-                discount = laborTotal * 0.2;
-            }
-
-            // Calculate subtotal
-            subtotal = materialsTotal + laborTotal - discount;
-
-            // Calculate tax (18% GST)
-            tax = subtotal * 0.18;
-
-            // Calculate total
-            total = subtotal + tax;
-        }
-
-        // CRITICAL FIX: Apply premium discount visualization based on our unified determination
-        const isPremium = isMembershipPremium(service);
-        const premiumDiscountRow = document.getElementById('premiumDiscountRow');
-
-        if (isPremium && discount > 0) {
-            document.getElementById('summaryDiscount').textContent = `-${formatter.format(discount)}`;
-            premiumDiscountRow.style.display = '';
-        } else {
-            premiumDiscountRow.style.display = 'none';
-        }
-
-        // Update summary values
+        // Update summary
         document.getElementById('summaryMaterialsTotal').textContent = formatter.format(materialsTotal);
         document.getElementById('summaryLaborTotal').textContent = formatter.format(laborTotal);
+
+        // Handle discount display
+        if (discount > 0) {
+            document.getElementById('summaryDiscount').textContent = `-${formatter.format(discount)}`;
+            document.getElementById('premiumDiscountRow').style.display = '';
+        } else {
+            document.getElementById('premiumDiscountRow').style.display = 'none';
+        }
+
         document.getElementById('summarySubtotal').textContent = formatter.format(subtotal);
         document.getElementById('summaryGST').textContent = formatter.format(tax);
-        document.getElementById('summaryGrandTotal').textContent = formatter.format(total);
-
-        // Store calculated values on the service object for later use
-        service.calculatedMaterialsTotal = materialsTotal;
-        service.calculatedLaborTotal = laborTotal;
-        service.calculatedDiscount = discount;
-        service.calculatedSubtotal = subtotal;
-        service.calculatedTax = tax;
-        service.calculatedTotal = total;
+        document.getElementById('summaryGrandTotal').textContent = formatter.format(grandTotal);
     }
 
     /**
@@ -2246,24 +2077,18 @@
             step.classList.remove('active', 'completed');
         });
 
-        // Check invoice status - look at multiple possible flags
-        const hasInvoice = service.hasInvoice ||
-            service.invoiceId ||
-            (service.invoice && service.invoice.invoiceId) ||
-            false;
+        // Check invoice status
+        const hasInvoice = service.hasInvoice || service.invoiceId ||
+            (service.invoice && service.invoice.invoiceId) || false;
 
-        // Check payment status - look at multiple possible flags
-        const isPaid = service.isPaid ||
-            service.paid ||
-            (service.payment && service.payment.status === 'Completed') ||
-            false;
+        // Check payment status
+        const isPaid = service.isPaid || service.paid ||
+            (service.payment && service.payment.status === 'Completed') || false;
 
-        // Check delivery status - look at multiple possible flags
-        const isDelivered = service.isDelivered ||
-            service.delivered ||
-            false;
+        // Check delivery status
+        const isDelivered = service.isDelivered || service.delivered || false;
 
-        // Update steps based on service status
+        // Update steps based on status
         if (hasInvoice) {
             document.getElementById('stepInvoice').classList.add('completed');
 
@@ -2282,11 +2107,12 @@
             document.getElementById('stepInvoice').classList.add('active');
         }
 
-        // Store status flags on service object for later use
+        // Save status in service object
         service.hasInvoice = hasInvoice;
         service.isPaid = isPaid;
         service.isDelivered = isDelivered;
     }
+
 
     /**
      * Update footer buttons based on service status
@@ -2336,6 +2162,70 @@
         }
     }
 
+    function loadInvoiceData(serviceId) {
+        // Show loading indicator
+        document.getElementById('materialsTableBody').innerHTML = `
+        <tr><td colspan="4" class="text-center"><div class="spinner-border spinner-border-sm text-wine" role="status"></div> Loading materials...</td></tr>
+    `;
+        document.getElementById('laborChargesTableBody').innerHTML = `
+        <tr><td colspan="4" class="text-center"><div class="spinner-border spinner-border-sm text-wine" role="status"></div> Loading labor charges...</td></tr>
+    `;
+
+        // Get token
+        const token = getAuthToken();
+
+        // Try multiple possible invoice API endpoints
+        const invoiceUrls = [
+            `/admin/api/invoice-details/service-request/${serviceId}`,
+            `/admin/api/invoice-details/service/${serviceId}`,
+            `/admin/api/services/${serviceId}/invoice-details`,
+            `/admin/api/completed-services/${serviceId}/invoice-details`
+        ];
+
+        // Try each URL until one works
+        tryFetchUrls(invoiceUrls, token)
+            .then(data => {
+                console.log('Invoice details loaded:', data);
+
+                // Materials
+                const materials = data.materials || [];
+                populateMaterialsTable(materials);
+
+                // Labor charges
+                const laborCharges = data.laborCharges || [];
+                populateLaborChargesTable(laborCharges);
+
+                // Update summary
+                updateInvoiceSummary(data);
+
+                // Update premium discount status
+                if (data.isPremiumMember && data.discount && data.discount > 0) {
+                    document.getElementById('premiumDiscountRow').style.display = '';
+                    document.getElementById('summaryDiscount').textContent = formatCurrency(data.discount);
+                } else {
+                    document.getElementById('premiumDiscountRow').style.display = 'none';
+                }
+            })
+            .catch(error => {
+                console.error('Error loading invoice details:', error);
+
+                // Show error message in tables
+                document.getElementById('materialsTableBody').innerHTML = `
+                <tr><td colspan="4" class="text-center text-danger">Error loading materials data: ${error.message}</td></tr>
+            `;
+                document.getElementById('laborChargesTableBody').innerHTML = `
+                <tr><td colspan="4" class="text-center text-danger">Error loading labor charges data: ${error.message}</td></tr>
+            `;
+
+                // Set default values in summary
+                document.getElementById('summaryMaterialsTotal').textContent = formatCurrency(0);
+                document.getElementById('summaryLaborTotal').textContent = formatCurrency(0);
+                document.getElementById('premiumDiscountRow').style.display = 'none';
+                document.getElementById('summarySubtotal').textContent = formatCurrency(0);
+                document.getElementById('summaryGST').textContent = formatCurrency(0);
+                document.getElementById('summaryGrandTotal').textContent = formatCurrency(0);
+            });
+    }
     /**
      * Download invoice PDF
      */
@@ -2788,32 +2678,30 @@
     function getAuthToken() {
         // Try URL parameter
         const urlParams = new URLSearchParams(window.location.search);
-        const paramToken = urlParams.get('token');
-        if (paramToken) return paramToken;
+        const tokenParam = urlParams.get('token');
+        if (tokenParam) return tokenParam;
 
-        // Try localStorage
-        const localToken = localStorage.getItem('jwt-token');
-        if (localToken) return localToken;
-
-        // Try sessionStorage
+        // Try session storage
         const sessionToken = sessionStorage.getItem('jwt-token');
         if (sessionToken) return sessionToken;
 
-        // Last resort: try to get from page context if available
+        // Try local storage
+        const localToken = localStorage.getItem('jwt-token');
+        if (localToken) return localToken;
+
+        // Try the session variable if it exists
         if (typeof token !== 'undefined') return token;
 
         return '';
     }
 
-    /**
-     * Show toast notification
-     */
+
     function showToast(message, type = 'success') {
         const toastContainer = document.querySelector('.toast-container');
         if (!toastContainer) return;
 
         const toastEl = document.createElement('div');
-        toastEl.className = `toast align-items-center text-white bg-${type === 'error' ? 'danger' : type === 'warning' ? 'warning' : 'success'} border-0`;
+        toastEl.className = `toast align-items-center text-white bg-${type === 'error' ? 'danger' : (type === 'warning' ? 'warning' : 'success')} border-0`;
         toastEl.setAttribute('role', 'alert');
         toastEl.setAttribute('aria-live', 'assertive');
         toastEl.setAttribute('aria-atomic', 'true');
@@ -2837,7 +2725,7 @@
         toast.show();
 
         // Remove from DOM after hiding
-        toastEl.addEventListener('hidden.bs.toast', function () {
+        toastEl.addEventListener('hidden.bs.toast', function() {
             toastEl.remove();
         });
     }

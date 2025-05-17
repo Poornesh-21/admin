@@ -13,6 +13,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -32,21 +33,23 @@ public class InvoiceDetailsService {
     public InvoiceDetailsDTO getInvoiceDetails(Integer serviceRequestId) {
         log.info("Retrieving invoice details for service request ID: {}", serviceRequestId);
 
-        // Get invoice for the service request
-        Invoice invoice = invoiceRepository.findByRequestId(serviceRequestId)
-                .orElseThrow(() -> new RuntimeException("Invoice not found for service request ID: " + serviceRequestId));
-
-        // Get service request details
+        // Get service request details first
         ServiceRequest serviceRequest = serviceRequestRepository.findById(serviceRequestId)
                 .orElseThrow(() -> new RuntimeException("Service request not found with ID: " + serviceRequestId));
+
+        // Get invoice for the service request if exists, otherwise create a temporary one for display
+        Invoice invoice = invoiceRepository.findByRequestId(serviceRequestId)
+                .orElse(Invoice.builder()
+                        .requestId(serviceRequestId)
+                        .build());
 
         // Create DTO
         InvoiceDetailsDTO dto = new InvoiceDetailsDTO();
 
         // Set basic invoice info
         dto.setInvoiceId(invoice.getInvoiceId());
-        dto.setInvoiceNumber("INV-" + invoice.getInvoiceId());
-        dto.setRequestId(invoice.getRequestId());
+        dto.setInvoiceNumber(invoice.getInvoiceId() != null ? "INV-" + invoice.getInvoiceId() : "DRAFT");
+        dto.setRequestId(serviceRequestId);
         dto.setTotalAmount(invoice.getTotalAmount());
         dto.setTaxes(invoice.getTaxes());
         dto.setNetAmount(invoice.getNetAmount());
@@ -98,203 +101,142 @@ public class InvoiceDetailsService {
             }
         }
 
-        // Set materials used
-        List<MaterialItemDTO> materialItems = setMaterialsDetails(dto, serviceRequest);
-
-        // If there are no materials but we have a total amount, generate default entries
-        if (materialItems.isEmpty() && invoice.getTotalAmount() != null && invoice.getTotalAmount().compareTo(BigDecimal.ZERO) > 0) {
-            materialItems = generateDefaultMaterials(serviceRequest, invoice.getTotalAmount());
-            dto.setMaterials(materialItems);
-
-            // Recalculate materials total
-            BigDecimal materialsTotal = materialItems.stream()
-                    .map(MaterialItemDTO::getTotal)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
-            dto.setMaterialsTotal(materialsTotal);
-        }
-
-        // Set labor charges
-        List<LaborChargeDTO> laborCharges = setLaborCharges(dto, serviceRequest);
-
-        // If there are no labor charges but we have a total amount, generate default entries
-        if (laborCharges.isEmpty() && invoice.getTotalAmount() != null && invoice.getTotalAmount().compareTo(BigDecimal.ZERO) > 0) {
-            laborCharges = generateDefaultLaborCharges(serviceRequest, invoice.getTotalAmount());
-            dto.setLaborCharges(laborCharges);
-
-            // Recalculate labor total
-            BigDecimal laborTotal = laborCharges.stream()
-                    .map(LaborChargeDTO::getTotal)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
-            dto.setLaborTotal(laborTotal);
-        }
+        // Set materials used and labor charges
+        setMaterialsDetails(dto, serviceRequest);
+        setLaborCharges(dto, serviceRequest);
 
         // Calculate financials
         calculateFinancials(dto);
 
-        // Use invoice values if our calculations are zero
-        if (dto.getGrandTotal().compareTo(BigDecimal.ZERO) == 0 && invoice.getNetAmount() != null) {
-            // Split the invoice amount between materials and labor
-            BigDecimal netAmount = invoice.getNetAmount();
-            BigDecimal taxAmount = invoice.getTaxes() != null ? invoice.getTaxes() : BigDecimal.ZERO;
-            BigDecimal subtotal = netAmount.subtract(taxAmount);
-
-            // Allocate 60% to materials, 40% to labor as a default split
-            BigDecimal materialsTotal = subtotal.multiply(new BigDecimal("0.6")).setScale(2, RoundingMode.HALF_UP);
-            BigDecimal laborTotal = subtotal.multiply(new BigDecimal("0.4")).setScale(2, RoundingMode.HALF_UP);
-
-            dto.setMaterialsTotal(materialsTotal);
-            dto.setLaborTotal(laborTotal);
-            dto.setSubtotal(subtotal);
-            dto.setTax(taxAmount);
-            dto.setGrandTotal(netAmount);
-
-            // Update material items if using default
-            if (materialItems.isEmpty()) {
-                MaterialItemDTO defaultMaterial = MaterialItemDTO.builder()
-                        .name("Service Materials")
-                        .description("Standard materials for " + serviceRequest.getServiceType() + " service")
-                        .quantity(BigDecimal.ONE)
-                        .unitPrice(materialsTotal)
-                        .total(materialsTotal)
-                        .build();
-                dto.setMaterials(List.of(defaultMaterial));
-            }
-
-            // Update labor items if using default
-            if (laborCharges.isEmpty()) {
-                LaborChargeDTO defaultLabor = LaborChargeDTO.builder()
-                        .description(serviceRequest.getServiceType() + " service labor")
-                        .hours(new BigDecimal("2.0"))
-                        .ratePerHour(laborTotal.divide(new BigDecimal("2.0"), 2, RoundingMode.HALF_UP))
-                        .total(laborTotal)
-                        .build();
-                dto.setLaborCharges(List.of(defaultLabor));
-            }
+        // If invoice exists, ensure invoice values are used
+        if (invoice.getInvoiceId() != null && invoice.getNetAmount() != null) {
+            applyInvoiceValues(dto, invoice);
         }
 
         return dto;
     }
 
     /**
-     * Generate default materials for invoice display
+     * Set materials details in the DTO with enhanced error handling and logging
      */
-    private List<MaterialItemDTO> generateDefaultMaterials(ServiceRequest serviceRequest, BigDecimal totalAmount) {
-        List<MaterialItemDTO> defaultMaterials = new ArrayList<>();
+    private void setMaterialsDetails(InvoiceDetailsDTO dto, ServiceRequest serviceRequest) {
+        log.debug("Retrieving materials for service request ID: {}", serviceRequest.getRequestId());
 
-        // Estimate materials as 60% of total if no specific data
-        BigDecimal materialsEstimate = totalAmount.multiply(new BigDecimal("0.6"))
-                .divide(new BigDecimal("1.18"), 2, RoundingMode.HALF_UP); // Remove GST component
+        try {
+            // Get materials used with explicit error handling
+            List<MaterialUsage> materials = materialUsageRepository.findByServiceRequest_RequestId(serviceRequest.getRequestId());
 
-        // Create a generic service materials entry
-        MaterialItemDTO serviceItem = MaterialItemDTO.builder()
-                .itemId(1)
-                .name("Service Materials")
-                .description("Standard materials for " + serviceRequest.getServiceType() + " service")
-                .quantity(BigDecimal.ONE)
-                .unitPrice(materialsEstimate)
-                .total(materialsEstimate)
-                .build();
+            log.debug("Found {} materials for service request ID: {}", materials.size(), serviceRequest.getRequestId());
 
-        defaultMaterials.add(serviceItem);
+            if (materials.isEmpty()) {
+                // If we don't have materials, create a list and set empty values
+                dto.setMaterials(new ArrayList<>());
+                dto.setMaterialsTotal(BigDecimal.ZERO);
+                return;
+            }
 
-        return defaultMaterials;
+            // Convert to DTOs with additional validation
+            List<MaterialItemDTO> materialItems = materials.stream()
+                    .filter(m -> m.getInventoryItem() != null)
+                    .map(this::convertToMaterialItemDTO)
+                    .collect(Collectors.toList());
+
+            dto.setMaterials(materialItems);
+
+            // Calculate materials total
+            BigDecimal materialsTotal = BigDecimal.ZERO;
+            for (MaterialUsage material : materials) {
+                if (material.getInventoryItem() != null) {
+                    BigDecimal quantity = material.getQuantity() != null ? material.getQuantity() : BigDecimal.ONE;
+                    BigDecimal unitPrice = material.getInventoryItem().getUnitPrice() != null ?
+                            material.getInventoryItem().getUnitPrice() : BigDecimal.ZERO;
+
+                    materialsTotal = materialsTotal.add(quantity.multiply(unitPrice));
+                }
+            }
+
+            dto.setMaterialsTotal(materialsTotal.setScale(2, RoundingMode.HALF_UP));
+
+            log.debug("Calculated materials total: {}", materialsTotal);
+
+        } catch (Exception e) {
+            log.error("Error retrieving materials for service request ID {}: {}", serviceRequest.getRequestId(), e.getMessage(), e);
+
+            // Ensure we always have at least empty lists
+            dto.setMaterials(new ArrayList<>());
+            dto.setMaterialsTotal(BigDecimal.ZERO);
+        }
     }
 
     /**
-     * Generate default labor charges for invoice display
+     * Set labor charges in the DTO with enhanced error handling and fallbacks
      */
-    private List<LaborChargeDTO> generateDefaultLaborCharges(ServiceRequest serviceRequest, BigDecimal totalAmount) {
-        List<LaborChargeDTO> defaultCharges = new ArrayList<>();
+    private void setLaborCharges(InvoiceDetailsDTO dto, ServiceRequest serviceRequest) {
+        log.debug("Retrieving labor charges for service request ID: {}", serviceRequest.getRequestId());
 
-        // Estimate labor as 40% of total if no specific data
-        BigDecimal laborEstimate = totalAmount.multiply(new BigDecimal("0.4"))
-                .divide(new BigDecimal("1.18"), 2, RoundingMode.HALF_UP); // Remove GST component
+        try {
+            // Get service tracking entries for labor charges
+            List<ServiceTracking> trackingEntries = serviceTrackingRepository.findByRequestId(serviceRequest.getRequestId());
 
-        // Estimate 2 hours of work by default
-        BigDecimal hours = new BigDecimal("2.0");
-        BigDecimal ratePerHour = laborEstimate.divide(hours, 2, RoundingMode.HALF_UP);
+            log.debug("Found {} tracking entries for service request ID: {}", trackingEntries.size(), serviceRequest.getRequestId());
 
-        LaborChargeDTO laborCharge = LaborChargeDTO.builder()
-                .description(serviceRequest.getServiceType() + " service labor")
-                .hours(hours)
-                .ratePerHour(ratePerHour)
-                .total(laborEstimate)
-                .build();
+            if (trackingEntries.isEmpty()) {
+                // If we don't have labor charges, create a list and set empty values
+                dto.setLaborCharges(new ArrayList<>());
+                dto.setLaborTotal(BigDecimal.ZERO);
+                return;
+            }
 
-        defaultCharges.add(laborCharge);
+            // Filter and convert to DTOs (only entries with labor cost)
+            List<LaborChargeDTO> laborCharges = trackingEntries.stream()
+                    .filter(entry -> entry.getLaborCost() != null &&
+                            entry.getLaborCost().compareTo(BigDecimal.ZERO) > 0)
+                    .map(this::convertToLaborChargeDTO)
+                    .collect(Collectors.toList());
 
-        return defaultCharges;
+            dto.setLaborCharges(laborCharges);
+
+            // Calculate labor total
+            BigDecimal laborTotal = serviceTrackingRepository.findTotalLaborCostByRequestId(serviceRequest.getRequestId())
+                    .orElse(BigDecimal.ZERO);
+
+            // If repository sum returns zero but we have entries, calculate manually as fallback
+            if (laborTotal.compareTo(BigDecimal.ZERO) == 0 && !laborCharges.isEmpty()) {
+                laborTotal = laborCharges.stream()
+                        .map(LaborChargeDTO::getTotal)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add);
+            }
+
+            dto.setLaborTotal(laborTotal.setScale(2, RoundingMode.HALF_UP));
+
+            log.debug("Calculated labor total: {}", laborTotal);
+
+        } catch (Exception e) {
+            log.error("Error retrieving labor charges for service request ID {}: {}", serviceRequest.getRequestId(), e.getMessage(), e);
+
+            // Ensure we always have at least empty lists
+            dto.setLaborCharges(new ArrayList<>());
+            dto.setLaborTotal(BigDecimal.ZERO);
+        }
     }
 
     /**
-     * Set materials details in the DTO
-     */
-    private List<MaterialItemDTO> setMaterialsDetails(InvoiceDetailsDTO dto, ServiceRequest serviceRequest) {
-        // Get materials used
-        List<MaterialUsage> materials = materialUsageRepository.findByServiceRequest_RequestId(serviceRequest.getRequestId());
-
-        // Log materials count for debugging
-        log.debug("Found {} materials for service request ID: {}", materials.size(), serviceRequest.getRequestId());
-
-        // Convert to DTOs
-        List<MaterialItemDTO> materialItems = materials.stream()
-                .filter(m -> m.getInventoryItem() != null)
-                .map(this::convertToMaterialItemDTO)
-                .collect(Collectors.toList());
-
-        dto.setMaterials(materialItems);
-
-        // Calculate materials total - reimplement the logic instead of using private method
-        BigDecimal materialsTotal = materials.stream()
-                .filter(m -> m.getInventoryItem() != null)
-                .map(m -> m.getInventoryItem().getUnitPrice().multiply(m.getQuantity()))
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        dto.setMaterialsTotal(materialsTotal);
-
-        return materialItems;
-    }
-
-    /**
-     * Set labor charges in the DTO
-     */
-    private List<LaborChargeDTO> setLaborCharges(InvoiceDetailsDTO dto, ServiceRequest serviceRequest) {
-        // Get service tracking entries for labor charges
-        List<ServiceTracking> trackingEntries = serviceTrackingRepository.findByRequestId(serviceRequest.getRequestId());
-
-        // Log tracking entries count for debugging
-        log.debug("Found {} tracking entries for service request ID: {}", trackingEntries.size(), serviceRequest.getRequestId());
-
-        // Convert to DTOs (only entries with labor cost)
-        List<LaborChargeDTO> laborCharges = trackingEntries.stream()
-                .filter(entry -> entry.getLaborCost() != null && entry.getLaborCost().compareTo(BigDecimal.ZERO) > 0)
-                .map(this::convertToLaborChargeDTO)
-                .collect(Collectors.toList());
-
-        dto.setLaborCharges(laborCharges);
-
-        // Calculate labor total - reimplement the logic instead of using private method
-        BigDecimal laborTotal = serviceTrackingRepository.findTotalLaborCostByRequestId(serviceRequest.getRequestId())
-                .orElse(BigDecimal.ZERO);
-
-        dto.setLaborTotal(laborTotal);
-
-        return laborCharges;
-    }
-
-    /**
-     * Calculate financial details
+     * Calculate financial details with better handling of null values
      */
     private void calculateFinancials(InvoiceDetailsDTO dto) {
-        // Check for premium discount
+        // Safe getters to handle null values
         BigDecimal laborTotal = dto.getLaborTotal() != null ? dto.getLaborTotal() : BigDecimal.ZERO;
         BigDecimal materialsTotal = dto.getMaterialsTotal() != null ? dto.getMaterialsTotal() : BigDecimal.ZERO;
         BigDecimal discount = BigDecimal.ZERO;
 
+        // Apply premium discount if applicable
         if (dto.isPremiumMember()) {
             // 20% discount on labor for premium members
             discount = laborTotal.multiply(new BigDecimal("0.20")).setScale(2, RoundingMode.HALF_UP);
             dto.setDiscount(discount);
+            log.debug("Applied premium discount: {}", discount);
+        } else {
+            dto.setDiscount(BigDecimal.ZERO);
         }
 
         // Calculate subtotal
@@ -308,15 +250,102 @@ public class InvoiceDetailsService {
         // Calculate grand total
         BigDecimal grandTotal = subtotal.add(tax);
         dto.setGrandTotal(grandTotal);
+
+        log.debug("Financial calculation completed: materials={}, labor={}, discount={}, subtotal={}, tax={}, total={}",
+                materialsTotal, laborTotal, discount, subtotal, tax, grandTotal);
     }
 
     /**
-     * Convert material usage to DTO
+     * Apply official invoice values if they exist
+     */
+    private void applyInvoiceValues(InvoiceDetailsDTO dto, Invoice invoice) {
+        log.debug("Applying official invoice values from invoice ID: {}", invoice.getInvoiceId());
+
+        // Only override if the invoice has actual values
+        if (invoice.getNetAmount() != null && invoice.getNetAmount().compareTo(BigDecimal.ZERO) > 0) {
+            BigDecimal netAmount = invoice.getNetAmount();
+            BigDecimal taxAmount = invoice.getTaxes() != null ? invoice.getTaxes() : BigDecimal.ZERO;
+            BigDecimal subtotal = netAmount.subtract(taxAmount);
+
+            // Only override our calculations if the invoice has different values
+            if (Math.abs(netAmount.subtract(dto.getGrandTotal()).doubleValue()) > 0.01) {
+                log.debug("Using invoice values instead of calculated values");
+                dto.setGrandTotal(netAmount);
+                dto.setTax(taxAmount);
+                dto.setSubtotal(subtotal);
+
+                // Attempt to distribute the subtotal between materials and labor
+                // if our calculated values don't add up
+                BigDecimal calculatedSubtotal = dto.getMaterialsTotal().add(dto.getLaborTotal()).subtract(dto.getDiscount() != null ? dto.getDiscount() : BigDecimal.ZERO);
+                if (Math.abs(calculatedSubtotal.subtract(subtotal).doubleValue()) > 0.01) {
+                    // Default split: 60% materials, 40% labor
+                    BigDecimal materialsTotal = subtotal.multiply(new BigDecimal("0.6")).setScale(2, RoundingMode.HALF_UP);
+                    BigDecimal laborTotal = subtotal.multiply(new BigDecimal("0.4")).setScale(2, RoundingMode.HALF_UP);
+
+                    dto.setMaterialsTotal(materialsTotal);
+                    dto.setLaborTotal(laborTotal);
+
+                    // Adjust materials and labor items if needed
+                    adjustItemsToMatchTotals(dto);
+                }
+            }
+        }
+    }
+
+    /**
+     * Adjust individual line items to match totals
+     */
+    private void adjustItemsToMatchTotals(InvoiceDetailsDTO dto) {
+        // If we have no materials but have a total, create a default material
+        if ((dto.getMaterials() == null || dto.getMaterials().isEmpty()) &&
+                dto.getMaterialsTotal().compareTo(BigDecimal.ZERO) > 0) {
+
+            List<MaterialItemDTO> materials = new ArrayList<>();
+            MaterialItemDTO defaultMaterial = MaterialItemDTO.builder()
+                    .name("Service Materials")
+                    .description("Standard materials for service")
+                    .quantity(BigDecimal.ONE)
+                    .unitPrice(dto.getMaterialsTotal())
+                    .total(dto.getMaterialsTotal())
+                    .build();
+            materials.add(defaultMaterial);
+            dto.setMaterials(materials);
+        }
+
+        // If we have no labor but have a total, create a default labor charge
+        if ((dto.getLaborCharges() == null || dto.getLaborCharges().isEmpty()) &&
+                dto.getLaborTotal().compareTo(BigDecimal.ZERO) > 0) {
+
+            List<LaborChargeDTO> laborCharges = new ArrayList<>();
+            LaborChargeDTO defaultLabor = LaborChargeDTO.builder()
+                    .description("Service labor")
+                    .hours(new BigDecimal("2.0"))
+                    .ratePerHour(dto.getLaborTotal().divide(new BigDecimal("2.0"), 2, RoundingMode.HALF_UP))
+                    .total(dto.getLaborTotal())
+                    .build();
+            laborCharges.add(defaultLabor);
+            dto.setLaborCharges(laborCharges);
+        }
+    }
+
+    /**
+     * Convert material usage to DTO with additional validation
      */
     private MaterialItemDTO convertToMaterialItemDTO(MaterialUsage materialUsage) {
+        if (materialUsage == null || materialUsage.getInventoryItem() == null) {
+            log.warn("Attempted to convert null or invalid MaterialUsage to DTO");
+            return MaterialItemDTO.builder()
+                    .name("Unknown Item")
+                    .description("Unknown")
+                    .quantity(BigDecimal.ONE)
+                    .unitPrice(BigDecimal.ZERO)
+                    .total(BigDecimal.ZERO)
+                    .build();
+        }
+
         InventoryItem item = materialUsage.getInventoryItem();
-        BigDecimal quantity = materialUsage.getQuantity();
-        BigDecimal unitPrice = item.getUnitPrice();
+        BigDecimal quantity = materialUsage.getQuantity() != null ? materialUsage.getQuantity() : BigDecimal.ONE;
+        BigDecimal unitPrice = item.getUnitPrice() != null ? item.getUnitPrice() : BigDecimal.ZERO;
         BigDecimal total = quantity.multiply(unitPrice).setScale(2, RoundingMode.HALF_UP);
 
         return MaterialItemDTO.builder()
@@ -330,9 +359,19 @@ public class InvoiceDetailsService {
     }
 
     /**
-     * Convert service tracking to labor charge DTO
+     * Convert service tracking to labor charge DTO with additional validation
      */
     private LaborChargeDTO convertToLaborChargeDTO(ServiceTracking tracking) {
+        if (tracking == null) {
+            log.warn("Attempted to convert null ServiceTracking to DTO");
+            return LaborChargeDTO.builder()
+                    .description("Unknown Labor")
+                    .hours(BigDecimal.ZERO)
+                    .ratePerHour(BigDecimal.ZERO)
+                    .total(BigDecimal.ZERO)
+                    .build();
+        }
+
         // Calculate hours from minutes
         BigDecimal hours = BigDecimal.ZERO;
         BigDecimal ratePerHour = BigDecimal.ZERO;
@@ -353,13 +392,15 @@ public class InvoiceDetailsService {
         String description = tracking.getWorkDescription();
         if (description != null && description.startsWith("Labor:")) {
             description = description.substring(6).trim();
+        } else if (description == null || description.trim().isEmpty()) {
+            description = "Service Labor";
         }
 
         return LaborChargeDTO.builder()
                 .description(description)
                 .hours(hours)
                 .ratePerHour(ratePerHour)
-                .total(tracking.getLaborCost())
+                .total(tracking.getLaborCost() != null ? tracking.getLaborCost() : BigDecimal.ZERO)
                 .build();
     }
 
@@ -367,6 +408,10 @@ public class InvoiceDetailsService {
      * Format customer address
      */
     private String formatCustomerAddress(CustomerProfile customer) {
+        if (customer == null) {
+            return "";
+        }
+
         StringBuilder address = new StringBuilder();
 
         if (customer.getStreet() != null && !customer.getStreet().isEmpty()) {

@@ -6,10 +6,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/invoice-details")
@@ -26,7 +23,7 @@ public class InvoiceDetailsController {
     @PreAuthorize("hasAnyRole('ADMIN', 'admin', 'CUSTOMER', 'customer')")
     public ResponseEntity<InvoiceDetailsDTO> getInvoiceDetails(@PathVariable Integer requestId) {
         log.info("Request to get invoice details for service request ID: {}", requestId);
-        
+
         try {
             InvoiceDetailsDTO invoiceDetails = invoiceDetailsService.getInvoiceDetails(requestId);
             return ResponseEntity.ok(invoiceDetails);
@@ -34,5 +31,14 @@ public class InvoiceDetailsController {
             log.error("Error fetching invoice details for service request {}: {}", requestId, e.getMessage(), e);
             return ResponseEntity.notFound().build();
         }
+    }
+
+    /**
+     * Alternative endpoint that might be used by the frontend
+     */
+    @GetMapping("/service/{requestId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'admin', 'CUSTOMER', 'customer')")
+    public ResponseEntity<InvoiceDetailsDTO> getServiceInvoiceDetails(@PathVariable Integer requestId) {
+        return getInvoiceDetails(requestId);
     }
 }
