@@ -1,31 +1,17 @@
-
 let serviceAdvisors = [];
 let currentPage = 1;
-const itemsPerPage = 8; // Changed from 10 to 8 for grid layout
+const itemsPerPage = 8;
 let currentFilter = 'all';
 
-// Wait for DOM to be loaded
 document.addEventListener('DOMContentLoaded', function() {
-    // Initialize app
     initializeApp();
-
-    // Set up event listeners
     setupEventListeners();
-
-    // Load service advisors
     loadServiceAdvisors();
 
     function initializeApp() {
-        // Setup mobile menu toggle
         setupMobileMenu();
-
-        // Setup logout button
         setupLogout();
-
-        // Set up token-based authentication
         setupAuthentication();
-
-        // Set up navigation and active menu
         setupNavigation();
     }
 
@@ -42,38 +28,28 @@ document.addEventListener('DOMContentLoaded', function() {
         const logoutBtn = document.getElementById('logoutBtn');
         if (logoutBtn) {
             logoutBtn.addEventListener('click', function() {
-                // Clear storage
                 localStorage.removeItem("jwt-token");
                 sessionStorage.removeItem("jwt-token");
                 localStorage.removeItem("user-role");
                 localStorage.removeItem("user-name");
                 sessionStorage.removeItem("user-role");
                 sessionStorage.removeItem("user-name");
-
-                // Redirect to logout
                 window.location.href = '/admin/logout';
             });
         }
     }
 
     function setupAuthentication() {
-        // Get token from storage
         const tokenFromStorage = localStorage.getItem("jwt-token") || sessionStorage.getItem("jwt-token");
 
         if (tokenFromStorage) {
-            console.log("Token found in storage");
         } else {
-            console.warn("No token found in storage");
-            // If no token is found, redirect to login
             window.location.href = '/admin/login?error=session_expired';
         }
     }
 
     function setupNavigation() {
-        // Get the current path
         const currentPath = window.location.pathname;
-
-        // Set active class on sidebar menu items based on current path
         document.querySelectorAll('.sidebar-menu-link').forEach(link => {
             const href = link.getAttribute('href');
             if (href && currentPath.includes(href.split('?')[0])) {
@@ -85,20 +61,15 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function setupEventListeners() {
-        // Modal event listeners for clearing validation errors
         const addAdvisorModalEl = document.getElementById('addAdvisorModal');
         if (addAdvisorModalEl) {
             addAdvisorModalEl.addEventListener('hidden.bs.modal', function() {
                 clearErrorMessage('addAdvisorForm');
-
-                // Remove is-invalid class from all inputs in the form
                 const form = document.getElementById('addAdvisorForm');
                 if (form) {
                     form.querySelectorAll('.is-invalid').forEach(input => {
                         input.classList.remove('is-invalid');
                     });
-
-                    // Hide all error messages
                     form.querySelectorAll('.error-message').forEach(error => {
                         error.classList.remove('show');
                         error.textContent = '';
@@ -111,15 +82,11 @@ document.addEventListener('DOMContentLoaded', function() {
         if (editAdvisorModalEl) {
             editAdvisorModalEl.addEventListener('hidden.bs.modal', function() {
                 clearErrorMessage('editAdvisorForm');
-
-                // Remove is-invalid class from all inputs in the form
                 const form = document.getElementById('editAdvisorForm');
                 if (form) {
                     form.querySelectorAll('.is-invalid').forEach(input => {
                         input.classList.remove('is-invalid');
                     });
-
-                    // Hide all error messages
                     form.querySelectorAll('.error-message').forEach(error => {
                         error.classList.remove('show');
                         error.textContent = '';
@@ -128,41 +95,29 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
 
-        // Add service advisor button
         const addAdvisorBtn = document.getElementById('addAdvisorBtn');
         if (addAdvisorBtn) {
             addAdvisorBtn.addEventListener('click', function() {
-                // Reset form
                 const form = document.getElementById('addAdvisorForm');
                 form.reset();
-
-                // Clear any previous error messages
                 clearErrorMessage('addAdvisorForm');
-
-                // Remove is-invalid class from all inputs
                 form.querySelectorAll('.is-invalid').forEach(input => {
                     input.classList.remove('is-invalid');
                 });
-
-                // Hide all error messages
                 form.querySelectorAll('.error-message').forEach(error => {
                     error.classList.remove('show');
                     error.textContent = '';
                 });
-
-                // Show add advisor modal
                 const addAdvisorModal = new bootstrap.Modal(document.getElementById('addAdvisorModal'));
                 addAdvisorModal.show();
             });
         }
 
-        // Save service advisor button
         const saveAdvisorBtn = document.getElementById('saveAdvisorBtn');
         if (saveAdvisorBtn) {
             saveAdvisorBtn.addEventListener('click', saveServiceAdvisor);
         }
 
-        // Edit service advisor button from details
         const editAdvisorFromDetailsBtn = document.getElementById('editAdvisorFromDetailsBtn');
         if (editAdvisorFromDetailsBtn) {
             editAdvisorFromDetailsBtn.addEventListener('click', function() {
@@ -171,20 +126,16 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
 
-        // Update service advisor button
         const updateAdvisorBtn = document.getElementById('updateAdvisorBtn');
         if (updateAdvisorBtn) {
             updateAdvisorBtn.addEventListener('click', updateServiceAdvisor);
         }
 
-        // Reset password button
         const resetPasswordBtn = document.getElementById('resetPasswordBtn');
         if (resetPasswordBtn) {
             resetPasswordBtn.addEventListener('click', function() {
                 const generatedPassword = generateRandomPassword();
                 document.getElementById('editPassword').value = generatedPassword;
-
-                // Show success message that password will be sent by email
                 showConfirmation(
                     "Password Reset",
                     "A new temporary password has been generated and will be sent to the service advisor's email."
@@ -192,24 +143,17 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
 
-        // Profile tabs functionality
         const profileTabs = document.querySelectorAll('.profile-tab');
         profileTabs.forEach(tab => {
             tab.addEventListener('click', function() {
-                // Get the tab ID
                 const tabId = this.getAttribute('data-tab');
-
-                // Remove active class from all tabs and tab contents
                 profileTabs.forEach(t => t.classList.remove('active'));
                 document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-
-                // Add active class to clicked tab and corresponding content
                 this.classList.add('active');
                 document.getElementById(`${tabId}-tab`).classList.add('active');
             });
         });
 
-        // Search functionality
         const searchInput = document.getElementById('advisorSearch');
         if (searchInput) {
             searchInput.addEventListener('keyup', function() {
@@ -217,28 +161,17 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
 
-        // Filter pills functionality
         const filterPills = document.querySelectorAll('.filter-pill');
         filterPills.forEach(pill => {
             pill.addEventListener('click', function() {
-                // Remove active class from all pills
                 filterPills.forEach(p => p.classList.remove('active'));
-
-                // Add active class to clicked pill
                 this.classList.add('active');
-
-                // Set current filter
                 currentFilter = this.textContent.trim().toLowerCase().replace(' ', '-');
-
-                // Reset to first page
                 currentPage = 1;
-
-                // Render with new filter
                 renderServiceAdvisors();
             });
         });
 
-        // Pagination
         const prevBtn = document.getElementById('prevBtn');
         if (prevBtn) {
             prevBtn.addEventListener('click', function(e) {
@@ -265,33 +198,21 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
 
-        // Sort dropdown functionality
         const sortDropdownItems = document.querySelectorAll('.dropdown-menu .dropdown-item');
         sortDropdownItems.forEach(item => {
             item.addEventListener('click', function(e) {
                 e.preventDefault();
-
-                // Remove active class from all items
                 sortDropdownItems.forEach(i => i.classList.remove('active'));
-
-                // Add active class to clicked item
                 this.classList.add('active');
-
-                // Update dropdown button text
                 document.getElementById('sortDropdown').innerHTML = `
                   <i class="fas fa-sort"></i>
                   Sort by: ${this.textContent}
               `;
-
-                // Sort service advisors
                 sortServiceAdvisors(this.textContent.toLowerCase());
             });
         });
     }
 });
-
-// Move all helper functions and other functions that use serviceAdvisors outside the document ready handler,
-// but make sure they can access the now-global serviceAdvisors variable
 
 function getToken() {
     return localStorage.getItem('jwt-token') || sessionStorage.getItem('jwt-token');
@@ -309,7 +230,7 @@ function hideSpinner() {
     if (spinnerOverlay) {
         setTimeout(() => {
             spinnerOverlay.classList.remove('show');
-        }, 500); // Minimum show time for spinner
+        }, 500);
     }
 }
 
@@ -321,7 +242,6 @@ function showConfirmation(title, message) {
 }
 
 function showErrorMessage(formId, message) {
-    // Create error container if it doesn't exist
     let errorContainer = document.getElementById(`${formId}-error-container`);
 
     if (!errorContainer) {
@@ -350,7 +270,6 @@ function clearErrorMessage(formId) {
 function loadServiceAdvisors() {
     showSpinner();
 
-    // Call API to get service advisors
     fetch('/admin/service-advisors/api/advisors', {
         method: 'GET',
         headers: {
@@ -361,7 +280,6 @@ function loadServiceAdvisors() {
         .then(response => {
             if (!response.ok) {
                 if (response.status === 401) {
-                    // Redirect to login on auth failure
                     window.location.href = '/admin/login?error=session_expired';
                     throw new Error('Session expired');
                 }
@@ -371,19 +289,12 @@ function loadServiceAdvisors() {
         })
         .then(data => {
             hideSpinner();
-
-            // Store service advisors globally
             serviceAdvisors = data;
-
-            // Render service advisors
             renderServiceAdvisors();
-
-            // Setup pagination
             setupPagination();
         })
         .catch(error => {
             hideSpinner();
-            console.error('Error fetching advisor details:', error);
             alert('Failed to load advisor details. Please try again.');
         });
 }
@@ -391,9 +302,7 @@ function loadServiceAdvisors() {
 function getFilteredAdvisors() {
     const searchTerm = document.getElementById('advisorSearch').value.toLowerCase();
 
-    // First filter by search term
     let filtered = serviceAdvisors.filter(advisor => {
-        // Search in name, email, ID, and department
         return (
             (advisor.firstName + ' ' + advisor.lastName).toLowerCase().includes(searchTerm) ||
             advisor.email.toLowerCase().includes(searchTerm) ||
@@ -402,7 +311,6 @@ function getFilteredAdvisors() {
         );
     });
 
-    // Then filter by selected filter pill
     if (currentFilter !== 'all-advisors') {
         if (currentFilter === 'high-workload') {
             filtered = filtered.filter(advisor => advisor.workloadPercentage >= 75);
@@ -415,21 +323,14 @@ function getFilteredAdvisors() {
 }
 
 function renderServiceAdvisors() {
-    // Get filtered advisors based on current filter and search term
     const filteredAdvisors = getFilteredAdvisors();
-
-    // Calculate pagination
     const startIndex = (currentPage - 1) * itemsPerPage;
     const endIndex = startIndex + itemsPerPage;
     const paginatedAdvisors = filteredAdvisors.slice(startIndex, endIndex);
-
-    // Get the grid container
     const gridContainer = document.getElementById('advisorsGrid');
 
-    // Clear grid
     gridContainer.innerHTML = '';
 
-    // Check if there are service advisors
     if (paginatedAdvisors.length === 0) {
         gridContainer.innerHTML = `
       <div class="no-advisors-message">
@@ -441,19 +342,14 @@ function renderServiceAdvisors() {
         return;
     }
 
-    // Populate grid with service advisor cards
     paginatedAdvisors.forEach(advisor => {
-        // Determine workload class
         const workloadClass = getWorkloadClass(advisor.workloadPercentage);
-
-        // Create advisor card
         const card = document.createElement('div');
         card.className = 'advisor-card';
         card.addEventListener('click', function() {
             showAdvisorDetails(advisor);
         });
 
-        // Create card contents
         card.innerHTML = `
       <div class="advisor-card-header">
         <div class="advisor-avatar">${getInitials(advisor.firstName, advisor.lastName)}</div>
@@ -502,25 +398,19 @@ function renderServiceAdvisors() {
       </div>
     `;
 
-        // Add card to grid
         gridContainer.appendChild(card);
     });
 
-    // Update pagination
     updatePaginationUI();
 }
 
 function updatePaginationUI() {
     const filteredAdvisors = getFilteredAdvisors();
     const totalPages = Math.ceil(filteredAdvisors.length / itemsPerPage);
-
-    // Get pagination container
     const pagination = document.getElementById('pagination');
 
-    // Clear pagination
     pagination.innerHTML = '';
 
-    // Add previous button
     const prevBtn = document.createElement('li');
     prevBtn.className = 'page-item ' + (currentPage === 1 ? 'disabled' : '');
     prevBtn.innerHTML = `
@@ -537,7 +427,6 @@ function updatePaginationUI() {
     });
     pagination.appendChild(prevBtn);
 
-    // Add page numbers
     for (let i = 1; i <= totalPages; i++) {
         const pageItem = document.createElement('li');
         pageItem.className = 'page-item ' + (i === currentPage ? 'active' : '');
@@ -550,7 +439,6 @@ function updatePaginationUI() {
         pagination.appendChild(pageItem);
     }
 
-    // Add next button
     const nextBtn = document.createElement('li');
     nextBtn.className = 'page-item ' + (currentPage === totalPages || totalPages === 0 ? 'disabled' : '');
     nextBtn.innerHTML = `
@@ -571,8 +459,6 @@ function updatePaginationUI() {
 function setupPagination() {
     const filteredAdvisors = getFilteredAdvisors();
     const totalPages = Math.ceil(filteredAdvisors.length / itemsPerPage);
-
-    // Update pagination UI
     updatePaginationUI();
 }
 
@@ -607,7 +493,6 @@ function getStatusIcon(status) {
     }
 }
 
-
 function getWorkloadText(percentage) {
     if (percentage >= 75) {
         return 'High workload';
@@ -629,10 +514,7 @@ function getActiveServicesClass(count) {
 }
 
 function showAdvisorDetails(advisor) {
-    // Set advisor ID on edit button for future reference
     document.getElementById('editAdvisorFromDetailsBtn').setAttribute('data-advisor-id', advisor.advisorId);
-
-    // Personal Info Tab
     document.getElementById('viewAdvisorInitials').textContent = getInitials(advisor.firstName, advisor.lastName);
     document.getElementById('viewAdvisorName').textContent = advisor.firstName + ' ' + advisor.lastName;
     document.getElementById('viewAdvisorEmail').textContent = advisor.email;
@@ -640,8 +522,6 @@ function showAdvisorDetails(advisor) {
     document.getElementById('viewAdvisorId').textContent = advisor.formattedId || ('SA-' + advisor.advisorId);
     document.getElementById('viewAdvisorDepartment').textContent = advisor.department || 'Not assigned';
     document.getElementById('viewAdvisorHireDate').textContent = advisor.hireDate ? new Date(advisor.hireDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : 'Not available';
-
-    // Workload Tab
     document.getElementById('viewAdvisorWorkloadValue').textContent = advisor.workloadPercentage + '%';
 
     const workloadBar = document.getElementById('viewAdvisorWorkloadBar');
@@ -650,17 +530,14 @@ function showAdvisorDetails(advisor) {
 
     document.getElementById('viewAdvisorWorkloadText').textContent = getWorkloadText(advisor.workloadPercentage);
 
-    // Show modal
     const detailsModal = new bootstrap.Modal(document.getElementById('advisorDetailsModal'));
     detailsModal.show();
 }
 
-// Validation functions
 function validateField(fieldId, errorId, validationFn, errorMessage) {
     const field = document.getElementById(fieldId);
     const errorElement = document.getElementById(errorId);
 
-    // Skip validation if field doesn't exist
     if (!field || !errorElement) return true;
 
     const isValid = validationFn(field.value);
@@ -678,7 +555,6 @@ function validateField(fieldId, errorId, validationFn, errorMessage) {
     }
 }
 
-// Validation rules
 function validateName(value) {
     return value.trim().length >= 1;
 }
@@ -697,26 +573,7 @@ function validateDepartment(value) {
     return value.trim() !== '';
 }
 
-// Add event listeners for real-time validation
-function setupFormValidation(formId, fieldValidations) {
-    const form = document.getElementById(formId);
-    if (!form) return;
-
-    // Add blur event listeners to each field
-    Object.keys(fieldValidations).forEach(fieldId => {
-        const field = document.getElementById(fieldId);
-        if (field) {
-            field.addEventListener('blur', () => {
-                const validation = fieldValidations[fieldId];
-                validateField(fieldId, validation.errorId, validation.validationFn, validation.errorMessage);
-            });
-        }
-    });
-}
-
-// Setup validation for both forms
 document.addEventListener('DOMContentLoaded', function() {
-    // Add Advisor Form Validations
     const addAdvisorValidations = {
         'firstName': {
             errorId: 'firstName-error',
@@ -745,7 +602,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     };
 
-    // Edit Advisor Form Validations
     const editAdvisorValidations = {
         'editFirstName': {
             errorId: 'editFirstName-error',
@@ -778,7 +634,21 @@ document.addEventListener('DOMContentLoaded', function() {
     setupFormValidation('editAdvisorForm', editAdvisorValidations);
 });
 
-// Validate all fields in a form
+function setupFormValidation(formId, fieldValidations) {
+    const form = document.getElementById(formId);
+    if (!form) return;
+
+    Object.keys(fieldValidations).forEach(fieldId => {
+        const field = document.getElementById(fieldId);
+        if (field) {
+            field.addEventListener('blur', () => {
+                const validation = fieldValidations[fieldId];
+                validateField(fieldId, validation.errorId, validation.validationFn, validation.errorMessage);
+            });
+        }
+    });
+}
+
 function validateForm(formId, fieldValidations) {
     let isValid = true;
 
@@ -792,18 +662,15 @@ function validateForm(formId, fieldValidations) {
 }
 
 function generateRandomPassword() {
-    // Generate a password in the format: SA2025-XXXNNN (where X is a letter and N is a number)
-    const letters = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; // Excluded I and O to avoid confusion
-    const numbers = '123456789'; // Excluded 0 to avoid confusion
+    const letters = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+    const numbers = '123456789';
 
     let password = 'SA2025-';
 
-    // Add 3 random letters
     for (let i = 0; i < 3; i++) {
         password += letters.charAt(Math.floor(Math.random() * letters.length));
     }
 
-    // Add 3 random numbers
     for (let i = 0; i < 3; i++) {
         password += numbers.charAt(Math.floor(Math.random() * numbers.length));
     }
@@ -812,10 +679,8 @@ function generateRandomPassword() {
 }
 
 function saveServiceAdvisor() {
-    // Get form
     const form = document.getElementById('addAdvisorForm');
 
-    // Custom form validation
     const addAdvisorValidations = {
         'firstName': {
             errorId: 'firstName-error',
@@ -844,27 +709,23 @@ function saveServiceAdvisor() {
         }
     };
 
-    // Validate all fields
     if (!validateForm('addAdvisorForm', addAdvisorValidations)) {
         return;
     }
 
-    // Generate a random password for the new advisor
     const generatedPassword = generateRandomPassword();
 
-    // Get form data
     const formData = {
         firstName: document.getElementById('firstName').value,
         lastName: document.getElementById('lastName').value,
         email: document.getElementById('email').value,
         phoneNumber: document.getElementById('phone').value,
         department: document.getElementById('department').value,
-        password: generatedPassword // Add the generated password to the request
+        password: generatedPassword
     };
 
     showSpinner();
 
-    // Call API to create new service advisor
     fetch('/admin/service-advisors', {
         method: 'POST',
         headers: {
@@ -875,10 +736,6 @@ function saveServiceAdvisor() {
     })
         .then(response => {
             if (!response.ok) {
-                // Log the status for debugging
-                console.error(`Server responded with status: ${response.status}`);
-
-                // Try to get more detailed error message
                 return response.text().then(text => {
                     throw new Error(`Server responded with status: ${response.status}` +
                         (text ? `, message: ${text}` : ''));
@@ -889,50 +746,38 @@ function saveServiceAdvisor() {
         .then(data => {
             hideSpinner();
 
-            // Close modal
             const modal = bootstrap.Modal.getInstance(document.getElementById('addAdvisorModal'));
             modal.hide();
 
-            // Show success message about email
             showConfirmation(
                 "Service Advisor Added Successfully",
                 "The service advisor has been created and login credentials have been sent to their email address."
             );
 
-            // Reset form
             form.reset();
-
-            // Reload service advisors
             loadServiceAdvisors();
         })
         .catch(error => {
             hideSpinner();
-            console.error('Error creating service advisor:', error);
-
-            // Show user-friendly error message in the form
             showErrorMessage('addAdvisorForm', 'Failed to create service advisor. ' +
                 (error.message || 'Please check your connection and try again.'));
         });
 }
 
 function showEditModal(advisorId) {
-    // Close details modal if open
     const detailsModal = bootstrap.Modal.getInstance(document.getElementById('advisorDetailsModal'));
     if (detailsModal) {
         detailsModal.hide();
     }
 
-    // Clear any previous error messages
     const form = document.getElementById('editAdvisorForm');
     if (form) {
         clearErrorMessage('editAdvisorForm');
 
-        // Remove is-invalid class from all inputs
         form.querySelectorAll('.is-invalid').forEach(input => {
             input.classList.remove('is-invalid');
         });
 
-        // Hide all error messages
         form.querySelectorAll('.error-message').forEach(error => {
             error.classList.remove('show');
             error.textContent = '';
@@ -941,7 +786,6 @@ function showEditModal(advisorId) {
 
     showSpinner();
 
-    // Call API to get advisor details for editing
     fetch(`/admin/service-advisors/${advisorId}`, {
         method: 'GET',
         headers: {
@@ -958,7 +802,6 @@ function showEditModal(advisorId) {
         .then(advisor => {
             hideSpinner();
 
-            // Populate edit form
             document.getElementById('editAdvisorId').value = advisor.advisorId;
             document.getElementById('editUserId').value = advisor.userId;
             document.getElementById('editFirstName').value = advisor.firstName;
@@ -968,22 +811,18 @@ function showEditModal(advisorId) {
             document.getElementById('editDepartment').value = advisor.department;
             document.getElementById('editPassword').value = '';
 
-            // Show edit modal
             const editModal = new bootstrap.Modal(document.getElementById('editAdvisorModal'));
             editModal.show();
         })
         .catch(error => {
             hideSpinner();
-            console.error('Error fetching advisor details for editing:', error);
             showErrorMessage('editAdvisorForm', 'Failed to load advisor details for editing. Please try again.');
         });
 }
 
 function updateServiceAdvisor() {
-    // Get form
     const form = document.getElementById('editAdvisorForm');
 
-    // Custom form validation
     const editAdvisorValidations = {
         'editFirstName': {
             errorId: 'editFirstName-error',
@@ -1012,15 +851,12 @@ function updateServiceAdvisor() {
         }
     };
 
-    // Validate all fields
     if (!validateForm('editAdvisorForm', editAdvisorValidations)) {
         return;
     }
 
-    // Get advisor ID
     const advisorId = document.getElementById('editAdvisorId').value;
 
-    // Get form data
     const formData = {
         advisorId: advisorId,
         userId: document.getElementById('editUserId').value,
@@ -1031,7 +867,6 @@ function updateServiceAdvisor() {
         department: document.getElementById('editDepartment').value
     };
 
-    // Add password if provided
     const password = document.getElementById('editPassword').value;
     if (password) {
         formData.password = password;
@@ -1039,7 +874,6 @@ function updateServiceAdvisor() {
 
     showSpinner();
 
-    // Call API to update service advisor
     fetch(`/admin/service-advisors/${advisorId}`, {
         method: 'PUT',
         headers: {
@@ -1057,40 +891,30 @@ function updateServiceAdvisor() {
         .then(data => {
             hideSpinner();
 
-            // Close modal
             const modal = bootstrap.Modal.getInstance(document.getElementById('editAdvisorModal'));
             modal.hide();
 
-            // Show success message
             showConfirmation(
                 'Service Advisor Updated',
                 'The service advisor information has been updated successfully.' +
                 (password ? ' A new password has been sent to their email.' : '')
             );
 
-            // Reset form
             form.reset();
-
-            // Reload service advisors
             loadServiceAdvisors();
         })
         .catch(error => {
             hideSpinner();
-            console.error('Error updating service advisor:', error);
             showErrorMessage('editAdvisorForm', 'Failed to update service advisor. Please try again.');
         });
 }
 
 function filterServiceAdvisors(searchTerm) {
-    // Reset to first page
     currentPage = 1;
-
-    // Render with new search term (getFilteredAdvisors will use the search input value)
     renderServiceAdvisors();
 }
 
 function sortServiceAdvisors(sortBy) {
-    // Sort the service advisors array based on the sortBy parameter
     serviceAdvisors.sort((a, b) => {
         switch (sortBy) {
             case 'name':
@@ -1106,6 +930,5 @@ function sortServiceAdvisors(sortBy) {
         }
     });
 
-    // Re-render the service advisors
     renderServiceAdvisors();
 }

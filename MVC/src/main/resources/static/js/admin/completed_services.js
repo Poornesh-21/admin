@@ -1,48 +1,36 @@
-    let completedServices = [];
-    let currentServiceId = null;
-    let currentService = null;
-    document.addEventListener('DOMContentLoaded', function() {
+let completedServices = [];
+let currentServiceId = null;
+let currentService = null;
+document.addEventListener('DOMContentLoaded', function() {
     initializeEventListeners();
     loadCompletedServices();
 });
-    function traceMembershipStatus(service, location) {
-    console.group(`🔍 Membership Trace (${location})`);
-    console.log(`Service ID: ${service.requestId || service.serviceId}`);
-    console.log(`Direct membershipStatus: "${service.membershipStatus}"`);
-    if (service.customer) {
-    console.log(`customer.membershipStatus: "${service.customer.membershipStatus}"`);
-    if (service.customer.user) {
-    console.log(`customer.user.membershipStatus: "${service.customer.user.membershipStatus}"`);
-}
-}
-    const isPremium = isMembershipPremium(service);
-    console.log(`isPremium: ${isPremium}`);
-    console.log(`Determined status: "${isPremium ? 'Premium' : 'Standard'}"`);
-    console.groupEnd();
-}
-    function isMembershipPremium(service) {
+
+function isMembershipPremium(service) {
     if (service.membershipStatus) {
-    const status = String(service.membershipStatus).toLowerCase().trim();
-    if (status.includes('premium')) {
-    return true;
-}
-}
+        const status = String(service.membershipStatus).toLowerCase().trim();
+        if (status.includes('premium')) {
+            return true;
+        }
+    }
     if (service.customer && service.customer.membershipStatus) {
-    const status = String(service.customer.membershipStatus).toLowerCase().trim();
-    if (status.includes('premium')) {
-    return true;
-}
-}
+        const status = String(service.customer.membershipStatus).toLowerCase().trim();
+        if (status.includes('premium')) {
+            return true;
+        }
+    }
     if (service.isPremium || service.premium || service.isPremiumMember) {
-    return true;
-}
+        return true;
+    }
     return false;
 }
-    function getMembershipStatus(service) {
+
+function getMembershipStatus(service) {
     const isPremium = isMembershipPremium(service);
     return isPremium ? 'Premium' : 'Standard';
 }
-    function initializeEventListeners() {
+
+function initializeEventListeners() {
     document.addEventListener('click', function(e) {
         if (e.target.classList.contains('view-service-btn') || e.target.closest('.view-service-btn')) {
             const btn = e.target.classList.contains('view-service-btn') ? e.target : e.target.closest('.view-service-btn');
@@ -51,110 +39,70 @@
         }
     });
     document.getElementById('generateInvoiceBtn').addEventListener('click', function() {
-    openGenerateInvoiceModal();
-});
+        openGenerateInvoiceModal();
+    });
     document.getElementById('confirmGenerateInvoiceBtn').addEventListener('click', function() {
-    generateInvoice();
-});
+        generateInvoice();
+    });
     document.getElementById('confirmPaymentBtn').addEventListener('click', function() {
-    processPayment();
-});
+        processPayment();
+    });
     document.getElementById('customerPickup').addEventListener('change', function() {
-    if (this.checked) {
-    document.getElementById('pickupFields').style.display = 'block';
-    document.getElementById('deliveryFields').style.display = 'none';
-    document.getElementById('confirmDeliveryBtnText').textContent = 'Confirm Pickup';
-}
-});
+        if (this.checked) {
+            document.getElementById('pickupFields').style.display = 'block';
+            document.getElementById('deliveryFields').style.display = 'none';
+            document.getElementById('confirmDeliveryBtnText').textContent = 'Confirm Pickup';
+        }
+    });
     document.getElementById('homeDelivery').addEventListener('change', function() {
-    if (this.checked) {
-    document.getElementById('pickupFields').style.display = 'none';
-    document.getElementById('deliveryFields').style.display = 'block';
-    document.getElementById('confirmDeliveryBtnText').textContent = 'Confirm Delivery';
-}
-});
+        if (this.checked) {
+            document.getElementById('pickupFields').style.display = 'none';
+            document.getElementById('deliveryFields').style.display = 'block';
+            document.getElementById('confirmDeliveryBtnText').textContent = 'Confirm Delivery';
+        }
+    });
     document.getElementById('confirmDeliveryBtn').addEventListener('click', function() {
-    processDelivery();
-});
+        processDelivery();
+    });
 }
-    function debugServiceData() {
-    console.group("----- SERVICE DATA DEBUGGING -----");
-    if (!completedServices || !Array.isArray(completedServices)) {
-    console.log("No services or invalid data structure:", completedServices);
-    console.groupEnd();
-    return;
-}
-    console.log(`Total services: ${completedServices.length}`);
-    let premiumCount = 0;
-    let standardCount = 0;
-    completedServices.forEach(service => {
-    if (!service) return;
-    const isPremium = isMembershipPremium(service);
-    if (isPremium) {
-    premiumCount++;
-} else {
-    standardCount++;
-}
-    if (premiumCount <= 2 || standardCount <= 2) {
-    console.log(`Service ID: ${service.requestId || service.serviceId}`);
-    console.log(`- Customer: ${service.customerName || 'Unknown'}`);
-    console.log(`- Membership: ${getMembershipStatus(service)}`);
-    console.log(`- Raw membership data:`, service.membershipStatus);
-    if (service.customer && service.customer.membershipStatus) {
-    console.log(`- Customer object membership: ${service.customer.membershipStatus}`);
-}
-}
-});
-    console.log(`Premium members: ${premiumCount}`);
-    console.log(`Standard members: ${standardCount}`);
-    console.groupEnd();
-}
-    function fixMembershipData() {
-    if (!completedServices || !Array.isArray(completedServices)) {
-    return;
-}
-    completedServices.forEach(service => {
+
+function normalizeServiceData(service) {
     if (!service) return;
     const isPremium = isMembershipPremium(service);
     service.membershipStatus = isPremium ? 'Premium' : 'Standard';
-    traceMembershipStatus(service, 'fixMembershipData');
-});
-}
-    function normalizeServiceData(service) {
-    if (!service) return;
-    const isPremium = isMembershipPremium(service);
-    service.membershipStatus = isPremium ? 'Premium' : 'Standard';
-    traceMembershipStatus(service, 'normalizeServiceData');
+
     if (!service.customerName || service.customerName === 'Unknown Customer') {
-    if (service.customer) {
-    if (typeof service.customer === 'object') {
-    if (service.customer.firstName && service.customer.lastName) {
-    service.customerName = `${service.customer.firstName} ${service.customer.lastName}`;
-}
-    else if (service.customer.user && service.customer.user.firstName && service.customer.user.lastName) {
-    service.customerName = `${service.customer.user.firstName} ${service.customer.user.lastName}`;
-}
-    else if (service.customer.name) {
-    service.customerName = service.customer.name;
-}
-}
-}
-    else if (service.firstName && service.lastName) {
-    service.customerName = `${service.firstName} ${service.lastName}`;
-}
-    else if (service.user && service.user.firstName && service.user.lastName) {
-    service.customerName = `${service.user.firstName} ${service.user.lastName}`;
-}
-}
+        if (service.customer) {
+            if (typeof service.customer === 'object') {
+                if (service.customer.firstName && service.customer.lastName) {
+                    service.customerName = `${service.customer.firstName} ${service.customer.lastName}`;
+                }
+                else if (service.customer.user && service.customer.user.firstName && service.customer.user.lastName) {
+                    service.customerName = `${service.customer.user.firstName} ${service.customer.user.lastName}`;
+                }
+                else if (service.customer.name) {
+                    service.customerName = service.customer.name;
+                }
+            }
+        }
+        else if (service.firstName && service.lastName) {
+            service.customerName = `${service.firstName} ${service.lastName}`;
+        }
+        else if (service.user && service.user.firstName && service.user.lastName) {
+            service.customerName = `${service.user.firstName} ${service.user.lastName}`;
+        }
+    }
+
     if (!service.registrationNumber) {
-    if (service.vehicleRegistration) {
-    service.registrationNumber = service.vehicleRegistration;
-} else if (service.vehicle && service.vehicle.registrationNumber) {
-    service.registrationNumber = service.vehicle.registrationNumber;
+        if (service.vehicleRegistration) {
+            service.registrationNumber = service.vehicleRegistration;
+        } else if (service.vehicle && service.vehicle.registrationNumber) {
+            service.registrationNumber = service.vehicle.registrationNumber;
+        }
+    }
 }
-}
-}
-    function loadCompletedServices() {
+
+function loadCompletedServices() {
     const tableBody = document.getElementById('completedServicesTableBody');
     tableBody.innerHTML = `
         <tr>
@@ -167,44 +115,34 @@
     const token = getAuthToken();
     completedServices = [];
     fetch('/admin/api/completed-services', {
-    method: 'GET',
-    headers: {
-    'Authorization': `Bearer ${token}`,
-    'Content-Type': 'application/json'
-}
-})
-    .then(response => {
-    if (!response.ok) {
-    throw new Error(`Failed to fetch completed services: ${response.status}`);
-}
-    return response.json();
-})
-    .then(data => {
-    console.log('Received completed services data, count:', Array.isArray(data) ? data.length : 'not an array');
-    if (!Array.isArray(data)) {
-    console.error('Expected array but received:', typeof data);
-    throw new Error('Invalid data format received from API');
-}
-    completedServices = data;
-    console.log("INITIAL DATA:");
-    debugServiceData();
-    fixMembershipData();
-    console.log("AFTER FIRST FIX:");
-    debugServiceData();
-    return Promise.all(completedServices.map(service => {
-    normalizeServiceData(service);
-    return enhanceCustomerInfo(service);
-}));
-})
-    .then(() => {
-    fixMembershipData();
-    console.log("FINAL DATA:");
-    debugServiceData();
-    renderCompletedServicesTable();
-})
-    .catch(error => {
-    console.error('Error fetching completed services:', error);
-    tableBody.innerHTML = `
+        method: 'GET',
+        headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+        }
+    })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`Failed to fetch completed services: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (!Array.isArray(data)) {
+                throw new Error('Invalid data format received from API');
+            }
+            completedServices = data;
+
+            return Promise.all(completedServices.map(service => {
+                normalizeServiceData(service);
+                return enhanceCustomerInfo(service);
+            }));
+        })
+        .then(() => {
+            renderCompletedServicesTable();
+        })
+        .catch(error => {
+            tableBody.innerHTML = `
                 <tr>
                     <td colspan="10" class="text-center py-4">
                         <div class="text-danger mb-3">
@@ -217,96 +155,90 @@
                     </td>
                 </tr>
             `;
-});
+        });
 }
-    function enhanceCustomerInfo(service) {
+
+function enhanceCustomerInfo(service) {
     return new Promise((resolve, reject) => {
-    try {
-    normalizeServiceData(service);
-    let customerId = service.customerId;
-    if (!customerId) {
-    if (service.customer && service.customer.customerId) {
-    customerId = service.customer.customerId;
-} else if (service.vehicle && service.vehicle.customer && service.vehicle.customer.customerId) {
-    customerId = service.vehicle.customer.customerId;
-} else if (service.userId) {
-    customerId = service.userId;
+        try {
+            normalizeServiceData(service);
+            let customerId = service.customerId;
+            if (!customerId) {
+                if (service.customer && service.customer.customerId) {
+                    customerId = service.customer.customerId;
+                } else if (service.vehicle && service.vehicle.customer && service.vehicle.customer.customerId) {
+                    customerId = service.vehicle.customer.customerId;
+                } else if (service.userId) {
+                    customerId = service.userId;
+                }
+            }
+
+            if (!customerId) {
+                const isPremium = isMembershipPremium(service);
+                service.membershipStatus = isPremium ? 'Premium' : 'Standard';
+                resolve(service);
+                return;
+            }
+
+            const token = getAuthToken();
+            fetch(`/admin/customers/api/${customerId}`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            })
+                .then(response => {
+                    if (response.ok) return response.json();
+                    throw new Error('Failed to fetch customer details');
+                })
+                .then(customerData => {
+                    if (customerData) {
+                        if (customerData.firstName && customerData.lastName) {
+                            service.customerName = `${customerData.firstName} ${customerData.lastName}`;
+                        }
+                        if (customerData.email) {
+                            service.customerEmail = customerData.email;
+                        }
+                        if (customerData.phoneNumber) {
+                            service.customerPhone = customerData.phoneNumber;
+                        }
+                        if (customerData.membershipStatus) {
+                            service.rawCustomerMembershipStatus = customerData.membershipStatus;
+                            const status = String(customerData.membershipStatus).trim().toLowerCase();
+                            if (status.includes('premium')) {
+                                service.membershipStatus = 'Premium';
+                            }
+                            else if (service.membershipStatus !== 'Premium') {
+                                service.membershipStatus = 'Standard';
+                            }
+                        }
+                        service.enhancedCustomerData = customerData;
+                    }
+                    const isPremium = isMembershipPremium(service);
+                    service.membershipStatus = isPremium ? 'Premium' : 'Standard';
+                    resolve(service);
+                })
+                .catch(error => {
+                    const isPremium = isMembershipPremium(service);
+                    service.membershipStatus = isPremium ? 'Premium' : 'Standard';
+                    resolve(service);
+                });
+        } catch (error) {
+            if (service) {
+                const isPremium = isMembershipPremium(service);
+                service.membershipStatus = isPremium ? 'Premium' : 'Standard';
+            }
+            resolve(service);
+        }
+    });
 }
-}
-    if (!customerId) {
-    console.log('No customerId found for service:', service.serviceId || service.requestId);
-    const isPremium = isMembershipPremium(service);
-    service.membershipStatus = isPremium ? 'Premium' : 'Standard';
-    traceMembershipStatus(service, 'enhanceCustomerInfo - no customerId');
-    resolve(service);
-    return;
-}
-    console.log('Fetching customer details for ID:', customerId);
-    const token = getAuthToken();
-    fetch(`/admin/customers/api/${customerId}`, {
-    method: 'GET',
-    headers: {
-    'Authorization': `Bearer ${token}`,
-    'Content-Type': 'application/json'
-}
-})
-    .then(response => {
-    if (response.ok) return response.json();
-    throw new Error('Failed to fetch customer details');
-})
-    .then(customerData => {
-    console.log('Received customer data:', customerData);
-    if (customerData) {
-    if (customerData.firstName && customerData.lastName) {
-    service.customerName = `${customerData.firstName} ${customerData.lastName}`;
-}
-    if (customerData.email) {
-    service.customerEmail = customerData.email;
-}
-    if (customerData.phoneNumber) {
-    service.customerPhone = customerData.phoneNumber;
-}
-    if (customerData.membershipStatus) {
-    service.rawCustomerMembershipStatus = customerData.membershipStatus;
-    const status = String(customerData.membershipStatus).trim().toLowerCase();
-    if (status.includes('premium')) {
-    console.log('Setting Premium status from customer data for service ID:',
-    service.requestId || service.serviceId);
-    service.membershipStatus = 'Premium';
-}
-    else if (service.membershipStatus !== 'Premium') {
-    service.membershipStatus = 'Standard';
-}
-}
-    service.enhancedCustomerData = customerData;
-    traceMembershipStatus(service, 'enhanceCustomerInfo - after fetch');
-}
-    const isPremium = isMembershipPremium(service);
-    service.membershipStatus = isPremium ? 'Premium' : 'Standard';
-    traceMembershipStatus(service, 'enhanceCustomerInfo - final');
-    resolve(service);
-})
-    .catch(error => {
-    console.warn('Could not fetch additional customer details:', error);
-    const isPremium = isMembershipPremium(service);
-    service.membershipStatus = isPremium ? 'Premium' : 'Standard';
-    resolve(service); 
-});
-} catch (error) {
-    console.error("Error enhancing customer info:", error);
-    if (service) {
-    const isPremium = isMembershipPremium(service);
-    service.membershipStatus = isPremium ? 'Premium' : 'Standard';
-}
-    resolve(service); 
-}
-});
-}
-    function renderCompletedServicesTable() {
+
+function renderCompletedServicesTable() {
     const tableBody = document.getElementById('completedServicesTableBody');
     tableBody.innerHTML = '';
     if (!completedServices || completedServices.length === 0) {
-    tableBody.innerHTML = `
+        tableBody.innerHTML = `
             <tr>
                 <td colspan="10" class="text-center py-5">
                     <div class="my-4">
@@ -317,61 +249,48 @@
                 </td>
             </tr>
         `;
-    return;
-}
-    console.log('Rendering table with services:', completedServices.length);
+        return;
+    }
+
     completedServices.forEach(service => {
-    const row = createServiceTableRow(service);
-    tableBody.appendChild(row);
-});
+        const row = createServiceTableRow(service);
+        tableBody.appendChild(row);
+    });
 }
-    function createServiceTableRow(service) {
+
+function createServiceTableRow(service) {
     const row = document.createElement('tr');
     const completionDate = new Date(service.completionDate || service.completedDate || service.updatedAt);
     const formattedDate = completionDate.toLocaleDateString();
     const formatter = new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    minimumFractionDigits: 2
-});
+        style: 'currency',
+        currency: 'INR',
+        minimumFractionDigits: 2
+    });
     const invoiceStatus = service.hasInvoice ?
-    `<span class="status-badge status-completed"><i class="fas fa-check-circle"></i> Generated</span>` :
-    `<span class="status-badge status-pending"><i class="fas fa-clock"></i> Pending</span>`;
+        `<span class="status-badge status-completed"><i class="fas fa-check-circle"></i> Generated</span>` :
+        `<span class="status-badge status-pending"><i class="fas fa-clock"></i> Pending</span>`;
     const paymentStatus = service.isPaid || service.paid ?
-    `<span class="status-badge status-paid"><i class="fas fa-check-circle"></i> Paid</span>` :
-    `<span class="status-badge status-pending"><i class="fas fa-clock"></i> Pending</span>`;
+        `<span class="status-badge status-paid"><i class="fas fa-check-circle"></i> Paid</span>` :
+        `<span class="status-badge status-pending"><i class="fas fa-clock"></i> Pending</span>`;
     const deliveryStatus = service.isDelivered || service.delivered ?
-    `<span class="status-badge status-completed"><i class="fas fa-check-circle"></i> Completed</span>` :
-    `<span class="status-badge status-pending"><i class="fas fa-clock"></i> Pending</span>`;
+        `<span class="status-badge status-completed"><i class="fas fa-check-circle"></i> Completed</span>` :
+        `<span class="status-badge status-pending"><i class="fas fa-clock"></i> Pending</span>`;
     const vehicleType = (service.vehicleType || service.category || '').toString().toLowerCase();
     const vehicleIcon = vehicleType.includes('bike') || vehicleType === 'bike' ?
-    'fas fa-motorcycle' :
-    vehicleType.includes('truck') || vehicleType === 'truck' ?
-    'fas fa-truck' :
-    'fas fa-car';
+        'fas fa-motorcycle' :
+        vehicleType.includes('truck') || vehicleType === 'truck' ?
+            'fas fa-truck' :
+            'fas fa-car';
     const vehicleName = service.vehicleName ||
-    (service.vehicleBrand && service.vehicleModel ?
-    `${service.vehicleBrand} ${service.vehicleModel}` :
-    'Unknown Vehicle');
-    let rawMembershipStatus = service.membershipStatus;
-    if ((!rawMembershipStatus || rawMembershipStatus === 'Standard') && service.customer) {
-    if (typeof service.customer === 'object' && service.customer.membershipStatus) {
-    rawMembershipStatus = service.customer.membershipStatus;
-}
-}
-    let membershipStatusStr = "";
-    if (rawMembershipStatus) {
-    if (typeof rawMembershipStatus === 'object') {
-    membershipStatusStr = JSON.stringify(rawMembershipStatus);
-} else {
-    membershipStatusStr = String(rawMembershipStatus).trim();
-}
-}
+        (service.vehicleBrand && service.vehicleModel ?
+            `${service.vehicleBrand} ${service.vehicleModel}` :
+            'Unknown Vehicle');
+
     const isPremium = isMembershipPremium(service);
     const membershipStatus = isPremium ? 'Premium' : 'Standard';
     const membershipClass = isPremium ? 'membership-premium' : 'membership-standard';
-    console.log(`FIXED: Service ${service.requestId || service.serviceId} membership: raw="${rawMembershipStatus}",
-                 processed="${membershipStatusStr}", isPremium=${isPremium}, final="${membershipStatus}"`);
+
     const customerName = service.customerName || 'Unknown Customer';
     row.innerHTML = `
         <td>REQ-${service.requestId || service.serviceId}</td>
@@ -402,13 +321,15 @@
     `;
     return row;
 }
-    function viewServiceDetails(serviceId) {
+
+function viewServiceDetails(serviceId) {
     const modal = new bootstrap.Modal(document.getElementById('viewServiceDetailsModal'));
     modal.show();
     loadBasicServiceDetails(serviceId);
     loadInvoiceData(serviceId);
 }
-    document.addEventListener('DOMContentLoaded', function() {
+
+document.addEventListener('DOMContentLoaded', function() {
     document.addEventListener('click', function(e) {
         if (e.target.classList.contains('view-service-btn') || e.target.closest('.view-service-btn')) {
             const btn = e.target.classList.contains('view-service-btn') ? e.target : e.target.closest('.view-service-btn');
@@ -417,7 +338,8 @@
         }
     });
 });
-    function loadBasicServiceDetails(serviceId) {
+
+function loadBasicServiceDetails(serviceId) {
     currentServiceId = serviceId;
     document.getElementById('viewServiceId').textContent = `REQ-${serviceId}`;
     document.getElementById('viewVehicleName').textContent = 'Loading...';
@@ -427,171 +349,160 @@
     document.getElementById('viewCompletionDate').textContent = 'Loading...';
     const token = getAuthToken();
     const serviceUrls = [
-    `/admin/api/completed-services/${serviceId}`,
-    `/admin/api/services/${serviceId}/details`,
-    `/admin/api/service-details/${serviceId}`
+        `/admin/api/completed-services/${serviceId}`,
+        `/admin/api/services/${serviceId}/details`,
+        `/admin/api/service-details/${serviceId}`
     ];
     tryFetchUrls(serviceUrls, token)
-    .then(service => {
-    console.log('Service details loaded:', service);
-    currentService = service;
-    document.getElementById('viewServiceId').textContent = `REQ-${service.requestId || service.serviceId || serviceId}`;
-    document.getElementById('viewVehicleName').textContent = getVehicleName(service);
-    document.getElementById('viewRegistrationNumber').textContent = getRegistrationNumber(service);
-    document.getElementById('viewCustomerName').textContent = service.customerName || 'Unknown Customer';
-    document.getElementById('viewMembership').textContent = getMembershipStatus(service);
-    document.getElementById('viewCompletionDate').textContent = getFormattedDate(service);
-    updateWorkflowSteps(service);
-    updateFooterButtons(service);
-})
-    .catch(error => {
-    console.error('Error loading service details:', error);
-    document.getElementById('viewServiceId').textContent = `REQ-${serviceId}`;
-    document.getElementById('viewVehicleName').textContent = 'Error loading details';
-    document.getElementById('viewRegistrationNumber').textContent = 'Error loading details';
-    document.getElementById('viewCustomerName').textContent = 'Error loading details';
-    document.getElementById('viewMembership').textContent = 'Error loading details';
-    document.getElementById('viewCompletionDate').textContent = 'Error loading details';
-    showToast('Error loading service details: ' + error.message, 'error');
-});
+        .then(service => {
+            currentService = service;
+            document.getElementById('viewServiceId').textContent = `REQ-${service.requestId || service.serviceId || serviceId}`;
+            document.getElementById('viewVehicleName').textContent = getVehicleName(service);
+            document.getElementById('viewRegistrationNumber').textContent = getRegistrationNumber(service);
+            document.getElementById('viewCustomerName').textContent = service.customerName || 'Unknown Customer';
+            document.getElementById('viewMembership').textContent = getMembershipStatus(service);
+            document.getElementById('viewCompletionDate').textContent = getFormattedDate(service);
+            updateWorkflowSteps(service);
+            updateFooterButtons(service);
+        })
+        .catch(error => {
+            document.getElementById('viewServiceId').textContent = `REQ-${serviceId}`;
+            document.getElementById('viewVehicleName').textContent = 'Error loading details';
+            document.getElementById('viewRegistrationNumber').textContent = 'Error loading details';
+            document.getElementById('viewCustomerName').textContent = 'Error loading details';
+            document.getElementById('viewMembership').textContent = 'Error loading details';
+            document.getElementById('viewCompletionDate').textContent = 'Error loading details';
+            showToast('Error loading service details: ' + error.message, 'error');
+        });
 }
-    /**
-    * Get the registration number with better fallbacks
-    */
-    function getRegistrationNumber(service) {
+
+function getRegistrationNumber(service) {
     if (service.registrationNumber) {
-    return service.registrationNumber;
-}
+        return service.registrationNumber;
+    }
     if (service.vehicleRegistration) {
-    return service.vehicleRegistration;
-}
+        return service.vehicleRegistration;
+    }
     if (service.vehicle && service.vehicle.registrationNumber) {
-    return service.vehicle.registrationNumber;
-}
+        return service.vehicle.registrationNumber;
+    }
     return 'Unknown';
 }
-    /**
-    * Try each URL in sequence until one returns a valid response
-    */
-    function tryFetchUrls(urls, token) {
+
+function tryFetchUrls(urls, token) {
     return urls.reduce((promise, url) => {
-    return promise.catch(() => {
-    console.log(`Trying URL: ${url}`);
-    return fetch(url, {
-    method: 'GET',
-    headers: {
-    'Authorization': `Bearer ${token}`,
-    'Content-Type': 'application/json'
+        return promise.catch(() => {
+            return fetch(url, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            }).then(response => {
+                if (!response.ok) {
+                    throw new Error(`Failed to fetch from ${url}: ${response.status}`);
+                }
+                return response.json();
+            });
+        });
+    }, Promise.reject(new Error('Starting URL chain')));
 }
-}).then(response => {
-    if (!response.ok) {
-    throw new Error(`Failed to fetch from ${url}: ${response.status}`);
-}
-    return response.json();
-});
-});
-}, Promise.reject(new Error('Starting URL chain')));
-}
-    /**
-    * Extract and format the vehicle name from service data
-    */
-    function getVehicleName(service) {
+
+function getVehicleName(service) {
     if (service.vehicleName) {
-    return service.vehicleName;
-}
+        return service.vehicleName;
+    }
     if (service.vehicleBrand && service.vehicleModel) {
-    return `${service.vehicleBrand} ${service.vehicleModel}`;
-}
+        return `${service.vehicleBrand} ${service.vehicleModel}`;
+    }
     if (service.vehicle) {
-    const vehicle = service.vehicle;
-    if (vehicle.brand && vehicle.model) {
-    return `${vehicle.brand} ${vehicle.model}`;
-}
-}
+        const vehicle = service.vehicle;
+        if (vehicle.brand && vehicle.model) {
+            return `${vehicle.brand} ${vehicle.model}`;
+        }
+    }
     return 'Unknown Vehicle';
 }
-    /**
-    * Format completion date from various possible date fields
-    */
-    function getFormattedDate(service) {
+
+function getFormattedDate(service) {
     const dateFields = [
-    'completionDate', 'completedDate', 'updatedAt',
-    'formattedCompletedDate', 'formattedCompletionDate'
+        'completionDate', 'completedDate', 'updatedAt',
+        'formattedCompletedDate', 'formattedCompletionDate'
     ];
     let dateValue = null;
     for (const field of dateFields) {
-    if (service[field]) {
-    dateValue = service[field];
-    break;
-}
-}
+        if (service[field]) {
+            dateValue = service[field];
+            break;
+        }
+    }
     if (!dateValue) {
-    return new Date().toLocaleDateString();
-}
+        return new Date().toLocaleDateString();
+    }
     if (typeof dateValue === 'string' && dateValue.includes(',')) {
-    return dateValue;
-}
+        return dateValue;
+    }
     try {
-    const date = new Date(dateValue);
-    if (!isNaN(date.getTime())) {
-    return date.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric'
-});
-}
-} catch (e) {
-    console.warn('Error formatting date:', e);
-}
+        const date = new Date(dateValue);
+        if (!isNaN(date.getTime())) {
+            return date.toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric'
+            });
+        }
+    } catch (e) {
+    }
     return dateValue;
 }
 
-    function populateMaterialsTable(materials) {
+function populateMaterialsTable(materials) {
     const tableBody = document.getElementById('materialsTableBody');
     tableBody.innerHTML = '';
     if (!materials || materials.length === 0) {
-    tableBody.innerHTML = `
+        tableBody.innerHTML = `
             <tr><td colspan="4" class="text-center">No materials used in this service</td></tr>
         `;
-    return;
-}
+        return;
+    }
     const formatter = new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    minimumFractionDigits: 2
-});
+        style: 'currency',
+        currency: 'INR',
+        minimumFractionDigits: 2
+    });
     let materialTotal = 0;
     materials.forEach(material => {
-    if (!material) return;
-    const row = document.createElement('tr');
-    const itemName = material.name || 'Unknown Item';
-    const quantity = parseFloatSafe(material.quantity, 1);
-    const unitPrice = parseFloatSafe(material.unitPrice, 0);
-    let total;
-    if (material.total) {
-    total = parseFloatSafe(material.total, 0);
-} else {
-    total = quantity * unitPrice;
-}
-    materialTotal += total;
-    row.innerHTML = `
+        if (!material) return;
+        const row = document.createElement('tr');
+        const itemName = material.name || 'Unknown Item';
+        const quantity = parseFloatSafe(material.quantity, 1);
+        const unitPrice = parseFloatSafe(material.unitPrice, 0);
+        let total;
+        if (material.total) {
+            total = parseFloatSafe(material.total, 0);
+        } else {
+            total = quantity * unitPrice;
+        }
+        materialTotal += total;
+        row.innerHTML = `
             <td>${itemName}</td>
             <td>${quantity}</td>
             <td>${formatter.format(unitPrice)}</td>
             <td>${formatter.format(total)}</td>
         `;
-    tableBody.appendChild(row);
-});
+        tableBody.appendChild(row);
+    });
     if (materials.length > 1) {
-    const totalRow = document.createElement('tr');
-    totalRow.innerHTML = `
+        const totalRow = document.createElement('tr');
+        totalRow.innerHTML = `
             <td colspan="3" class="text-end fw-bold">Total</td>
             <td class="fw-bold">${formatter.format(materialTotal)}</td>
         `;
-    tableBody.appendChild(totalRow);
+        tableBody.appendChild(totalRow);
+    }
 }
-}
-    function getAuthToken() {
+
+function getAuthToken() {
     const urlParams = new URLSearchParams(window.location.search);
     const tokenParam = urlParams.get('token');
     if (tokenParam) return tokenParam;
@@ -602,186 +513,187 @@
     if (typeof token !== 'undefined') return token;
     return '';
 }
-    function parseFloatSafe(value, defaultValue) {
+
+function parseFloatSafe(value, defaultValue) {
     if (value === null || value === undefined) {
-    return defaultValue;
-}
+        return defaultValue;
+    }
     if (typeof value === 'number') {
-    return value;
-}
+        return value;
+    }
     try {
-    const parsed = parseFloat(value);
-    return isNaN(parsed) ? defaultValue : parsed;
-} catch (e) {
-    return defaultValue;
+        const parsed = parseFloat(value);
+        return isNaN(parsed) ? defaultValue : parsed;
+    } catch (e) {
+        return defaultValue;
+    }
 }
-}
-    /**
-    * Populate labor charges table
-    */
-    function populateLaborChargesTable(laborCharges) {
+
+function populateLaborChargesTable(laborCharges) {
     const tableBody = document.getElementById('laborChargesTableBody');
     tableBody.innerHTML = '';
     if (!laborCharges || laborCharges.length === 0) {
-    tableBody.innerHTML = `
+        tableBody.innerHTML = `
             <tr><td colspan="4" class="text-center">No labor charges recorded for this service</td></tr>
         `;
-    return;
-}
+        return;
+    }
     const formatter = new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    minimumFractionDigits: 2
-});
+        style: 'currency',
+        currency: 'INR',
+        minimumFractionDigits: 2
+    });
     let laborTotal = 0;
     laborCharges.forEach(charge => {
-    if (!charge) return;
-    const row = document.createElement('tr');
-    const description = charge.description || 'Service Labor';
-    const hours = parseFloatSafe(charge.hours, 0);
-    const ratePerHour = parseFloatSafe(charge.ratePerHour, 0);
-    let total;
-    if (charge.total) {
-    total = parseFloatSafe(charge.total, 0);
-} else {
-    total = hours * ratePerHour;
-}
-    laborTotal += total;
-    row.innerHTML = `
+        if (!charge) return;
+        const row = document.createElement('tr');
+        const description = charge.description || 'Service Labor';
+        const hours = parseFloatSafe(charge.hours, 0);
+        const ratePerHour = parseFloatSafe(charge.ratePerHour, 0);
+        let total;
+        if (charge.total) {
+            total = parseFloatSafe(charge.total, 0);
+        } else {
+            total = hours * ratePerHour;
+        }
+        laborTotal += total;
+        row.innerHTML = `
             <td>${description}</td>
             <td>${hours.toFixed(2)}</td>
             <td>${formatter.format(ratePerHour)}/hr</td>
             <td>${formatter.format(total)}</td>
         `;
-    tableBody.appendChild(row);
-});
+        tableBody.appendChild(row);
+    });
     if (laborCharges.length > 1) {
-    const totalRow = document.createElement('tr');
-    totalRow.innerHTML = `
+        const totalRow = document.createElement('tr');
+        totalRow.innerHTML = `
             <td colspan="3" class="text-end fw-bold">Total</td>
             <td class="fw-bold">${formatter.format(laborTotal)}</td>
         `;
-    tableBody.appendChild(totalRow);
+        tableBody.appendChild(totalRow);
+    }
 }
-}
-    function formatCurrency(amount) {
+
+function formatCurrency(amount) {
     return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    minimumFractionDigits: 2
-}).format(amount);
+        style: 'currency',
+        currency: 'INR',
+        minimumFractionDigits: 2
+    }).format(amount);
 }
-    /**
-    * Update invoice summary with all financial details
-    */
-    function updateInvoiceSummary(data) {
+
+function updateInvoiceSummary(data) {
     const formatter = new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    minimumFractionDigits: 2
-});
+        style: 'currency',
+        currency: 'INR',
+        minimumFractionDigits: 2
+    });
     if (!data) {
-    document.getElementById('summaryMaterialsTotal').textContent = formatter.format(0);
-    document.getElementById('summaryLaborTotal').textContent = formatter.format(0);
-    document.getElementById('premiumDiscountRow').style.display = 'none';
-    document.getElementById('summarySubtotal').textContent = formatter.format(0);
-    document.getElementById('summaryGST').textContent = formatter.format(0);
-    document.getElementById('summaryGrandTotal').textContent = formatter.format(0);
-    return;
-}
+        document.getElementById('summaryMaterialsTotal').textContent = formatter.format(0);
+        document.getElementById('summaryLaborTotal').textContent = formatter.format(0);
+        document.getElementById('premiumDiscountRow').style.display = 'none';
+        document.getElementById('summarySubtotal').textContent = formatter.format(0);
+        document.getElementById('summaryGST').textContent = formatter.format(0);
+        document.getElementById('summaryGrandTotal').textContent = formatter.format(0);
+        return;
+    }
+
     const materialsTotal = parseFloatSafe(data.materialsTotal, 0);
     const laborTotal = parseFloatSafe(data.laborTotal, 0);
     const discount = parseFloatSafe(data.discount, 0);
     let subtotal = parseFloatSafe(data.subtotal, 0);
     if (subtotal === 0) {
-    subtotal = materialsTotal + laborTotal - discount;
-}
+        subtotal = materialsTotal + laborTotal - discount;
+    }
     let tax = parseFloatSafe(data.tax, 0);
     if (tax === 0) {
-    tax = subtotal * 0.18;
-}
+        tax = subtotal * 0.18;
+    }
     let grandTotal = parseFloatSafe(data.grandTotal, 0);
     if (grandTotal === 0) {
-    grandTotal = subtotal + tax;
-}
+        grandTotal = subtotal + tax;
+    }
+
     document.getElementById('summaryMaterialsTotal').textContent = formatter.format(materialsTotal);
     document.getElementById('summaryLaborTotal').textContent = formatter.format(laborTotal);
     if (discount > 0) {
-    document.getElementById('summaryDiscount').textContent = `-${formatter.format(discount)}`;
-    document.getElementById('premiumDiscountRow').style.display = '';
-} else {
-    document.getElementById('premiumDiscountRow').style.display = 'none';
-}
+        document.getElementById('summaryDiscount').textContent = `-${formatter.format(discount)}`;
+        document.getElementById('premiumDiscountRow').style.display = '';
+    } else {
+        document.getElementById('premiumDiscountRow').style.display = 'none';
+    }
     document.getElementById('summarySubtotal').textContent = formatter.format(subtotal);
     document.getElementById('summaryGST').textContent = formatter.format(tax);
     document.getElementById('summaryGrandTotal').textContent = formatter.format(grandTotal);
 }
 
-    function updateWorkflowSteps(service) {
+function updateWorkflowSteps(service) {
     document.querySelectorAll('.workflow-step').forEach(step => {
         step.classList.remove('active', 'completed');
     });
     const hasInvoice = service.hasInvoice || service.invoiceId ||
-    (service.invoice && service.invoice.invoiceId) || false;
+        (service.invoice && service.invoice.invoiceId) || false;
     const isPaid = service.isPaid || service.paid ||
-    (service.payment && service.payment.status === 'Completed') || false;
+        (service.payment && service.payment.status === 'Completed') || false;
     const isDelivered = service.isDelivered || service.delivered || false;
     if (hasInvoice) {
-    document.getElementById('stepInvoice').classList.add('completed');
-    if (isPaid) {
-    document.getElementById('stepPayment').classList.add('completed');
-    if (isDelivered) {
-    document.getElementById('stepDelivery').classList.add('completed');
-} else {
-    document.getElementById('stepDelivery').classList.add('active');
-}
-} else {
-    document.getElementById('stepPayment').classList.add('active');
-}
-} else {
-    document.getElementById('stepInvoice').classList.add('active');
-}
+        document.getElementById('stepInvoice').classList.add('completed');
+        if (isPaid) {
+            document.getElementById('stepPayment').classList.add('completed');
+            if (isDelivered) {
+                document.getElementById('stepDelivery').classList.add('completed');
+            } else {
+                document.getElementById('stepDelivery').classList.add('active');
+            }
+        } else {
+            document.getElementById('stepPayment').classList.add('active');
+        }
+    } else {
+        document.getElementById('stepInvoice').classList.add('active');
+    }
     service.hasInvoice = hasInvoice;
     service.isPaid = isPaid;
     service.isDelivered = isDelivered;
 }
 
-    function updateFooterButtons(service) {
+function updateFooterButtons(service) {
     const footer = document.getElementById('serviceDetailsFooter');
     const actionButtons = footer.querySelectorAll('button:not([data-bs-dismiss="modal"])');
     actionButtons.forEach(button => button.remove());
     if (!service.hasInvoice) {
-    const generateInvoiceBtn = document.createElement('button');
-    generateInvoiceBtn.type = 'button';
-    generateInvoiceBtn.className = 'btn-premium primary';
-    generateInvoiceBtn.innerHTML = '<i class="fas fa-file-invoice"></i> Generate Invoice';
-    generateInvoiceBtn.addEventListener('click', openGenerateInvoiceModal);
-    footer.appendChild(generateInvoiceBtn);
-} else if (!service.isPaid) {
-    const processPaymentBtn = document.createElement('button');
-    processPaymentBtn.type = 'button';
-    processPaymentBtn.className = 'btn-premium primary';
-    processPaymentBtn.innerHTML = '<i class="fas fa-money-bill-wave"></i> Process Payment';
-    processPaymentBtn.addEventListener('click', openPaymentModal);
-    footer.appendChild(processPaymentBtn);
-} else if (!service.isDelivered) {
-    const deliveryBtn = document.createElement('button');
-    deliveryBtn.type = 'button';
-    deliveryBtn.className = 'btn-premium primary';
-    deliveryBtn.innerHTML = '<i class="fas fa-truck"></i> Schedule Delivery';
-    deliveryBtn.addEventListener('click', openDeliveryModal);
-    footer.appendChild(deliveryBtn);
-}
+        const generateInvoiceBtn = document.createElement('button');
+        generateInvoiceBtn.type = 'button';
+        generateInvoiceBtn.className = 'btn-premium primary';
+        generateInvoiceBtn.innerHTML = '<i class="fas fa-file-invoice"></i> Generate Invoice';
+        generateInvoiceBtn.addEventListener('click', openGenerateInvoiceModal);
+        footer.appendChild(generateInvoiceBtn);
+    } else if (!service.isPaid) {
+        const processPaymentBtn = document.createElement('button');
+        processPaymentBtn.type = 'button';
+        processPaymentBtn.className = 'btn-premium primary';
+        processPaymentBtn.innerHTML = '<i class="fas fa-money-bill-wave"></i> Process Payment';
+        processPaymentBtn.addEventListener('click', openPaymentModal);
+        footer.appendChild(processPaymentBtn);
+    } else if (!service.isDelivered) {
+        const deliveryBtn = document.createElement('button');
+        deliveryBtn.type = 'button';
+        deliveryBtn.className = 'btn-premium primary';
+        deliveryBtn.innerHTML = '<i class="fas fa-truck"></i> Schedule Delivery';
+        deliveryBtn.addEventListener('click', openDeliveryModal);
+        footer.appendChild(deliveryBtn);
+    }
     if (service.hasInvoice) {
-    const downloadInvoiceBtn = document.createElement('button');
-    downloadInvoiceBtn.type = 'button';
-    downloadInvoiceBtn.className = 'btn-premium secondary me-2';
-    downloadInvoiceBtn.innerHTML = '<i class="fas fa-download"></i> Download Invoice';
-    downloadInvoiceBtn.addEventListener('click', () => downloadInvoice(service.requestId || service.serviceId));
-    footer.insertBefore(downloadInvoiceBtn, footer.firstChild);
+        const downloadInvoiceBtn = document.createElement('button');
+        downloadInvoiceBtn.type = 'button';
+        downloadInvoiceBtn.className = 'btn-premium secondary me-2';
+        downloadInvoiceBtn.innerHTML = '<i class="fas fa-download"></i> Download Invoice';
+        downloadInvoiceBtn.addEventListener('click', () => downloadInvoice(service.requestId || service.serviceId));
+        footer.insertBefore(downloadInvoiceBtn, footer.firstChild);
+    }
 }
-}
-    function loadInvoiceData(serviceId) {
+
+function loadInvoiceData(serviceId) {
     document.getElementById('materialsTableBody').innerHTML = `
         <tr><td colspan="4" class="text-center"><div class="spinner-border spinner-border-sm text-wine" role="status"></div> Loading materials...</td></tr>
     `;
@@ -790,63 +702,62 @@
     `;
     const token = getAuthToken();
     const invoiceUrls = [
-    `/admin/api/completed-services/${serviceId}/invoice-details`,
-    `/admin/api/invoice-details/service-request/${serviceId}`,
-    `/admin/api/invoice-details/service/${serviceId}`,
-    `/admin/api/services/${serviceId}/invoice-details`,
-    `/admin/api/vehicle-tracking/service-request/${serviceId}`
+        `/admin/api/completed-services/${serviceId}/invoice-details`,
+        `/admin/api/invoice-details/service-request/${serviceId}`,
+        `/admin/api/invoice-details/service/${serviceId}`,
+        `/admin/api/services/${serviceId}/invoice-details`,
+        `/admin/api/vehicle-tracking/service-request/${serviceId}`
     ];
     tryFetchUrls(invoiceUrls, token)
-    .then(data => {
-    console.log('Invoice details loaded:', data);
-    if (!data) {
-    data = createDefaultInvoiceData(serviceId);
-}
-    const materials = data.materials || [];
-    populateMaterialsTable(materials);
-    const laborCharges = data.laborCharges || [];
-    populateLaborChargesTable(laborCharges);
-    updateInvoiceSummary(data);
-})
-    .catch(error => {
-    console.error('Error loading invoice details:', error);
-    document.getElementById('materialsTableBody').innerHTML = `
+        .then(data => {
+            if (!data) {
+                data = createDefaultInvoiceData(serviceId);
+            }
+            const materials = data.materials || [];
+            populateMaterialsTable(materials);
+            const laborCharges = data.laborCharges || [];
+            populateLaborChargesTable(laborCharges);
+            updateInvoiceSummary(data);
+        })
+        .catch(error => {
+            document.getElementById('materialsTableBody').innerHTML = `
                 <tr><td colspan="4" class="text-center">No materials data available</td></tr>
             `;
-    document.getElementById('laborChargesTableBody').innerHTML = `
+            document.getElementById('laborChargesTableBody').innerHTML = `
                 <tr><td colspan="4" class="text-center">No labor charges data available</td></tr>
             `;
-    updateInvoiceSummary(createDefaultInvoiceData(serviceId));
-});
-}
-    function createDefaultInvoiceData(serviceId) {
-    return {
-    requestId: serviceId,
-    serviceId: serviceId,
-    materialsTotal: 0,
-    laborTotal: 0,
-    discount: 0,
-    subtotal: 0,
-    tax: 0,
-    grandTotal: 0,
-    materials: [],
-    laborCharges: []
-};
+            updateInvoiceSummary(createDefaultInvoiceData(serviceId));
+        });
 }
 
-    function downloadInvoice(serviceId) {
+function createDefaultInvoiceData(serviceId) {
+    return {
+        requestId: serviceId,
+        serviceId: serviceId,
+        materialsTotal: 0,
+        laborTotal: 0,
+        discount: 0,
+        subtotal: 0,
+        tax: 0,
+        grandTotal: 0,
+        materials: [],
+        laborCharges: []
+    };
+}
+
+function downloadInvoice(serviceId) {
     const token = getAuthToken();
     const downloadUrl = `/admin/api/completed-services/${serviceId}/invoice/download?token=${token}`;
     window.open(downloadUrl, '_blank');
 }
 
-    function openGenerateInvoiceModal() {
+function openGenerateInvoiceModal() {
     if (!currentService) return;
     const formatter = new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    minimumFractionDigits: 2
-});
+        style: 'currency',
+        currency: 'INR',
+        minimumFractionDigits: 2
+    });
     document.getElementById('invoiceServiceId').textContent = `REQ-${currentService.requestId || currentService.serviceId}`;
     document.getElementById('invoiceCustomerName').textContent = currentService.customerName;
     document.getElementById('customerEmail').value = currentService.customerEmail || '';
@@ -860,17 +771,17 @@
     const premiumDiscountRow = document.getElementById('invoicePremiumDiscountRow');
     const premiumBadge = document.getElementById('invoicePremiumBadge');
     if (isPremium) {
-    premiumBadge.style.display = '';
-    if (discount > 0) {
-    document.getElementById('invoiceDiscount').textContent = `-${formatter.format(discount)}`;
-    premiumDiscountRow.style.display = '';
-} else {
-    premiumDiscountRow.style.display = 'none';
-}
-} else {
-    premiumDiscountRow.style.display = 'none';
-    premiumBadge.style.display = 'none';
-}
+        premiumBadge.style.display = '';
+        if (discount > 0) {
+            document.getElementById('invoiceDiscount').textContent = `-${formatter.format(discount)}`;
+            premiumDiscountRow.style.display = '';
+        } else {
+            premiumDiscountRow.style.display = 'none';
+        }
+    } else {
+        premiumDiscountRow.style.display = 'none';
+        premiumBadge.style.display = 'none';
+    }
     document.getElementById('invoiceMaterialsTotal').textContent = formatter.format(materialsTotal);
     document.getElementById('invoiceLaborTotal').textContent = formatter.format(laborTotal);
     document.getElementById('invoiceSubtotal').textContent = formatter.format(subtotal);
@@ -882,13 +793,13 @@
     invoiceModal.show();
 }
 
-    function generateInvoice() {
+function generateInvoice() {
     if (!currentService) return;
     const email = document.getElementById('customerEmail').value;
     if (!email) {
-    showToast('Please enter customer email', 'error');
-    return;
-}
+        showToast('Please enter customer email', 'error');
+        return;
+    }
     const sendEmail = document.getElementById('sendInvoiceEmail').checked;
     const confirmBtn = document.getElementById('confirmGenerateInvoiceBtn');
     confirmBtn.disabled = true;
@@ -896,60 +807,59 @@
     const invoiceModal = bootstrap.Modal.getInstance(document.getElementById('generateInvoiceModal'));
     invoiceModal.hide();
     const invoiceRequest = {
-    serviceId: currentService.requestId || currentService.serviceId,
-    emailAddress: email,
-    sendEmail: sendEmail,
-    notes: "Generated from admin portal",
-    materialsTotal: currentService.calculatedMaterialsTotal,
-    laborTotal: currentService.calculatedLaborTotal,
-    discount: currentService.calculatedDiscount,
-    subtotal: currentService.calculatedSubtotal,
-    tax: currentService.calculatedTax,
-    total: currentService.calculatedTotal,
-    membershipStatus: getMembershipStatus(currentService)
-};
+        serviceId: currentService.requestId || currentService.serviceId,
+        emailAddress: email,
+        sendEmail: sendEmail,
+        notes: "Generated from admin portal",
+        materialsTotal: currentService.calculatedMaterialsTotal,
+        laborTotal: currentService.calculatedLaborTotal,
+        discount: currentService.calculatedDiscount,
+        subtotal: currentService.calculatedSubtotal,
+        tax: currentService.calculatedTax,
+        total: currentService.calculatedTotal,
+        membershipStatus: getMembershipStatus(currentService)
+    };
     const token = getAuthToken();
     fetch(`/admin/api/invoices/service-request/${currentService.requestId || currentService.serviceId}/generate`, {
-    method: 'POST',
-    headers: {
-    'Authorization': `Bearer ${token}`,
-    'Content-Type': 'application/json'
-},
-    body: JSON.stringify(invoiceRequest)
-})
-    .then(response => {
-    if (!response.ok) {
-    throw new Error('Failed to generate invoice');
-}
-    return response.json();
-})
-    .then(data => {
-    confirmBtn.disabled = false;
-    confirmBtn.innerHTML = '<i class="fas fa-file-invoice"></i> Generate & Send';
-    if (currentService) {
-    currentService.hasInvoice = true;
-}
-    loadCompletedServices();
-    const successModal = new bootstrap.Modal(document.getElementById('successModal'));
-    document.getElementById('successTitle').textContent = 'Invoice Generated';
-    document.getElementById('successMessage').textContent = sendEmail ?
-    `Invoice has been generated and sent to ${email}` :
-    'Invoice has been generated successfully';
-    successModal.show();
-    setTimeout(() => {
-    successModal.hide();
-    openPaymentModal();
-}, 2000);
-})
-    .catch(error => {
-    confirmBtn.disabled = false;
-    confirmBtn.innerHTML = '<i class="fas fa-file-invoice"></i> Generate & Send';
-    console.error('Error generating invoice:', error);
-    showToast('Error generating invoice: ' + error.message, 'error');
-});
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(invoiceRequest)
+    })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Failed to generate invoice');
+            }
+            return response.json();
+        })
+        .then(data => {
+            confirmBtn.disabled = false;
+            confirmBtn.innerHTML = '<i class="fas fa-file-invoice"></i> Generate & Send';
+            if (currentService) {
+                currentService.hasInvoice = true;
+            }
+            loadCompletedServices();
+            const successModal = new bootstrap.Modal(document.getElementById('successModal'));
+            document.getElementById('successTitle').textContent = 'Invoice Generated';
+            document.getElementById('successMessage').textContent = sendEmail ?
+                `Invoice has been generated and sent to ${email}` :
+                'Invoice has been generated successfully';
+            successModal.show();
+            setTimeout(() => {
+                successModal.hide();
+                openPaymentModal();
+            }, 2000);
+        })
+        .catch(error => {
+            confirmBtn.disabled = false;
+            confirmBtn.innerHTML = '<i class="fas fa-file-invoice"></i> Generate & Send';
+            showToast('Error generating invoice: ' + error.message, 'error');
+        });
 }
 
-    function openPaymentModal() {
+function openPaymentModal() {
     if (!currentService) return;
     document.getElementById('paymentServiceId').textContent = `REQ-${currentService.requestId || currentService.serviceId}`;
     document.getElementById('paymentCustomerName').textContent = currentService.customerName;
@@ -959,85 +869,83 @@
     paymentModal.show();
 }
 
-    function processPayment() {
+function processPayment() {
     if (!currentService) return;
     const paymentMethod = document.getElementById('paymentMethod').value;
     const transactionId = document.getElementById('transactionId').value;
     const paidAmount = document.getElementById('paidAmount').value;
     if (!paymentMethod) {
-    showToast('Please select a payment method', 'error');
-    return;
-}
+        showToast('Please select a payment method', 'error');
+        return;
+    }
     if (!paidAmount || paidAmount <= 0) {
-    showToast('Please enter a valid amount', 'error');
-    return;
-}
+        showToast('Please enter a valid amount', 'error');
+        return;
+    }
     const confirmBtn = document.getElementById('confirmPaymentBtn');
     confirmBtn.disabled = true;
     confirmBtn.innerHTML = '<div class="spinner-border spinner-border-sm me-2" role="status"></div> Processing...';
     const paymentModal = bootstrap.Modal.getInstance(document.getElementById('paymentModal'));
     paymentModal.hide();
     const paymentRequest = {
-    serviceId: currentService.requestId || currentService.serviceId,
-    paymentMethod: paymentMethod,
-    transactionId: transactionId,
-    amount: parseFloat(paidAmount),
-    notes: "Payment processed by admin"
-};
+        serviceId: currentService.requestId || currentService.serviceId,
+        paymentMethod: paymentMethod,
+        transactionId: transactionId,
+        amount: parseFloat(paidAmount),
+        notes: "Payment processed by admin"
+    };
     const token = getAuthToken();
     const paymentEndpoints = [
-    `/admin/api/vehicle-tracking/process-payment`,
-    `/admin/api/vehicle-tracking/service-request/${currentService.requestId || currentService.serviceId}/payment`,
-    `/admin/api/completed-services/${currentService.requestId || currentService.serviceId}/payment`
+        `/admin/api/vehicle-tracking/process-payment`,
+        `/admin/api/vehicle-tracking/service-request/${currentService.requestId || currentService.serviceId}/payment`,
+        `/admin/api/completed-services/${currentService.requestId || currentService.serviceId}/payment`
     ];
     tryPostUrls(paymentEndpoints, paymentRequest, token)
-    .then(data => {
-    confirmBtn.disabled = false;
-    confirmBtn.innerHTML = '<i class="fas fa-check-circle"></i> Confirm Payment';
-    if (currentService) {
-    currentService.isPaid = true;
-    currentService.paid = true;
-}
-    loadCompletedServices();
-    const successModal = new bootstrap.Modal(document.getElementById('successModal'));
-    document.getElementById('successTitle').textContent = 'Payment Processed';
-    document.getElementById('successMessage').textContent = 'Payment has been processed successfully';
-    successModal.show();
-    setTimeout(() => {
-    successModal.hide();
-    openDeliveryModal();
-}, 2000);
-})
-    .catch(error => {
-    confirmBtn.disabled = false;
-    confirmBtn.innerHTML = '<i class="fas fa-check-circle"></i> Confirm Payment';
-    console.error('Error processing payment:', error);
-    showToast('Error processing payment: ' + error.message, 'error');
-});
+        .then(data => {
+            confirmBtn.disabled = false;
+            confirmBtn.innerHTML = '<i class="fas fa-check-circle"></i> Confirm Payment';
+            if (currentService) {
+                currentService.isPaid = true;
+                currentService.paid = true;
+            }
+            loadCompletedServices();
+            const successModal = new bootstrap.Modal(document.getElementById('successModal'));
+            document.getElementById('successTitle').textContent = 'Payment Processed';
+            document.getElementById('successMessage').textContent = 'Payment has been processed successfully';
+            successModal.show();
+            setTimeout(() => {
+                successModal.hide();
+                openDeliveryModal();
+            }, 2000);
+        })
+        .catch(error => {
+            confirmBtn.disabled = false;
+            confirmBtn.innerHTML = '<i class="fas fa-check-circle"></i> Confirm Payment';
+            showToast('Error processing payment: ' + error.message, 'error');
+        });
 }
 
-    function tryPostUrls(urls, requestData, token) {
+function tryPostUrls(urls, requestData, token) {
     return urls.reduce((promise, url) => {
-    return promise.catch(() => {
-    console.log(`Trying POST URL: ${url}`);
-    return fetch(url, {
-    method: 'POST',
-    headers: {
-    'Authorization': `Bearer ${token}`,
-    'Content-Type': 'application/json'
-},
-    body: JSON.stringify(requestData)
-}).then(response => {
-    if (!response.ok) {
-    throw new Error(`Failed to POST to ${url}: ${response.status}`);
-}
-    return response.json();
-});
-});
-}, Promise.reject(new Error('Starting POST URL chain')));
+        return promise.catch(() => {
+            return fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(requestData)
+            }).then(response => {
+                if (!response.ok) {
+                    throw new Error(`Failed to POST to ${url}: ${response.status}`);
+                }
+                return response.json();
+            });
+        });
+    }, Promise.reject(new Error('Starting POST URL chain')));
 }
 
-    function openDeliveryModal() {
+function openDeliveryModal() {
     if (!currentService) return;
     document.getElementById('deliveryServiceId').textContent = `REQ-${currentService.requestId || currentService.serviceId}`;
     document.getElementById('pickupPerson').value = '';
@@ -1053,98 +961,85 @@
     deliveryModal.show();
 }
 
-    function processDelivery() {
+function processDelivery() {
     if (!currentService) return;
     const deliveryMethod = document.querySelector('input[name="deliveryMethod"]:checked').value;
     if (deliveryMethod === 'pickup') {
-    const pickupPerson = document.getElementById('pickupPerson').value;
-    const pickupTime = document.getElementById('pickupTime').value;
-    if (!pickupPerson) {
-    showToast('Please enter pickup person name', 'error');
-    return;
-}
-    if (!pickupTime) {
-    showToast('Please select pickup time', 'error');
-    return;
-}
-} else {
-    const deliveryAddress = document.getElementById('deliveryAddress').value;
-    const deliveryDate = document.getElementById('deliveryDate').value;
-    const deliveryContact = document.getElementById('deliveryContact').value;
-    if (!deliveryAddress) {
-    showToast('Please enter delivery address', 'error');
-    return;
-}
-    if (!deliveryDate) {
-    showToast('Please select delivery date', 'error');
-    return;
-}
-    if (!deliveryContact) {
-    showToast('Please enter contact number', 'error');
-    return;
-}
-}
+        const pickupPerson = document.getElementById('pickupPerson').value;
+        const pickupTime = document.getElementById('pickupTime').value;
+        if (!pickupPerson) {
+            showToast('Please enter pickup person name', 'error');
+            return;
+        }
+        if (!pickupTime) {
+            showToast('Please select pickup time', 'error');
+            return;
+        }
+    } else {
+        const deliveryAddress = document.getElementById('deliveryAddress').value;
+        const deliveryDate = document.getElementById('deliveryDate').value;
+        const deliveryContact = document.getElementById('deliveryContact').value;
+        if (!deliveryAddress) {
+            showToast('Please enter delivery address', 'error');
+            return;
+        }
+        if (!deliveryDate) {
+            showToast('Please select delivery date', 'error');
+            return;
+        }
+        if (!deliveryContact) {
+            showToast('Please enter contact number', 'error');
+            return;
+        }
+    }
     const confirmBtn = document.getElementById('confirmDeliveryBtn');
     confirmBtn.disabled = true;
     confirmBtn.innerHTML = '<div class="spinner-border spinner-border-sm me-2" role="status"></div> Processing...';
     const deliveryModal = bootstrap.Modal.getInstance(document.getElementById('deliveryModal'));
     deliveryModal.hide();
     const deliveryRequest = {
-    serviceId: currentService.requestId || currentService.serviceId,
-    deliveryType: deliveryMethod,
-    notes: "Processed by admin"
-};
+        serviceId: currentService.requestId || currentService.serviceId,
+        deliveryType: deliveryMethod,
+        notes: "Processed by admin"
+    };
     if (deliveryMethod === 'pickup') {
-    deliveryRequest.pickupPerson = document.getElementById('pickupPerson').value;
-    deliveryRequest.pickupTime = document.getElementById('pickupTime').value;
-} else {
-    deliveryRequest.deliveryAddress = document.getElementById('deliveryAddress').value;
-    deliveryRequest.deliveryDate = document.getElementById('deliveryDate').value;
-    deliveryRequest.contactNumber = document.getElementById('deliveryContact').value;
-}
+        deliveryRequest.pickupPerson = document.getElementById('pickupPerson').value;
+        deliveryRequest.pickupTime = document.getElementById('pickupTime').value;
+    } else {
+        deliveryRequest.deliveryAddress = document.getElementById('deliveryAddress').value;
+        deliveryRequest.deliveryDate = document.getElementById('deliveryDate').value;
+        deliveryRequest.contactNumber = document.getElementById('deliveryContact').value;
+    }
     const token = getAuthToken();
     const deliveryEndpoints = [
-    `/admin/api/vehicle-tracking/service-request/${currentService.requestId || currentService.serviceId}/dispatch`,
-    `/admin/api/completed-services/${currentService.requestId || currentService.serviceId}/dispatch`,
-    `/admin/api/delivery/service-request/${currentService.requestId || currentService.serviceId}`
+        `/admin/api/vehicle-tracking/service-request/${currentService.requestId || currentService.serviceId}/dispatch`,
+        `/admin/api/completed-services/${currentService.requestId || currentService.serviceId}/dispatch`,
+        `/admin/api/delivery/service-request/${currentService.requestId || currentService.serviceId}`
     ];
     tryPostUrls(deliveryEndpoints, deliveryRequest, token)
-    .then(data => {
-    confirmBtn.disabled = false;
-    confirmBtn.innerHTML = `<i class="fas fa-check-circle"></i> ${deliveryMethod === 'pickup' ? 'Confirm Pickup' : 'Confirm Delivery'}`;
-    if (currentService) {
-    currentService.isDelivered = true;
-    currentService.delivered = true;
-}
-    loadCompletedServices();
-    const successModal = new bootstrap.Modal(document.getElementById('successModal'));
-    document.getElementById('successTitle').textContent = 'Delivery Scheduled';
-    document.getElementById('successMessage').textContent = deliveryMethod === 'pickup' ?
-    'Vehicle pickup has been scheduled successfully' :
-    'Vehicle delivery has been scheduled successfully';
-    successModal.show();
-})
-    .catch(error => {
-    confirmBtn.disabled = false;
-    confirmBtn.innerHTML = `<i class="fas fa-check-circle"></i> ${deliveryMethod === 'pickup' ? 'Confirm Pickup' : 'Confirm Delivery'}`;
-    console.error('Error processing delivery:', error);
-    showToast('Error processing delivery: ' + error.message, 'error');
-});
-}
-
-    function getAuthToken() {
-    const urlParams = new URLSearchParams(window.location.search);
-    const tokenParam = urlParams.get('token');
-    if (tokenParam) return tokenParam;
-    const sessionToken = sessionStorage.getItem('jwt-token');
-    if (sessionToken) return sessionToken;
-    const localToken = localStorage.getItem('jwt-token');
-    if (localToken) return localToken;
-    if (typeof token !== 'undefined') return token;
-    return '';
+        .then(data => {
+            confirmBtn.disabled = false;
+            confirmBtn.innerHTML = `<i class="fas fa-check-circle"></i> ${deliveryMethod === 'pickup' ? 'Confirm Pickup' : 'Confirm Delivery'}`;
+            if (currentService) {
+                currentService.isDelivered = true;
+                currentService.delivered = true;
+            }
+            loadCompletedServices();
+            const successModal = new bootstrap.Modal(document.getElementById('successModal'));
+            document.getElementById('successTitle').textContent = 'Delivery Scheduled';
+            document.getElementById('successMessage').textContent = deliveryMethod === 'pickup' ?
+                'Vehicle pickup has been scheduled successfully' :
+                'Vehicle delivery has been scheduled successfully';
+            successModal.show();
+        })
+        .catch(error => {
+            confirmBtn.disabled = false;
+            confirmBtn.innerHTML = `<i class="fas fa-check-circle"></i> ${deliveryMethod === 'pickup' ? 'Confirm Pickup' : 'Confirm Delivery'}`;
+            showToast('Error processing delivery: ' + error.message, 'error');
+        });
 }
 
-    function showToast(message, type = 'success') {
+function showToast(message, type = 'success') {
     const toastContainer = document.querySelector('.toast-container');
     if (!toastContainer) return;
     const toastEl = document.createElement('div');
@@ -1162,33 +1057,11 @@
     `;
     toastContainer.appendChild(toastEl);
     const toast = new bootstrap.Toast(toastEl, {
-    autohide: true,
-    delay: 3000
-});
+        autohide: true,
+        delay: 3000
+    });
     toast.show();
     toastEl.addEventListener('hidden.bs.toast', function() {
-    toastEl.remove();
-});
+        toastEl.remove();
+    });
 }
-
-    window.testMembershipBadge = function(serviceId) {
-    const service = completedServices.find(s =>
-    (s.serviceId == serviceId || s.requestId == serviceId));
-    if (!service) {
-    console.error(`Service with ID ${serviceId} not found`);
-    return;
-}
-    traceMembershipStatus(service, 'testMembershipBadge');
-    const row = createServiceTableRow(service);
-    console.log('Row HTML:', row.innerHTML);
-    const isPremium = isMembershipPremium(service);
-    const expectedClass = isPremium ? 'membership-premium' : 'membership-standard';
-    const badgeMatch = row.innerHTML.match(/membership-badge\s+(membership-[a-z]+)/);
-    if (badgeMatch) {
-    const actualClass = badgeMatch[1];
-    console.log(`Badge class: ${actualClass}, Expected: ${expectedClass}`);
-    console.log(`Badge class is ${actualClass === expectedClass ? 'CORRECT ✅' : 'WRONG ❌'}`);
-} else {
-    console.error('Could not find membership badge in HTML');
-}
-};
