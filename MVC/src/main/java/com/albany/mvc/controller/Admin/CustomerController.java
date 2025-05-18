@@ -1,34 +1,53 @@
-package com.albany.mvc.controller;
+package com.albany.mvc.controller.Admin;
 
 import com.albany.mvc.service.CustomerService;
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
-@RestController
-@RequestMapping("/admin/customers/api")
+@Controller
+@RequestMapping("/admin/customers")
 @RequiredArgsConstructor
 @Slf4j
-public class CustomerApiController {
+public class CustomerController extends AdminBaseController {
 
     private final CustomerService customerService;
 
     @GetMapping
+    public String customersPage(
+            @RequestParam(required = false) String token,
+            Model model,
+            HttpServletRequest request) {
+
+        String validToken = getValidToken(token, request);
+        if (validToken == null) {
+            return handleInvalidToken();
+        }
+
+        try {
+            List<Map<String, Object>> customers = customerService.getAllCustomers(validToken);
+            model.addAttribute("customers", customers);
+        } catch (Exception e) {
+            model.addAttribute("error", "Failed to load customers: " + e.getMessage());
+        }
+
+        addCommonAttributes(model);
+        return "admin/customers";
+    }
+
+    @GetMapping("/api")
     public ResponseEntity<List<Map<String, Object>>> getAllCustomers(
             @RequestParam(required = false) String token,
             @RequestHeader(value = "Authorization", required = false) String authHeader,
             HttpServletRequest request) {
 
-        // Get valid token
         String validToken = getValidToken(token, authHeader, request);
         if (validToken == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
@@ -38,19 +57,17 @@ public class CustomerApiController {
             List<Map<String, Object>> customers = customerService.getAllCustomers(validToken);
             return ResponseEntity.ok(customers);
         } catch (Exception e) {
-            log.error("Error fetching customers: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Collections.emptyList());
         }
     }
 
-    @GetMapping("/{id}")
+    @GetMapping("/api/{id}")
     public ResponseEntity<Map<String, Object>> getCustomerById(
             @PathVariable Integer id,
             @RequestParam(required = false) String token,
             @RequestHeader(value = "Authorization", required = false) String authHeader,
             HttpServletRequest request) {
 
-        // Get valid token
         String validToken = getValidToken(token, authHeader, request);
         if (validToken == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
@@ -63,12 +80,11 @@ public class CustomerApiController {
             }
             return ResponseEntity.ok(customer);
         } catch (Exception e) {
-            log.error("Error fetching customer: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Collections.emptyMap());
         }
     }
 
-    @PutMapping("/{id}")
+    @PutMapping("/api/{id}")
     public ResponseEntity<Map<String, Object>> updateCustomer(
             @PathVariable Integer id,
             @RequestBody Map<String, Object> customerData,
@@ -76,7 +92,6 @@ public class CustomerApiController {
             @RequestHeader(value = "Authorization", required = false) String authHeader,
             HttpServletRequest request) {
 
-        // Get valid token
         String validToken = getValidToken(token, authHeader, request);
         if (validToken == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
@@ -89,20 +104,18 @@ public class CustomerApiController {
             }
             return ResponseEntity.ok(updatedCustomer);
         } catch (Exception e) {
-            log.error("Error updating customer: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Collections.singletonMap("error", e.getMessage()));
         }
     }
 
-    @DeleteMapping("/{id}")
+    @DeleteMapping("/api/{id}")
     public ResponseEntity<Map<String, Object>> deleteCustomer(
             @PathVariable Integer id,
             @RequestParam(required = false) String token,
             @RequestHeader(value = "Authorization", required = false) String authHeader,
             HttpServletRequest request) {
 
-        // Get valid token
         String validToken = getValidToken(token, authHeader, request);
         if (validToken == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
@@ -117,37 +130,56 @@ public class CustomerApiController {
                         .body(Collections.singletonMap("error", "Failed to delete customer"));
             }
         } catch (Exception e) {
-            log.error("Error deleting customer: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Collections.singletonMap("error", e.getMessage()));
         }
     }
+    
+    @PostMapping("/api")
+    @ResponseBody
+    public ResponseEntity<?> createCustomer(
+            @RequestBody Map<String, Object> customerData,
+            @RequestParam(required = false) String token,
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            HttpServletRequest request) {
 
-    // Helper method to get a valid token from various sources
-    private String getValidToken(String tokenParam, String authHeader, HttpServletRequest request) {
-        // Check parameter first
-        if (tokenParam != null && !tokenParam.isEmpty()) {
-            log.debug("Using token from parameter");
-            return tokenParam;
+        String validToken = getValidToken(token, authHeader, request);
+        if (validToken == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
-        // Check header next
-        if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            log.debug("Using token from Authorization header");
-            return authHeader.substring(7);
+        if (!customerData.containsKey("password") ||
+                customerData.get("password") == null ||
+                customerData.get("password").toString().isEmpty()) {
+            customerData.put("password", generateTempPassword());
         }
 
-        // Check session last
-        HttpSession session = request.getSession(false);
-        if (session != null) {
-            String sessionToken = (String) session.getAttribute("jwt-token");
-            if (sessionToken != null && !sessionToken.isEmpty()) {
-                log.debug("Using token from session");
-                return sessionToken;
-            }
+        try {
+            Map<String, Object> createdCustomer = customerService.createCustomer(customerData, validToken);
+            return ResponseEntity.ok(createdCustomer);
+        } catch (Exception e) {
+            Map<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("error", "Failed to create customer: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        }
+    }
+    
+    private String generateTempPassword() {
+        final String letters = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+        final String numbers = "123456789";
+
+        StringBuilder password = new StringBuilder("CUS2025-");
+
+        for (int i = 0; i < 3; i++) {
+            int index = (int) (Math.random() * letters.length());
+            password.append(letters.charAt(index));
         }
 
-        log.warn("No valid token found from any source");
-        return null;
+        for (int i = 0; i < 3; i++) {
+            int index = (int) (Math.random() * numbers.length());
+            password.append(numbers.charAt(index));
+        }
+
+        return password.toString();
     }
 }

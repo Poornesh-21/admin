@@ -17,7 +17,7 @@ import java.util.Map;
 @RestController
 @Slf4j
 @RequiredArgsConstructor
-public class PasswordController {
+public class PasswordController extends BaseController {
 
     private final PasswordService passwordService;
 
@@ -28,9 +28,6 @@ public class PasswordController {
             @RequestHeader(value = "Authorization", required = false) String authHeader,
             HttpServletRequest request) {
 
-        log.info("Processing password change request for service advisor");
-        
-        // Get valid token
         String validToken = getValidToken(token, authHeader, request);
         if (validToken == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
@@ -38,22 +35,17 @@ public class PasswordController {
         }
 
         try {
-            // Call service to change password
             AuthResponse response = passwordService.changePassword(passwordChangeDto, validToken);
             
-            // Update session with new token
             HttpSession session = request.getSession();
             session.setAttribute("jwt-token", response.getToken());
             
-            // Return success response with new token
             Map<String, Object> successResponse = new HashMap<>();
             successResponse.put("message", "Password changed successfully");
             successResponse.put("token", response.getToken());
             
             return ResponseEntity.ok(successResponse);
         } catch (Exception e) {
-            log.error("Error changing password: {}", e.getMessage(), e);
-            
             Map<String, String> errorResponse = new HashMap<>();
             errorResponse.put("error", e.getMessage());
             
@@ -68,9 +60,6 @@ public class PasswordController {
             @RequestHeader(value = "Authorization", required = false) String authHeader,
             HttpServletRequest request) {
 
-        log.info("Processing password change request for admin");
-        
-        // Get valid token
         String validToken = getValidToken(token, authHeader, request);
         if (validToken == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
@@ -78,52 +67,21 @@ public class PasswordController {
         }
 
         try {
-            // Call service to change password
             AuthResponse response = passwordService.changePassword(passwordChangeDto, validToken);
             
-            // Update session with new token
             HttpSession session = request.getSession();
             session.setAttribute("jwt-token", response.getToken());
             
-            // Return success response with new token
             Map<String, Object> successResponse = new HashMap<>();
             successResponse.put("message", "Password changed successfully");
             successResponse.put("token", response.getToken());
             
             return ResponseEntity.ok(successResponse);
         } catch (Exception e) {
-            log.error("Error changing password: {}", e.getMessage(), e);
-            
             Map<String, String> errorResponse = new HashMap<>();
             errorResponse.put("error", e.getMessage());
             
             return ResponseEntity.badRequest().body(errorResponse);
         }
-    }
-
-    /**
-     * Helper method to get a valid token from various sources
-     */
-    private String getValidToken(String tokenParam, String authHeader, HttpServletRequest request) {
-        // Check parameter first
-        if (tokenParam != null && !tokenParam.isEmpty()) {
-            return tokenParam;
-        }
-
-        // Check header next
-        if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            return authHeader.substring(7);
-        }
-
-        // Check session last
-        HttpSession session = request.getSession(false);
-        if (session != null) {
-            String sessionToken = (String) session.getAttribute("jwt-token");
-            if (sessionToken != null && !sessionToken.isEmpty()) {
-                return sessionToken;
-            }
-        }
-
-        return null;
     }
 }
