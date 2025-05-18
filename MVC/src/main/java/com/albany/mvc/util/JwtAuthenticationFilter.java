@@ -1,4 +1,4 @@
-package com.albany.mvc.security;
+package com.albany.mvc.util;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;

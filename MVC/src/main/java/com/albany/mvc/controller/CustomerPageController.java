@@ -1,6 +1,6 @@
 package com.albany.mvc.controller;
 
-import com.albany.mvc.security.JwtUtil;
+import com.albany.mvc.util.JwtUtil;
 import com.albany.mvc.service.CustomerService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;

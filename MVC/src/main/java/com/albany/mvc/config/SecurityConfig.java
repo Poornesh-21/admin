@@ -1,6 +1,6 @@
 package com.albany.mvc.config;
 
-import com.albany.mvc.security.JwtAuthenticationFilter;
+import com.albany.mvc.util.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

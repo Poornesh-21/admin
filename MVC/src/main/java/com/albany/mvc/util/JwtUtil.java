@@ -1,4 +1,4 @@
-package com.albany.mvc.security;
+package com.albany.mvc.util;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;

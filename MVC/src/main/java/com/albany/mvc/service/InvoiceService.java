@@ -1,8 +1,6 @@
 package com.albany.mvc.service;
 
 import com.albany.mvc.dto.CompletedServiceDTO;
-import com.albany.mvc.dto.LaborChargeDTO;
-import com.albany.mvc.dto.MaterialItemDTO;
 import com.albany.mvc.util.ModelMapper;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -14,9 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * Service for handling invoice generation and management for completed services
