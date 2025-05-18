@@ -37,7 +37,7 @@ public class VehiclesPageController {
         // Set the admin's name for the page
         model.addAttribute("userName", "Arthur Morgan");
 
-        return "underservices"; // Changed from "admin/Vehicle" to lowercase
+        return "admin/underservices"; // Changed to include the admin/ prefix
     }
 
     /**
