@@ -1,0 +1,392 @@
+     /* Root variables */
+     :root {
+         --primary: #722F37;
+         --primary-dark: #5a252c;
+         --secondary: #722F37;
+         --accent: #EFFBBB;
+         --dark: #2c1518;
+         --light: #f8fff0;
+         --gray: #64748b;
+         --gradient-primary: linear-gradient(135deg, #722F37 0%, #8a3a44 100%);
+         --gradient-secondary: linear-gradient(135deg, rgba(114, 47, 55, 0.1) 0%, rgba(239, 251, 187, 0.1) 100%);
+         --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+         --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.1);
+         --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1);
+         --shadow-xl: 0 20px 25px -5px rgba(0,0,0,0.1);
+     }
+     
+     /* Main styles */
+     body {
+         font-family: 'Baloo Bhaijaan 2', sans-serif;
+         color: var(--dark);
+         background-color: var(--light);
+         overflow-x: hidden;
+     }
+     
+     .wrapper {
+         display: flex;
+         width: 100%;
+     }
+     
+     /* Sidebar styles */
+     #sidebar {
+         width: clamp(250px, 20vw, 280px);
+         position: fixed;
+         top: 0;
+         left: 0;
+         height: 100vh;
+         z-index: 999;
+         background: var(--gradient-primary);
+         color: #fff;
+         transition: all 0.3s;
+         box-shadow: var(--shadow-lg);
+     }
+     
+     #sidebar .sidebar-header {
+         padding: clamp(20px, 5vw, 25px) 20px;
+         background: var(--primary-dark);
+     }
+     
+     #sidebar .sidebar-header h3 {
+         margin: 0;
+         font-family: 'Russo One', sans-serif;
+         font-size: clamp(1.2rem, 4vw, 1.5rem);
+         letter-spacing: 1px;
+     }
+     
+     #sidebar .profile-section {
+         padding: 20px;
+         border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+         background: rgba(0, 0, 0, 0.1);
+     }
+     
+     #sidebar .profile-info {
+         display: flex;
+         align-items: center;
+         gap: 15px;
+     }
+     
+     #sidebar .profile-image {
+         width: clamp(50px, 15vw, 60px);
+         height: clamp(50px, 15vw, 60px);
+         border-radius: 50%;
+         border: 3px solid rgba(255, 255, 255, 0.2);
+         object-fit: cover;
+     }
+     
+     #sidebar .name {
+         margin: 0;
+         font-weight: 600;
+         font-size: clamp(1rem, 3vw, 1.1rem);
+     }
+     
+     #sidebar .role {
+         margin: 0;
+         font-size: clamp(0.75rem, 2.5vw, 0.85rem);
+         opacity: 0.8;
+     }
+     
+     #sidebar ul.components {
+         padding: 20px 0;
+     }
+     
+     #sidebar ul li {
+         padding: 0;
+         margin-bottom: 5px;
+     }
+     
+     #sidebar ul li a {
+         padding: clamp(10px, 3vw, 12px) 20px;
+         display: flex;
+         align-items: center;
+         color: #fff;
+         text-decoration: none;
+         transition: all 0.3s;
+         border-radius: 0 30px 30px 0;
+         margin-right: 15px;
+         font-size: clamp(0.9rem, 3vw, 1rem);
+     }
+     
+     #sidebar ul li a:hover {
+         background: rgba(255, 255, 255, 0.15);
+         transform: translateX(5px);
+     }
+     
+     #sidebar ul li.active a {
+         background: rgba(255, 255, 255, 0.2);
+         font-weight: 600;
+     }
+     
+     #sidebar ul li a i {
+         margin-right: 10px;
+         width: 20px;
+         text-align: center;
+     }
+     
+     /* Content styles */
+     #content {
+         width: calc(100% - clamp(250px, 20vw, 280px));
+         margin-left: clamp(250px, 20vw, 280px);
+         transition: all 0.3s;
+         min-height: 100vh;
+     }
+     
+     .content-wrapper {
+         padding: clamp(20px, 5vw, 30px);
+     }
+     
+     .navbar {
+         padding: clamp(10px, 3vw, 15px) clamp(20px, 5vw, 30px);
+         background: rgba(255, 255, 255, 0.95) !important;
+         border: none;
+         border-radius: 0;
+         box-shadow: var(--shadow-md);
+         margin-bottom: 30px;
+     }
+     
+     #sidebarCollapse {
+         background: transparent;
+         border: none;
+         color: var(--primary);
+         font-size: clamp(1rem, 4vw, 1.2rem);
+     }
+     
+     .page-header {
+         margin-bottom: 30px;
+     }
+     
+     .page-header h1 {
+         font-weight: 700;
+         color: var(--primary);
+         margin-bottom: 10px;
+         font-size: clamp(1.5rem, 5vw, 2rem);
+     }
+     
+     .page-header p {
+         color: var(--gray);
+         font-size: clamp(0.9rem, 3vw, 1.1rem);
+     }
+     
+     /* Book Service specific styles */
+     .card {
+         border: none;
+         border-radius: 15px;
+         box-shadow: var(--shadow-lg);
+         margin-bottom: 30px;
+         background-color: #fff;
+         overflow: hidden;
+     }
+     
+     .card-body {
+         padding: clamp(20px, 5vw, 40px);
+     }
+     
+     .form-section-title {
+         font-size: clamp(1.1rem, 4vw, 1.3rem);
+         font-weight: 600;
+         margin-bottom: 25px;
+         padding-bottom: 15px;
+         border-bottom: 2px solid var(--accent);
+         color: var(--primary);
+         position: relative;
+     }
+     
+     .form-section-title::after {
+         content: '';
+         position: absolute;
+         bottom: -2px;
+         left: 0;
+         width: 60px;
+         height: 2px;
+         background-color: var(--primary);
+     }
+     
+     .form-label {
+         font-weight: 500;
+         color: var(--dark);
+         margin-bottom: 8px;
+         font-size: clamp(0.9rem, 3vw, 1rem);
+     }
+     
+     .required {
+         color: var(--primary);
+         font-weight: bold;
+     }
+     
+     .form-control, .form-select {
+         border-radius: 10px;
+         padding: clamp(10px, 3vw, 12px) 15px;
+         border: 1px solid #e0e0e0;
+         font-size: clamp(0.9rem, 3vw, 1rem);
+         transition: all 0.3s;
+     }
+     
+     .form-control:focus, .form-select:focus {
+         box-shadow: 0 0 0 3px rgba(114, 47, 55, 0.2);
+         border-color: var(--primary);
+     }
+     
+     .form-actions {
+         padding-top: 30px;
+         border-top: 1px solid #f0f0f0;
+         display: flex;
+         justify-content: flex-end;
+         gap: 15px;
+     }
+     
+     .btn {
+         padding: clamp(10px, 3vw, 12px) clamp(20px, 5vw, 25px);
+         border-radius: 50px;
+         font-weight: 600;
+         transition: all 0.3s ease;
+         font-size: clamp(0.9rem, 3vw, 1rem);
+     }
+     
+     .btn-primary {
+         background: var(--gradient-primary);
+         border: none;
+         color: white;
+     }
+     
+     .btn-primary:hover {
+         transform: translateY(-3px);
+         box-shadow: var(--shadow-md);
+     }
+     
+     .btn-secondary {
+         background-color: transparent;
+         border: 1px solid var(--primary);
+         color: var(--primary);
+     }
+     
+     .btn-secondary:hover {
+         background-color: rgba(114, 47, 55, 0.1);
+         transform: translateY(-3px);
+     }
+     
+     .btn-outline-secondary {
+         color: var(--primary);
+         border-color: var(--primary);
+     }
+     
+     .btn-outline-secondary:hover {
+         background-color: var(--primary);
+         color: white;
+     }
+     
+     /* Responsive styles */
+     @media (max-width: 1200px) {
+         #sidebar {
+             width: clamp(200px, 20vw, 250px);
+         }
+         
+         #content {
+             width: calc(100% - clamp(200px, 20vw, 250px));
+             margin-left: clamp(200px, 20vw, 250px);
+         }
+     }
+
+     @media (max-width: 992px) {
+         #sidebar {
+             width: 250px;
+             margin-left: -250px;
+         }
+         
+         #content {
+             width: 100%;
+             margin-left: 0;
+         }
+         
+         #sidebar.active {
+             margin-left: 0;
+         }
+         
+         #content.active {
+             margin-left: 250px;
+             width: calc(100% - 250px);
+         }
+         
+         .card-body {
+             padding: clamp(20px, 5vw, 30px);
+         }
+         
+         .row > div {
+             margin-bottom: 1rem;
+         }
+     }
+     
+     @media (max-width: 768px) {
+         #sidebar {
+             width: 200px;
+             margin-left: -200px;
+         }
+         
+         #content.active {
+             margin-left: 200px;
+             width: calc(100% - 200px);
+         }
+         
+         .card-body {
+             padding: clamp(15px, 4vw, 25px);
+         }
+         
+         .form-actions {
+             flex-direction: column;
+             gap: 10px;
+         }
+         
+         .btn {
+             width: 100%;
+         }
+         
+         .page-header h1 {
+             font-size: clamp(1.2rem, 4vw, 1.5rem);
+         }
+         
+         .profile-info {
+             flex-direction: column;
+             text-align: center;
+             gap: 10px;
+         }
+         
+         .profile-image {
+             margin-right: 0;
+         }
+     }
+     
+     @media (max-width: 576px) {
+         #sidebar {
+             width: 100%;
+             margin-left: -100%;
+         }
+         
+         #content.active {
+             margin-left: 100%;
+             width: 0;
+             overflow: hidden;
+         }
+         
+         .navbar {
+             padding: clamp(8px, 3vw, 12px) clamp(15px, 4vw, 20px);
+         }
+         
+         .form-section-title {
+             font-size: clamp(1rem, 3.5vw, 1.2rem);
+         }
+         
+         .form-control, .form-select {
+             font-size: clamp(0.8rem, 2.5vw, 0.9rem);
+         }
+         
+         .form-label {
+             font-size: clamp(0.8rem, 2.5vw, 0.9rem);
+         }
+         
+         .sidebar-header h3 {
+             font-size: clamp(1rem, 3.5vw, 1.2rem);
+         }
+         
+         #sidebar ul li a {
+             font-size: clamp(0.8rem, 2.5vw, 0.9rem);
+         }
+     }

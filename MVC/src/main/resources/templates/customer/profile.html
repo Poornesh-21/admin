@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Your Profile - Albany</title>
+    <!-- Link to your CSS files -->
+    <link rel="stylesheet" th:href="@{/css/profile.css}">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <div class="logo">Albany</div>
+        <div class="nav-links">
+            <a th:href="@{/}" class="tooltip"><i class="fas fa-home"></i><span class="tooltiptext">Home</span><span>Home</span></a>
+            <a th:href="@{/customer/bookService}" class="tooltip"><i class="fas fa-car-alt"></i><span class="tooltiptext">Services</span><span>Services</span></a>
+            <a th:href="@{/about}" class="tooltip"><i class="fas fa-info-circle"></i><span class="tooltiptext">About</span><span>About</span></a>
+            <a th:href="@{/contact}" class="tooltip"><i class="fas fa-phone"></i><span class="tooltiptext">Contact</span><span>Contact</span></a>
+            <a th:href="@{/profile}" class="tooltip active"><i class="fas fa-user"></i><span class="tooltiptext">Profile</span></a>
+        </div>
+    </div>
+    
+    <!-- Main Content -->
+    <div class="container">
+        <h1 class="page-title">Your Profile</h1>
+        
+        <div class="profile-grid">
+            <!-- Sidebar -->
+            <div class="profile-sidebar">
+                <div class="profile-avatar">
+                    <div id="profileAvatarWrapper" class="avatar-wrapper">
+                        <img src="/api/placeholder/300/300" alt="User Avatar">
+                        <div class="change-avatar" onclick="openAvatarModal()">
+                            <i class="fas fa-camera"></i>
+                        </div>
+                    </div>
+                    <div class="profile-name" th:text="${user != null ? user.firstName + ' ' + user.lastName : 'Guest User'}">John Smith</div>
+                    <div class="membership-status" th:text="${user != null ? 'Premium Member' : 'Guest'}">Premium Member</div>
+                </div>
+                
+                <div class="profile-menu">
+                    <a href="#" class="menu-item active" onclick="showTab('profile')">
+                        <i class="fas fa-user"></i>
+                        <span>Profile Information</span>
+                    </a>
+                    <a href="#" class="menu-item" onclick="showTab('services')">
+                        <i class="fas fa-car"></i>
+                        <span>Current Services</span>
+                    </a>
+                    <a href="#" class="menu-item" onclick="showTab('history')">
+                        <i class="fas fa-history"></i>
+                        <span>Service History</span>
+                    </a>
+                    <a href="#" class="menu-item" onclick="showTab('invoices')">
+                        <i class="fas fa-file-invoice-dollar"></i>
+                        <span>Invoices</span>
+                    </a>
+                    <a href="#" class="menu-item" onclick="showTab('vehicles')">
+                        <i class="fas fa-car-alt"></i>
+                        <span>Your Vehicles</span>
+                    </a>
+                    <a th:href="@{/authentication/logout}" class="menu-item">
+                        <i class="fas fa-sign-out-alt"></i>
+                        <span>Logout</span>
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Content Area -->
+            <div class="profile-content">
+                <!-- Profile Tab -->
+                <div class="tab-content active" id="profile-tab">
+                    <div class="content-header">
+                        <span>Profile Information</span>
+                    </div>
+                    <div class="content-body">
+                        <form id="profileForm" th:action="@{/api/users/update}" method="post">
+                            <h3 class="section-title">Personal Information</h3>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">First Name</label>
+                                    <input type="text" class="form-control" name="firstName" th:value="${user != null ? user.firstName : ''}">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Last Name</label>
+                                    <input type="text" class="form-control" name="lastName" th:value="${user != null ? user.lastName : ''}">
+                                </div>
+                            </div>
+                            
+                            <h3 class="section-title">Contact Information <button type="button" class="btn btn-outline btn-sm" onclick="openVerifyModal('email')">Update Email</button></h3>
+                            <div class="form-group">
+                                <label class="form-label">Email Address</label>
+                                <input type="email" class="form-control" value="" th:value="${user != null ? user.email : ''}" disabled>
+                            </div>
+                            
+                            <div class="section-title">Phone Number <button type="button" class="btn btn-outline btn-sm" onclick="openVerifyModal('phone')">Update Phone</button></div>
+                            <div class="form-group">
+                                <label class="form-label">Phone Number</label>
+                                <input type="tel" class="form-control" value="" th:value="${user != null ? user.phoneNumber : ''}" disabled>
+                            </div>
+                            
+                            <h3 class="section-title">Address Information</h3>
+                            <div class="form-group">
+                                <label class="form-label">Street Address</label>
+                                <input type="text" class="form-control" name="streetAddress" th:value="${address != null ? address.streetAddress : ''}">
+                            </div>
+                            
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">City</label>
+                                    <input type="text" class="form-control" name="city" th:value="${address != null ? address.city : ''}">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">State</label>
+                                    <input type="text" class="form-control" name="state" th:value="${address != null ? address.state : ''}">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">ZIP Code</label>
+                                    <input type="text" class="form-control" name="zipCode" th:value="${address != null ? address.zipCode : ''}">
+                                </div>
+                            </div>
+                            
+                            <div style="text-align: right; margin-top: 2rem;">
+                                <button type="submit" class="btn btn-primary">Save Changes</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+                
+                <!-- Current Services Tab -->
+                <div class="tab-content" id="services-tab">
+                    <div class="content-header">
+                        <span>Current Services</span>
+                    </div>
+                    <div class="content-body">
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle"></i> Track your vehicle's service status in real-time
+                        </div>
+                        
+                        <div class="service-status">
+                            <div class="status-header">
+                                <div class="status-title">Your Vehicles in Service</div>
+                            </div>
+                            
+                            <!-- No active services message -->
+                            <div th:if="${#lists.isEmpty(activeServices)}" class="empty-state">
+                                <i class="fas fa-car-crash"></i>
+                                <p>You don't have any vehicles currently in service</p>
+                                <a th:href="@{/customer/bookService}" class="btn btn-primary">Book a Service</a>
+                            </div>
+                            
+                            <!-- Active services list -->
+                            <div class="vehicle-status" th:unless="${#lists.isEmpty(activeServices)}">
+                                <div class="vehicle-card" th:each="service : ${activeServices}">
+                                    <div class="vehicle-header">
+                                        <div class="vehicle-name" th:text="${service.vehicleBrand + ' ' + service.vehicleModel}">Tesla Model 3</div>
+                                        <div class="status-badge in-progress" th:text="${service.status}">In Progress</div>
+                                    </div>
+                                    <div class="vehicle-details">
+                                        <div class="detail-row">
+                                            <div class="detail-label">Service Type</div>
+                                            <div class="detail-value" th:text="${service.requestedServices != null ? service.requestedServices[0] : 'Maintenance'}">Full Maintenance</div>
+                                        </div>
+                                        <div class="detail-row">
+                                            <div class="detail-label">Drop-off Date</div>
+                                            <div class="detail-value" th:text="${#temporals.format(service.createdAt, 'MMM dd, yyyy')}">Mar 22, 2025</div>
+                                        </div>
+                                        <div class="detail-row">
+                                            <div class="detail-label">Estimated Pickup</div>
+                                            <div class="detail-value" th:text="${#temporals.format(service.preferredDate, 'MMM dd, yyyy')}">Mar 24, 2025</div>
+                                        </div>
+                                        <div class="progress-steps">
+                                            <div class="step" th:classappend="${service.status == 'RECEIVED' || service.status == 'DIAGNOSIS' || service.status == 'REPAIR' || service.status == 'COMPLETED' ? 'completed' : ''}">
+                                                <div class="step-icon"><i class="fas fa-check"></i></div>
+                                                <div class="step-label">Received</div>
+                                            </div>
+                                            <div class="step" th:classappend="${service.status == 'DIAGNOSIS' || service.status == 'REPAIR' || service.status == 'COMPLETED' ? 'completed' : ''}">
+                                                <div class="step-icon"><i class="fas fa-check"></i></div>
+                                                <div class="step-label">Diagnostic</div>
+                                            </div>
+                                            <div class="step" th:classappend="${service.status == 'REPAIR' ? 'current' : (service.status == 'COMPLETED' ? 'completed' : '')}">
+                                                <div class="step-icon"><i class="fas fa-wrench"></i></div>
+                                                <div class="step-label">Repair</div>
+                                            </div>
+                                            <div class="step" th:classappend="${service.status == 'COMPLETED' ? 'completed' : ''}">
+                                                <div class="step-icon"><i class="fas fa-flag-checkered"></i></div>
+                                                <div class="step-label">Completed</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Service History Tab -->
+                <div class="tab-content" id="history-tab">
+                    <div class="content-header">
+                        <span>Service History</span>
+                    </div>
+                    <div class="content-body">
+                        <!-- No history message -->
+                        <div th:if="${#lists.isEmpty(completedServices)}" class="empty-state">
+                            <i class="fas fa-history"></i>
+                            <p>You don't have any service history yet</p>
+                            <a th:href="@{/customer/bookService}" class="btn btn-primary">Book Your First Service</a>
+                        </div>
+                        
+                        <!-- Service history list -->
+                        <div class="history-list" th:unless="${#lists.isEmpty(completedServices)}">
+                            <div class="history-item" th:each="service : ${completedServices}">
+                                <div class="history-header">
+                                    <div class="vehicle-name" th:text="${service.vehicleBrand + ' ' + service.vehicleModel}">Toyota Camry</div>
+                                    <div class="status-badge completed" th:text="${service.status}">Completed</div>
+                                </div>
+                                <div class="history-body">
+                                    <div class="service-details">
+                                        <div class="detail-row">
+                                            <div class="detail-label">Service Date</div>
+                                            <div class="detail-value" th:text="${#temporals.format(service.createdAt, 'MMM dd, yyyy')}">Jan 15, 2025</div>
+                                        </div>
+                                        <div class="detail-row">
+                                            <div class="detail-label">Service Type</div>
+                                            <div class="detail-value" th:text="${service.requestedServices != null && !service.requestedServices.isEmpty() ? service.requestedServices[0] : 'Maintenance'}">Oil Change & Inspection</div>
+                                        </div>
+                                        <div class="detail-row">
+                                            <div class="detail-label">Total Cost</div>
+                                            <div class="detail-value" th:text="${service.totalCost != null ? '$' + service.totalCost : 'Pending'}">$157.50</div>
+                                        </div>
+                                    </div>
+                                    <div class="service-list" th:if="${!#lists.isEmpty(service.requestedServices)}">
+                                        <div class="service-list-item" th:each="item : ${service.requestedServices}">
+                                            <span th:text="${item}">Engine Oil Replacement</span>
+                                            <span>-</span>
+                                        </div>
+                                    </div>
+                                    <div class="action-buttons">
+                                        <a th:href="@{'/service-details/' + ${service.id}}" class="btn btn-outline btn-sm">View Details</a>
+                                        <a th:if="${service.status == 'COMPLETED'}" th:href="@{'/download-invoice/' + ${service.id}}" class="btn btn-primary btn-sm">Download Invoice</a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Invoices Tab -->
+                <div class="tab-content" id="invoices-tab">
+                    <div class="content-header">
+                        <span>Invoices</span>
+                    </div>
+                    <div class="content-body">
+                        <!-- No invoices message -->
+                        <div th:if="${#lists.isEmpty(invoices)}" class="empty-state">
+                            <i class="fas fa-file-invoice-dollar"></i>
+                            <p>You don't have any invoices yet</p>
+                        </div>
+                        
+                        <!-- Invoices list -->
+                        <div class="invoice-list" th:unless="${#lists.isEmpty(invoices)}">
+                            <div class="invoice-item" th:each="invoice : ${invoices}">
+                                <div class="invoice-details">
+                                    <div class="invoice-id" th:text="${invoice.invoiceNumber}">#INV-2025-0315</div>
+                                    <div class="invoice-date" th:text="${#temporals.format(invoice.createdAt, 'MMMM dd, yyyy')}">March 22, 2025</div>
+                                    <div class="invoice-amount" th:text="${'$' + invoice.totalAmount}">$487.50</div>
+                                </div>
+                                <div class="invoice-actions">
+                                    <a th:href="@{'/view-invoice/' + ${invoice.id}}" class="icon-button" title="View Invoice">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    <a th:href="@{'/download-invoice/' + ${invoice.id}}" class="icon-button" title="Download Invoice">
+                                        <i class="fas fa-download"></i>
+                                    </a>
+                                    <a th:href="@{'/print-invoice/' + ${invoice.id}}" class="icon-button" title="Print Invoice">
+                                        <i class="fas fa-print"></i>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Vehicles Tab -->
+                <div class="tab-content" id="vehicles-tab">
+                    <div class="content-header">
+                        <span>Your Vehicles</span>
+                    </div>
+                    <div class="content-body">
+                        <!-- Vehicles grid -->
+                        <div class="vehicles-grid">
+                            <!-- No vehicles message -->
+                            <div th:if="${#lists.isEmpty(vehicles)}" class="empty-state">
+                                <i class="fas fa-car"></i>
+                                <p>You haven't added any vehicles yet</p>
+                            </div>
+                            
+                            <!-- Vehicle list -->
+                            <div th:each="vehicle : ${vehicles}" class="vehicle-item">
+                                <div class="vehicle-image">
+                                    <img src="/api/placeholder/400/250" th:alt="${vehicle.brand + ' ' + vehicle.model}">
+                                </div>
+                                <div class="vehicle-info">
+                                    <h4 th:text="${vehicle.brand + ' ' + vehicle.model}">Tesla Model 3</h4>
+                                    <div class="detail-row">
+                                        <div class="detail-label">Registration</div>
+                                        <div class="detail-value" th:text="${vehicle.registration}">ABC-1234</div>
+                                    </div>
+                                    <div class="detail-row">
+                                        <div class="detail-label">Year</div>
+                                        <div class="detail-value" th:text="${vehicle.year}">2022</div>
+                                    </div>
+                                    <div class="detail-row">
+                                        <div class="detail-label">Mileage</div>
+                                        <div class="detail-value" th:text="${vehicle.mileage + ' miles'}">22,500 miles</div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Add vehicle card -->
+                            <div class="add-vehicle-card" onclick="openAddVehicleModal()">
+                                <div class="add-icon">
+                                    <i class="fas fa-plus"></i>
+                                </div>
+                                <div>Add New Vehicle</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <!-- Avatar Selection Modal -->
+    <div class="modal-overlay" id="avatarModal">
+        <div class="modal-container">
+            <div class="modal-header">
+                <div class="modal-title">Choose Avatar</div>
+                <button class="modal-close" onclick="closeModal('avatarModal')" aria-label="Close Avatar Modal">×</button>
+            </div>
+            <div class="modal-body">
+                <!-- Avatar Selection Content Goes Here -->
+                <div class="avatar-selection-grid">
+                    <div class="avatar-option">
+                        <img src="/api/placeholder/100/100" alt="Avatar 1">
+                    </div>
+                    <div class="avatar-option">
+                        <img src="/api/placeholder/100/100" alt="Avatar 2">
+                    </div>
+                    <div class="avatar-option">
+                        <img src="/api/placeholder/100/100" alt="Avatar 3">
+                    </div>
+                    <div class="avatar-option">
+                        <img src="/api/placeholder/100/100" alt="Avatar 4">
+                    </div>
+                </div>
+                <div class="upload-avatar">
+                    <label for="avatarUpload" class="btn btn-outline">Upload Custom Avatar</label>
+                    <input type="file" id="avatarUpload" style="display: none;">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeModal('avatarModal')">Cancel</button>
+                <button class="btn btn-primary">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- OTP Verification Modal -->
+    <div class="modal-overlay" id="otpModal">
+        <div class="modal-container">
+            <div class="modal-header">
+                <div class="modal-title">Verify OTP</div>
+                <button class="modal-close" onclick="closeModal('otpModal')" aria-label="Close OTP Modal">×</button>
+            </div>
+            <div class="modal-body">
+                <p>Enter the 4-digit verification code sent to your <span id="verificationChannel"></span></p>
+                <div class="otp-input-container">
+                    <input type="text" maxlength="1" class="otp-input">
+                    <input type="text" maxlength="1" class="otp-input">
+                    <input type="text" maxlength="1" class="otp-input">
+                    <input type="text" maxlength="1" class="otp-input">
+                </div>
+                <div class="resend-otp">
+                    <a href="#">Resend OTP</a>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeModal('otpModal')">Cancel</button>
+                <button class="btn btn-primary">Verify</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Add Vehicle Modal -->
+    <div class="modal-overlay" id="addVehicleModal">
+        <div class="modal-container">
+            <div class="modal-header">
+                <div class="modal-title">Add New Vehicle</div>
+                <button class="modal-close" onclick="closeModal('addVehicleModal')" aria-label="Close Add Vehicle Modal">×</button>
+            </div>
+            <div class="modal-body">
+                <form id="addVehicleForm" th:action="@{/api/vehicles/add}" method="post">
+                    <div class="form-group">
+                        <label class="form-label">Vehicle Type</label>
+                        <select class="form-control" name="vehicleType" required>
+                            <option value="">Select Vehicle Type</option>
+                            <option th:each="type : ${vehicleTypes}" th:value="${type}" th:text="${type}">Car</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Brand</label>
+                        <input type="text" class="form-control" name="brand" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Model</label>
+                        <input type="text" class="form-control" name="model" required>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Year</label>
+                            <input type="number" class="form-control" name="year" min="1900" th:max="${#dates.format(#dates.createNow(), 'yyyy')}" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Registration</label>
+                            <input type="text" class="form-control" name="registration" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Current Mileage</label>
+                        <input type="number" class="form-control" name="mileage" min="0" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeModal('addVehicleModal')">Cancel</button>
+                <button class="btn btn-primary" onclick="document.getElementById('addVehicleForm').submit()">Add Vehicle</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script>
+// Tab Switching Functionality
+function showTab(tabId) {
+    // Hide all tab contents
+    const tabContents = document.querySelectorAll('.tab-content');
+    tabContents.forEach(tab => {
+        tab.classList.remove('active');
+    });
+    
+    // Show the selected tab
+    const selectedTab = document.getElementById(tabId + '-tab');
+    if (selectedTab) {
+        selectedTab.classList.add('active');
+    }
+    
+    // Update menu item active state
+    const menuItems = document.querySelectorAll('.menu-item');
+    menuItems.forEach(item => {
+        item.classList.remove('active');
+    });
+    
+    // Add active class to clicked menu item
+    const clickedItem = event.currentTarget;
+    clickedItem.classList.add('active');
+}
+
+// Modal Functions
+function openModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+        modal.classList.add('active');
+        document.body.style.overflow = 'hidden'; // Prevent background scrolling
+    }
+}
+
+function closeModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+        modal.classList.remove('active');
+        document.body.style.overflow = ''; // Restore scrolling
+    }
+}
+
+// Avatar Modal
+function openAvatarModal() {
+    openModal('avatarModal');
+}
+
+// Verification Modal
+function openVerifyModal(channel) {
+    const verificationChannel = document.getElementById('verificationChannel');
+    if (verificationChannel) {
+        if (channel === 'email') {
+            verificationChannel.textContent = 'email';
+        } else if (channel === 'phone') {
+            verificationChannel.textContent = 'phone number';
+        }
+    }
+    openModal('otpModal');
+}
+
+// Add Vehicle Modal
+function openAddVehicleModal() {
+    openModal('addVehicleModal');
+}
+
+// OTP Input Functionality
+document.addEventListener('DOMContentLoaded', function() {
+    const otpInputs = document.querySelectorAll('.otp-input');
+    
+    // Auto-focus next input when a digit is entered
+    otpInputs.forEach((input, index) => {
+        input.addEventListener('input', function() {
+            if (this.value.length === this.maxLength) {
+                // Move to the next input
+                if (index < otpInputs.length - 1) {
+                    otpInputs[index + 1].focus();
+                }
+            }
+        });
+        
+        // Handle backspace to go to previous input
+        input.addEventListener('keydown', function(e) {
+            if (e.key === 'Backspace' && this.value.length === 0) {
+                if (index > 0) {
+                    otpInputs[index - 1].focus();
+                }
+            }
+        });
+    });
+    
+    // Handle file upload for avatar
+    const avatarUpload = document.getElementById('avatarUpload');
+    if (avatarUpload) {
+        avatarUpload.addEventListener('change', function(e) {
+            if (this.files && this.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    // Preview the uploaded image (you can customize this part)
+                    const profileAvatar = document.querySelector('#profileAvatarWrapper img');
+                    if (profileAvatar) {
+                        profileAvatar.src = e.target.result;
+                    }
+                    closeModal('avatarModal');
+                };
+                reader.readAsDataURL(this.files[0]);
+            }
+        });
+    }
+    
+    // Make avatar options selectable
+    const avatarOptions = document.querySelectorAll('.avatar-option');
+    avatarOptions.forEach(option => {
+        option.addEventListener('click', function() {
+            // Remove selected class from all options
+            avatarOptions.forEach(opt => opt.classList.remove('selected'));
+            
+            // Add selected class to clicked option
+            this.classList.add('selected');
+            
+            // Update profile avatar with selected one
+            const selectedAvatar = this.querySelector('img').src;
+            const profileAvatar = document.querySelector('#profileAvatarWrapper img');
+            if (profileAvatar) {
+                profileAvatar.src = selectedAvatar;
+            }
+        });
+    });
+});
+</script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'93950a54dddb7fb3',t:'MTc0NjE2MjkyMi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>

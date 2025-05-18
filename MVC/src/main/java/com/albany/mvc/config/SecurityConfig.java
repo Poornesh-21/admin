@@ -27,21 +27,33 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
                         // Explicitly permit these paths without authentication
+                        // Admin & Service Advisor endpoints
                         .requestMatchers("/admin/login", "/admin/api/login",
                                 "/serviceAdvisor/login", "/serviceAdvisor/api/login",
                                 "/test-auth",
                                 "/css/**", "/js/**", "/images/**", "/favicon.ico", "/error").permitAll()
+
+                        // Customer public endpoints
+                        .requestMatchers("/", "/aboutUs", "/customer/auth/**", "/customer/api/auth/**").permitAll()
+
                         // Allow dashboard access with token parameter (will be handled by the controllers)
                         .requestMatchers(request ->
                                 (request.getServletPath().equals("/admin/dashboard") ||
                                         request.getServletPath().equals("/serviceAdvisor/dashboard")) &&
                                         request.getParameter("token") != null).permitAll()
+
+                        // Customer authenticated endpoints - handled by controllers with token checks
+                        .requestMatchers("/customer/**").permitAll()
+
                         // Make the service advisor API endpoints protected but accessible with proper role
                         .requestMatchers("/serviceAdvisor/api/**").hasAnyAuthority("ROLE_SERVICEADVISOR", "ROLE_serviceAdvisor")
+
                         // Accept both ROLE_ADMIN and ROLE_admin for admin paths
                         .requestMatchers("/admin/**").hasAnyAuthority("ROLE_ADMIN", "ROLE_admin")
+
                         // Accept both ROLE_SERVICEADVISOR and ROLE_serviceAdvisor for service advisor paths
                         .requestMatchers("/serviceAdvisor/**").hasAnyAuthority("ROLE_SERVICEADVISOR", "ROLE_serviceAdvisor")
+
                         // Any other request needs authentication
                         .anyRequest().authenticated()
                 )
