@@ -597,7 +597,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 isActive: true
             };
 
-            fetch('/admin/api/customers', {
+            fetch('/admin/customers/api', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
