@@ -1,4 +1,4 @@
-package com.albany.mvc.controller.serviceAdvisor;
+package com.albany.mvc.controller.serviceadvisor;
 
 import com.albany.mvc.controller.BaseController;
 import jakarta.servlet.http.HttpServletRequest;

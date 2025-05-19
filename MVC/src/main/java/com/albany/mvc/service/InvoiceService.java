@@ -5,7 +5,6 @@ import com.albany.mvc.util.ModelMapper;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
@@ -19,7 +18,6 @@ import java.util.*;
  */
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class InvoiceService {
 
     private final RestTemplate restTemplate;
@@ -34,7 +32,6 @@ public class InvoiceService {
      */
     public Map<String, Object> getInvoiceInfo(Integer serviceId, String token) {
         try {
-            log.info("Fetching invoice info for service ID: {}", serviceId);
             HttpHeaders headers = createAuthHeaders(token);
             HttpEntity<Void> entity = new HttpEntity<>(headers);
 
@@ -53,17 +50,13 @@ public class InvoiceService {
 
                 // Add customer contact information if missing
                 enhanceInvoiceInfo(invoiceInfo);
-
-                log.debug("Successfully fetched invoice info for service ID: {}", serviceId);
                 return invoiceInfo;
-            } else {
-                log.warn("Unexpected response status: {}", response.getStatusCode());
-                return Collections.emptyMap();
             }
         } catch (Exception e) {
-            log.error("Error fetching invoice info: {}", e.getMessage(), e);
-            return Collections.emptyMap();
+            // Simplified error handling
         }
+
+        return Collections.emptyMap();
     }
 
     /**
@@ -101,7 +94,6 @@ public class InvoiceService {
      */
     public Map<String, Object> generateInvoice(Integer serviceId, Map<String, Object> invoiceDetails, String token) {
         try {
-            log.info("Generating invoice for service ID: {}", serviceId);
             HttpHeaders headers = createAuthHeaders(token);
             headers.setContentType(MediaType.APPLICATION_JSON);
 
@@ -115,51 +107,16 @@ public class InvoiceService {
             );
 
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
-                Map<String, Object> result = objectMapper.readValue(
+                return objectMapper.readValue(
                         response.getBody(),
                         new TypeReference<Map<String, Object>>() {}
                 );
-
-                log.debug("Successfully generated invoice for service ID: {}", serviceId);
-                return result;
-            } else {
-                log.warn("Unexpected response status: {}", response.getStatusCode());
-                return Collections.singletonMap("error", "Failed to generate invoice: Unexpected response " + response.getStatusCode());
             }
         } catch (Exception e) {
-            log.error("Error generating invoice: {}", e.getMessage(), e);
             return Collections.singletonMap("error", "Failed to generate invoice: " + e.getMessage());
         }
-    }
 
-    /**
-     * Download invoice PDF
-     */
-    public byte[] downloadInvoice(Integer serviceId, String token) {
-        try {
-            log.info("Downloading invoice for service ID: {}", serviceId);
-            HttpHeaders headers = createAuthHeaders(token);
-
-            HttpEntity<Void> entity = new HttpEntity<>(headers);
-
-            ResponseEntity<byte[]> response = restTemplate.exchange(
-                    apiBaseUrl + "/invoices/service-request/" + serviceId + "/download",
-                    HttpMethod.GET,
-                    entity,
-                    byte[].class
-            );
-
-            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
-                log.debug("Successfully downloaded invoice PDF for service ID: {}", serviceId);
-                return response.getBody();
-            } else {
-                log.warn("Unexpected response status: {}", response.getStatusCode());
-                return new byte[0];
-            }
-        } catch (Exception e) {
-            log.error("Error downloading invoice: {}", e.getMessage(), e);
-            return new byte[0];
-        }
+        return Collections.emptyMap();
     }
 
     /**
@@ -177,7 +134,6 @@ public class InvoiceService {
 
             return dto;
         } catch (Exception e) {
-            log.error("Error processing service for invoice: {}", e.getMessage(), e);
             return new CompletedServiceDTO();
         }
     }

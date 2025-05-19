@@ -3,7 +3,6 @@ package com.albany.mvc.service;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
@@ -16,7 +15,6 @@ import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class VehicleTrackingService {
 
     private final RestTemplate restTemplate;
@@ -45,14 +43,12 @@ public class VehicleTrackingService {
                         response.getBody(),
                         new TypeReference<List<Map<String, Object>>>() {}
                 );
-            } else {
-                log.warn("Unexpected response status: {}", response.getStatusCode());
-                return Collections.emptyList();
             }
         } catch (Exception e) {
-            log.error("Error fetching vehicles under service: {}", e.getMessage(), e);
-            return Collections.emptyList();
+            // Simplified error handling
         }
+
+        return Collections.emptyList();
     }
 
     /**
@@ -75,14 +71,12 @@ public class VehicleTrackingService {
                         response.getBody(),
                         new TypeReference<List<Map<String, Object>>>() {}
                 );
-            } else {
-                log.warn("Unexpected response status: {}", response.getStatusCode());
-                return Collections.emptyList();
             }
         } catch (Exception e) {
-            log.error("Error fetching completed services: {}", e.getMessage(), e);
-            return Collections.emptyList();
+            // Simplified error handling
         }
+
+        return Collections.emptyList();
     }
 
     /**
@@ -105,14 +99,12 @@ public class VehicleTrackingService {
                         response.getBody(),
                         new TypeReference<Map<String, Object>>() {}
                 );
-            } else {
-                log.warn("Unexpected response status: {}", response.getStatusCode());
-                return Collections.emptyMap();
             }
         } catch (Exception e) {
-            log.error("Error fetching service request: {}", e.getMessage(), e);
-            return Collections.emptyMap();
+            // Simplified error handling
         }
+
+        return Collections.emptyMap();
     }
 
     /**
@@ -133,12 +125,12 @@ public class VehicleTrackingService {
                     Map.class
             );
 
-            log.info("Status update response: {}", response.getBody());
             return response.getStatusCode().is2xxSuccessful();
         } catch (Exception e) {
-            log.error("Error updating service status: {}", e.getMessage(), e);
-            return false;
+            // Simplified error handling
         }
+
+        return false;
     }
 
     /**
@@ -160,33 +152,24 @@ public class VehicleTrackingService {
 
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
                 return response.getBody();
-            } else {
-                log.warn("Unexpected response status: {}", response.getStatusCode());
-                return Collections.emptyMap();
             }
         } catch (Exception e) {
-            log.error("Error recording payment: {}", e.getMessage(), e);
             return Collections.singletonMap("error", e.getMessage());
         }
+
+        return Collections.emptyMap();
     }
 
     /**
      * Generate bill for a service
-     * @param requestId the service request ID
-     * @param billData the bill data containing materials, labor charges, etc.
-     * @param token the authentication token
-     * @return the response from the API
      */
     public Map<String, Object> generateBill(Integer requestId, Map<String, Object> billData, String token) {
         try {
-            log.info("Generating bill for service request {}", requestId);
-
             HttpHeaders headers = createAuthHeaders(token);
             headers.setContentType(MediaType.APPLICATION_JSON);
 
             HttpEntity<Map<String, Object>> entity = new HttpEntity<>(billData, headers);
 
-            // Make API call to the REST service
             ResponseEntity<String> response = restTemplate.exchange(
                     apiBaseUrl + "/bills/service-request/" + requestId + "/generate",
                     HttpMethod.POST,
@@ -194,28 +177,21 @@ public class VehicleTrackingService {
                     String.class
             );
 
-            log.info("Bill generation API response status: {}", response.getStatusCode());
-
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
                 try {
-                    Map<String, Object> responseMap = objectMapper.readValue(
+                    return objectMapper.readValue(
                             response.getBody(),
                             new TypeReference<Map<String, Object>>() {}
                     );
-                    log.debug("Bill generated successfully for service request {}", requestId);
-                    return responseMap;
                 } catch (Exception e) {
-                    log.error("Error parsing bill generation response: {}", e.getMessage(), e);
-                    return Collections.singletonMap("error", "Error parsing response: " + e.getMessage());
+                    return Collections.singletonMap("error", "Error parsing response");
                 }
-            } else {
-                log.warn("Unexpected response status: {}", response.getStatusCode());
-                return Collections.singletonMap("error", "Unexpected response status: " + response.getStatusCode());
             }
         } catch (Exception e) {
-            log.error("Error generating bill: {}", e.getMessage(), e);
-            return Collections.singletonMap("error", "Failed to generate bill: " + e.getMessage());
+            return Collections.singletonMap("error", "Failed to generate bill");
         }
+
+        return Collections.emptyMap();
     }
 
     /**
@@ -237,14 +213,12 @@ public class VehicleTrackingService {
 
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
                 return response.getBody();
-            } else {
-                log.warn("Unexpected response status: {}", response.getStatusCode());
-                return Collections.emptyMap();
             }
         } catch (Exception e) {
-            log.error("Error generating invoice: {}", e.getMessage(), e);
             return Collections.singletonMap("error", e.getMessage());
         }
+
+        return Collections.emptyMap();
     }
 
     /**
@@ -266,14 +240,12 @@ public class VehicleTrackingService {
 
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
                 return response.getBody();
-            } else {
-                log.warn("Unexpected response status: {}", response.getStatusCode());
-                return Collections.emptyMap();
             }
         } catch (Exception e) {
-            log.error("Error dispatching vehicle: {}", e.getMessage(), e);
             return Collections.singletonMap("error", e.getMessage());
         }
+
+        return Collections.emptyMap();
     }
 
     /**
@@ -298,14 +270,12 @@ public class VehicleTrackingService {
                         response.getBody(),
                         new TypeReference<List<Map<String, Object>>>() {}
                 );
-            } else {
-                log.warn("Unexpected response status: {}", response.getStatusCode());
-                return Collections.emptyList();
             }
         } catch (Exception e) {
-            log.error("Error filtering vehicles: {}", e.getMessage(), e);
-            return Collections.emptyList();
+            // Simplified error handling
         }
+
+        return Collections.emptyList();
     }
 
     /**
@@ -330,14 +300,12 @@ public class VehicleTrackingService {
                         response.getBody(),
                         new TypeReference<List<Map<String, Object>>>() {}
                 );
-            } else {
-                log.warn("Unexpected response status: {}", response.getStatusCode());
-                return Collections.emptyList();
             }
         } catch (Exception e) {
-            log.error("Error filtering services: {}", e.getMessage(), e);
-            return Collections.emptyList();
+            // Simplified error handling
         }
+
+        return Collections.emptyList();
     }
 
     /**
@@ -345,8 +313,6 @@ public class VehicleTrackingService {
      */
     public Map<String, List<Map<String, Object>>> searchVehiclesAndServices(String query, String token) {
         try {
-            HttpHeaders headers = createAuthHeaders(token);
-
             Map<String, Object> searchCriteria = Collections.singletonMap("search", query);
 
             // Get vehicles under service matching the search
@@ -362,9 +328,10 @@ public class VehicleTrackingService {
 
             return results;
         } catch (Exception e) {
-            log.error("Error searching vehicles and services: {}", e.getMessage(), e);
-            return Collections.emptyMap();
+            // Simplified error handling
         }
+
+        return Collections.emptyMap();
     }
 
     /**

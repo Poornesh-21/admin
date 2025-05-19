@@ -15,9 +15,7 @@ public class CustomAuthenticationProvider implements AuthenticationProvider {
 
     @Override
     public Authentication authenticate(Authentication authentication) throws AuthenticationException {
-        // This provider doesn't actually do any authentication
-        // It just exists to prevent the automatic creation of a DaoAuthenticationProvider
-        // All real authentication is handled by our LoginController and the JwtAuthenticationFilter
+
         return null;
     }
 

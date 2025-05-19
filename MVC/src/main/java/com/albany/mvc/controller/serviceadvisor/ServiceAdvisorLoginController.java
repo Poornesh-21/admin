@@ -1,4 +1,4 @@
-package com.albany.mvc.controller.serviceAdvisor;
+package com.albany.mvc.controller.serviceadvisor;
 
 import com.albany.mvc.dto.AuthRequest;
 import com.albany.mvc.dto.AuthResponse;
@@ -22,7 +22,7 @@ import java.util.Map;
 @RequestMapping("/serviceAdvisor")
 @RequiredArgsConstructor
 @Slf4j
-public class LoginController extends ServiceAdvisorBaseController {
+public class ServiceAdvisorLoginController extends ServiceAdvisorBaseController {
 
     private final AuthenticationService authService;
 

@@ -4,12 +4,10 @@ import com.albany.mvc.dto.ServiceRequestDto;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
-import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.Collections;
@@ -18,7 +16,6 @@ import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class ServiceRequestService {
 
     private final RestTemplate restTemplate;
@@ -28,14 +25,13 @@ public class ServiceRequestService {
     private String apiBaseUrl;
 
     /**
-     * Get all service requests with improved data validation
+     * Get all service requests
      */
     public List<ServiceRequestDto> getAllServiceRequests(String token) {
         try {
             HttpHeaders headers = createAuthHeaders(token);
             HttpEntity<Void> entity = new HttpEntity<>(headers);
 
-            log.info("Fetching service requests from API: {}", apiBaseUrl + "/service-requests");
             ResponseEntity<String> response = restTemplate.exchange(
                     apiBaseUrl + "/service-requests",
                     HttpMethod.GET,
@@ -44,86 +40,52 @@ public class ServiceRequestService {
             );
 
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
-                log.debug("Raw API response: {}", response.getBody());
-
-                // Parse the response
                 List<ServiceRequestDto> requests = objectMapper.readValue(
                         response.getBody(),
                         new TypeReference<List<ServiceRequestDto>>() {}
                 );
 
-                // Log and verify each request's data
                 if (requests != null) {
                     for (ServiceRequestDto req : requests) {
-                        // Apply default values if needed
                         validateAndEnhanceRequest(req);
-
-                        // Log for debugging
-                        log.debug("Processed request ID: {}, Status: {}, Membership: {}",
-                                req.getRequestId(), req.getStatus(), req.getMembershipStatus());
                     }
                 }
 
                 return requests;
-            } else {
-                log.warn("Unexpected response status: {}", response.getStatusCode());
-                return Collections.emptyList();
             }
         } catch (Exception e) {
-            log.error("Error fetching service requests: {}", e.getMessage(), e);
-            throw new RuntimeException("Failed to fetch service requests: " + e.getMessage(), e);
+            throw new RuntimeException("Failed to fetch service requests: " + e.getMessage());
         }
+
+        return Collections.emptyList();
     }
 
     /**
      * Validate and enhance a request with default values if needed
      */
     private void validateAndEnhanceRequest(ServiceRequestDto req) {
-        // Ensure request ID is present
-        if (req.getRequestId() == null) {
-            log.warn("Request has null ID");
-        }
-
-        // Ensure status has a valid value
         if (req.getStatus() == null || req.getStatus().trim().isEmpty()) {
-            log.warn("Request {} has null/empty status, setting to 'Unknown'", req.getRequestId());
             req.setStatus("Unknown");
         }
 
-        // Ensure membership status has a valid value and preserve exact value from API
         if (req.getMembershipStatus() == null) {
-            log.warn("Request {} has null membership status, setting to 'Standard'",
-                    req.getRequestId());
             req.setMembershipStatus("Standard");
-        } else {
-            // Log the membership status we received from the API
-            log.debug("Request {} has membership status '{}' from API",
-                    req.getRequestId(), req.getMembershipStatus());
-
-            // Do not modify or normalize the membership status value
-            // This ensures we preserve exactly what the API sent us
         }
 
-        // Ensure vehicle name is set
         if ((req.getVehicleName() == null || req.getVehicleName().trim().isEmpty()) &&
                 req.getVehicleBrand() != null && req.getVehicleModel() != null) {
             req.setVehicleName(req.getVehicleBrand() + " " + req.getVehicleModel());
         }
-
-        // Log complete request data for debugging
-        log.debug("Enhanced request: ID={}, Status={}, Membership={}, Vehicle={}",
-                req.getRequestId(), req.getStatus(), req.getMembershipStatus(), req.getVehicleName());
     }
 
     /**
-     * Get service request by ID with improved error handling
+     * Get service request by ID
      */
     public ServiceRequestDto getServiceRequestById(Integer requestId, String token) {
         try {
             HttpHeaders headers = createAuthHeaders(token);
             HttpEntity<Void> entity = new HttpEntity<>(headers);
 
-            log.info("Fetching service request with ID: {}", requestId);
             ResponseEntity<String> response = restTemplate.exchange(
                     apiBaseUrl + "/service-requests/" + requestId,
                     HttpMethod.GET,
@@ -137,31 +99,23 @@ public class ServiceRequestService {
                         ServiceRequestDto.class
                 );
 
-                // Validate and enhance the request
                 validateAndEnhanceRequest(request);
-
                 return request;
             } else {
-                log.warn("Unexpected response status: {}", response.getStatusCode());
                 throw new RuntimeException("Failed to fetch service request with ID: " + requestId);
             }
         } catch (HttpClientErrorException.NotFound e) {
-            log.error("Service request not found: {}", requestId);
             throw new RuntimeException("Service request not found with ID: " + requestId);
         } catch (Exception e) {
-            log.error("Error fetching service request: {}", e.getMessage(), e);
             throw new RuntimeException("Failed to fetch service request: " + e.getMessage());
         }
     }
 
     /**
-     * Create a new service request with improved validation
+     * Create a new service request
      */
     public ServiceRequestDto createServiceRequest(ServiceRequestDto requestDto, String token) {
-        log.debug("Creating service request: {}", requestDto);
-
         try {
-            // Validate and enhance the request before sending
             validateAndEnhanceRequest(requestDto);
 
             HttpHeaders headers = createAuthHeaders(token);
@@ -182,18 +136,12 @@ public class ServiceRequestService {
                         ServiceRequestDto.class
                 );
 
-                // Validate and enhance the newly created request
                 validateAndEnhanceRequest(createdRequest);
-
                 return createdRequest;
             } else {
-                log.error("Unexpected response: {}", response.getStatusCode());
                 throw new RuntimeException("Unexpected response from server: " + response.getStatusCode());
             }
         } catch (HttpClientErrorException e) {
-            log.error("API client error: {} - {}", e.getStatusCode(), e.getResponseBodyAsString());
-
-            // Try to parse error response for better error message
             try {
                 Map<String, Object> errorResponse = objectMapper.readValue(
                         e.getResponseBodyAsString(),
@@ -209,13 +157,12 @@ public class ServiceRequestService {
                 throw new RuntimeException("API error: " + e.getMessage());
             }
         } catch (Exception e) {
-            log.error("Error creating service request: {}", e.getMessage(), e);
             throw new RuntimeException("Failed to create service request: " + e.getMessage());
         }
     }
 
     /**
-     * Assign a service advisor with improved validation
+     * Assign a service advisor
      */
     public ServiceRequestDto assignServiceAdvisor(Integer requestId, Integer advisorId, String token) {
         try {
@@ -225,7 +172,6 @@ public class ServiceRequestService {
             Map<String, Integer> requestBody = Collections.singletonMap("advisorId", advisorId);
             HttpEntity<Map<String, Integer>> entity = new HttpEntity<>(requestBody, headers);
 
-            log.info("Assigning advisor {} to request {}", advisorId, requestId);
             ResponseEntity<String> response = restTemplate.exchange(
                     apiBaseUrl + "/service-requests/" + requestId + "/assign",
                     HttpMethod.PUT,
@@ -239,22 +185,18 @@ public class ServiceRequestService {
                         ServiceRequestDto.class
                 );
 
-                // Validate and enhance the updated request
                 validateAndEnhanceRequest(updatedRequest);
-
                 return updatedRequest;
             } else {
-                log.warn("Unexpected response status: {}", response.getStatusCode());
                 throw new RuntimeException("Failed to assign service advisor");
             }
         } catch (Exception e) {
-            log.error("Error assigning service advisor: {}", e.getMessage(), e);
             throw new RuntimeException("Failed to assign service advisor: " + e.getMessage());
         }
     }
 
     /**
-     * Update service request status with improved validation
+     * Update service request status
      */
     public ServiceRequestDto updateServiceRequestStatus(Integer requestId, String status, String token) {
         try {
@@ -264,7 +206,6 @@ public class ServiceRequestService {
             Map<String, String> requestBody = Collections.singletonMap("status", status);
             HttpEntity<Map<String, String>> entity = new HttpEntity<>(requestBody, headers);
 
-            log.info("Updating status of request {} to {}", requestId, status);
             ResponseEntity<String> response = restTemplate.exchange(
                     apiBaseUrl + "/service-requests/" + requestId + "/status",
                     HttpMethod.PUT,
@@ -278,16 +219,12 @@ public class ServiceRequestService {
                         ServiceRequestDto.class
                 );
 
-                // Validate and enhance the updated request
                 validateAndEnhanceRequest(updatedRequest);
-
                 return updatedRequest;
             } else {
-                log.warn("Unexpected response status: {}", response.getStatusCode());
                 throw new RuntimeException("Failed to update service request status");
             }
         } catch (Exception e) {
-            log.error("Error updating service request status: {}", e.getMessage(), e);
             throw new RuntimeException("Failed to update service request status: " + e.getMessage());
         }
     }

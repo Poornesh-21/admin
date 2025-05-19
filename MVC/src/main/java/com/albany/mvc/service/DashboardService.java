@@ -3,7 +3,6 @@ package com.albany.mvc.service;
 import com.albany.mvc.dto.DashboardDTO;
 import com.albany.mvc.dto.ServiceRequestDto;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
@@ -14,7 +13,6 @@ import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class DashboardService {
 
     private final RestTemplate restTemplate;
@@ -38,7 +36,7 @@ public class DashboardService {
 
             return response.getBody();
         } catch (Exception e) {
-            log.error("Error fetching dashboard data: {}", e.getMessage(), e);
+            // Simplified error handling
             return null;
         }
     }
@@ -61,7 +59,7 @@ public class DashboardService {
 
             return response.getBody();
         } catch (Exception e) {
-            log.error("Error assigning service advisor: {}", e.getMessage(), e);
+            // Simplified error handling
             return null;
         }
     }
@@ -84,7 +82,7 @@ public class DashboardService {
 
             return response.getBody();
         } catch (Exception e) {
-            log.error("Error updating service request status: {}", e.getMessage(), e);
+            // Simplified error handling
             return null;
         }
     }

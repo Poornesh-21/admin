@@ -1,4 +1,4 @@
-package com.albany.mvc.controller.serviceAdvisor;
+package com.albany.mvc.controller.serviceadvisor;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -20,7 +20,7 @@ import java.util.Map;
 @RequestMapping("/serviceAdvisor")
 @RequiredArgsConstructor
 @Slf4j
-public class DashboardController extends ServiceAdvisorBaseController {
+public class ServiceAdvisorDashboardController extends ServiceAdvisorBaseController {
 
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
