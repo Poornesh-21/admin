@@ -531,7 +531,8 @@ function loadCustomersDirectly() {
         return;
     }
 
-    fetch('/admin/api/customers', {
+    // Fixed: Using the correct endpoint pattern for customers only
+    fetch('/admin/customers/api', {
         method: 'GET',
         headers: {
             'Content-Type': 'application/json',
@@ -543,18 +544,6 @@ function loadCustomersDirectly() {
                 window.location.href = '/admin/login?error=session_expired';
                 throw new Error('Session expired');
             }
-            if (!response.ok) {
-                return fetch('/admin/customers/api', {
-                    method: 'GET',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': 'Bearer ' + token
-                    }
-                });
-            }
-            return response;
-        })
-        .then(response => {
             if (!response.ok) {
                 throw new Error(`HTTP error! Status: ${response.status}`);
             }
@@ -609,6 +598,7 @@ function loadVehiclesForCustomer(customerId) {
         return;
     }
 
+    // Keep original endpoint: /admin/api/customers/{customerId}/vehicles
     fetch(`/admin/api/customers/${customerId}/vehicles${token ? `?token=${token}` : ''}`, {
         method: 'GET',
         headers: {
@@ -695,7 +685,8 @@ function saveNewVehicle(callback) {
         return;
     }
 
-    fetch(`/admin/api/customers/${customerId}/vehicles${token ? `?token=${token}` : ''}`, {
+    // Fixed: Using the correct endpoint pattern
+    fetch(`/admin/customers/${customerId}/vehicles`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -782,7 +773,6 @@ function fetchVehicleDetails(vehicleId) {
         });
 }
 
-// Enhanced function to create service request with complete vehicle details
 function createEnhancedServiceRequest(vehicleId) {
     if (!selectedVehicleData) {
         // If we don't have the vehicle data for some reason, fetch it first
@@ -792,9 +782,12 @@ function createEnhancedServiceRequest(vehicleId) {
     }
 
     // Create service request with complete vehicle information
+    // The key change is explicitly providing vehicleBrand in exactly the format expected by backend
     const serviceRequest = {
         vehicleId: vehicleId,
-        // Include these critical fields from the selected vehicle
+        // This is the critical field that was missing - add vehicle_brand (not camelCase)
+        vehicle_brand: selectedVehicleData.brand || "Unknown Brand",
+        // Still keep the camelCase version for other parts of the system
         vehicleBrand: selectedVehicleData.brand || "Unknown Brand",
         vehicleModel: selectedVehicleData.model || "Unknown Model",
         registrationNumber: selectedVehicleData.registrationNumber || "Unknown",
@@ -805,6 +798,9 @@ function createEnhancedServiceRequest(vehicleId) {
         additionalDescription: document.getElementById('description').value || "",
         status: "Received"
     };
+
+    // Log the request payload for debugging
+    console.log("Service request payload:", JSON.stringify(serviceRequest, null, 2));
 
     showSpinner();
 
@@ -897,6 +893,8 @@ function createServiceRequestWithVehicle(vehicleId) {
             // Now create the service request with complete vehicle data
             const serviceRequest = {
                 vehicleId: vehicleId,
+                // Add both snake_case and camelCase versions for compatibility
+                vehicle_brand: vehicleData.brand || "Unknown Brand", // Critical field needed by database
                 vehicleBrand: vehicleData.brand || "Unknown Brand",
                 vehicleModel: vehicleData.model || "Unknown Model",
                 registrationNumber: vehicleData.registrationNumber || "Unknown",
@@ -906,6 +904,9 @@ function createServiceRequestWithVehicle(vehicleId) {
                 additionalDescription: document.getElementById('description').value || "",
                 status: "Received"
             };
+
+            // Log the request payload for debugging
+            console.log("Service request payload:", JSON.stringify(serviceRequest, null, 2));
 
             if (!token) {
                 hideSpinner();
