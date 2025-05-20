@@ -4,6 +4,8 @@ let serviceAdvisors = [];
 let vehicles = [];
 let currentPage = 1;
 const itemsPerPage = 5;
+// Store the selected vehicle data globally
+let selectedVehicleData = null;
 
 let loadServiceAdvisors;
 let showAssignAdvisorModal;
@@ -415,6 +417,19 @@ function setupEventListeners() {
             assignServiceAdvisor();
         });
     }
+
+    // Add vehicle dropdown change listener to fetch vehicle details
+    const vehicleDropdown = document.getElementById('vehicleId');
+    if (vehicleDropdown) {
+        vehicleDropdown.addEventListener('change', function() {
+            const vehicleId = this.value;
+            if (vehicleId) {
+                fetchVehicleDetails(vehicleId);
+            } else {
+                selectedVehicleData = null;
+            }
+        });
+    }
 }
 
 function getToken() {
@@ -728,9 +743,63 @@ function saveNewVehicle(callback) {
         });
 }
 
-function createServiceRequestWithVehicle(vehicleId) {
+// Function to fetch vehicle details when a vehicle is selected
+function fetchVehicleDetails(vehicleId) {
+    const token = getToken();
+    if (!token) {
+        showToast('Authentication error - please login again', 'error');
+        return;
+    }
+
+    showSpinner();
+
+    fetch(`/admin/api/vehicles/${vehicleId}${token ? `?token=${token}` : ''}`, {
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+        }
+    })
+        .then(response => {
+            if (response.status === 401) {
+                window.location.href = '/admin/login?error=session_expired';
+                throw new Error('Session expired');
+            }
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            hideSpinner();
+            // Store the vehicle data for later use when submitting the form
+            selectedVehicleData = data;
+            console.log('Vehicle details loaded:', selectedVehicleData);
+        })
+        .catch(error => {
+            hideSpinner();
+            showToast('Failed to fetch vehicle details: ' + error.message, 'error');
+        });
+}
+
+// Enhanced function to create service request with complete vehicle details
+function createEnhancedServiceRequest(vehicleId) {
+    if (!selectedVehicleData) {
+        // If we don't have the vehicle data for some reason, fetch it first
+        fetchVehicleDetails(vehicleId);
+        showToast('Preparing vehicle data, please try again in a moment', 'info');
+        return;
+    }
+
+    // Create service request with complete vehicle information
     const serviceRequest = {
         vehicleId: vehicleId,
+        // Include these critical fields from the selected vehicle
+        vehicleBrand: selectedVehicleData.brand || "Unknown Brand",
+        vehicleModel: selectedVehicleData.model || "Unknown Model",
+        registrationNumber: selectedVehicleData.registrationNumber || "Unknown",
+        vehicleCategory: selectedVehicleData.category || "Car",
+        // Other form fields
         serviceType: document.getElementById('serviceType').value,
         deliveryDate: document.getElementById('deliveryDate').value,
         additionalDescription: document.getElementById('description').value || "",
@@ -784,6 +853,7 @@ function createServiceRequestWithVehicle(vehicleId) {
             document.getElementById('addServiceRequestForm').reset();
             document.getElementById('newVehicleForm').style.display = 'none';
             resetVehicleDropdown();
+            selectedVehicleData = null;
 
             showSuccessModal('Service Request Created', 'The service request has been created successfully.');
 
@@ -801,6 +871,106 @@ function createServiceRequestWithVehicle(vehicleId) {
         });
 }
 
+// Modified function to create service request with vehicle
+function createServiceRequestWithVehicle(vehicleId) {
+    // For newly created vehicles, we need to get the vehicle details first
+    const token = getToken();
+    showSpinner();
+
+    fetch(`/admin/api/vehicles/${vehicleId}${token ? `?token=${token}` : ''}`, {
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+        }
+    })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`Failed to get vehicle details: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(vehicleData => {
+            // Store the vehicle data
+            selectedVehicleData = vehicleData;
+
+            // Now create the service request with complete vehicle data
+            const serviceRequest = {
+                vehicleId: vehicleId,
+                vehicleBrand: vehicleData.brand || "Unknown Brand",
+                vehicleModel: vehicleData.model || "Unknown Model",
+                registrationNumber: vehicleData.registrationNumber || "Unknown",
+                vehicleCategory: vehicleData.category || "Car",
+                serviceType: document.getElementById('serviceType').value,
+                deliveryDate: document.getElementById('deliveryDate').value,
+                additionalDescription: document.getElementById('description').value || "",
+                status: "Received"
+            };
+
+            if (!token) {
+                hideSpinner();
+                showToast('Authentication error - please login again', 'error');
+                return;
+            }
+
+            return fetch(`/admin/service-requests/api${token ? `?token=${token}` : ''}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(serviceRequest)
+            });
+        })
+        .then(response => {
+            if (response.status === 401) {
+                window.location.href = '/admin/login?error=session_expired';
+                throw new Error('Session expired');
+            }
+
+            if (!response.ok) {
+                return response.text().then(text => {
+                    try {
+                        const errorData = JSON.parse(text);
+                        throw new Error(errorData.error || 'Failed to create service request');
+                    } catch (e) {
+                        throw new Error('Failed to create service request: ' + text);
+                    }
+                });
+            }
+
+            return response.json();
+        })
+        .then(data => {
+            hideSpinner();
+
+            const modal = bootstrap.Modal.getInstance(document.getElementById('addServiceRequestModal'));
+            if (modal) {
+                modal.hide();
+            }
+
+            document.getElementById('addServiceRequestForm').reset();
+            document.getElementById('newVehicleForm').style.display = 'none';
+            resetVehicleDropdown();
+            selectedVehicleData = null;
+
+            showSuccessModal('Service Request Created', 'The service request has been created successfully.');
+
+            if (data) {
+                serviceRequests.unshift(data);
+                renderServiceRequests();
+                setupPagination();
+            } else {
+                loadServiceRequests();
+            }
+        })
+        .catch(error => {
+            hideSpinner();
+            showToast('Failed to create service request: ' + error.message, 'error');
+        });
+}
+
+// Updated saveServiceRequest function
 function saveServiceRequest() {
     const form = document.getElementById('addServiceRequestForm');
     if (!form) return;
@@ -859,7 +1029,7 @@ function saveServiceRequest() {
         }
 
         if (formValid) {
-            createServiceRequestWithVehicle(vehicleId);
+            createEnhancedServiceRequest(vehicleId);
         }
     }
 }

@@ -4,18 +4,24 @@ import com.albany.mvc.dto.ServiceRequestDto;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class ServiceRequestService {
 
     private final RestTemplate restTemplate;
@@ -54,6 +60,7 @@ public class ServiceRequestService {
                 return requests;
             }
         } catch (Exception e) {
+            log.error("Failed to fetch service requests: {}", e.getMessage(), e);
             throw new RuntimeException("Failed to fetch service requests: " + e.getMessage());
         }
 
@@ -107,21 +114,85 @@ public class ServiceRequestService {
         } catch (HttpClientErrorException.NotFound e) {
             throw new RuntimeException("Service request not found with ID: " + requestId);
         } catch (Exception e) {
+            log.error("Failed to fetch service request: {}", e.getMessage(), e);
             throw new RuntimeException("Failed to fetch service request: " + e.getMessage());
         }
     }
 
     /**
-     * Create a new service request
+     * Create a new service request - completely restructured to fix the issues
      */
     public ServiceRequestDto createServiceRequest(ServiceRequestDto requestDto, String token) {
         try {
             validateAndEnhanceRequest(requestDto);
 
+            // Create a new payload specifically for creating service requests
+            Map<String, Object> requestMap = new HashMap<>();
+
+            // CRITICAL: Set vehicleId properly - this was the root of the issue
+            // API explicitly expects vehicleId (camelCase) and NOT vehicle_id
+            if (requestDto.getVehicleId() != null) {
+                requestMap.put("vehicleId", requestDto.getVehicleId());
+            } else {
+                throw new RuntimeException("Vehicle ID is required");
+            }
+
+            // Include both snake_case and camelCase versions of all critical fields
+            if (requestDto.getVehicleBrand() != null) {
+                requestMap.put("vehicleBrand", requestDto.getVehicleBrand());
+                requestMap.put("vehicle_brand", requestDto.getVehicleBrand());
+            }
+
+            if (requestDto.getVehicleModel() != null) {
+                requestMap.put("vehicleModel", requestDto.getVehicleModel());
+                requestMap.put("vehicle_model", requestDto.getVehicleModel());
+            }
+
+            if (requestDto.getRegistrationNumber() != null) {
+                requestMap.put("registrationNumber", requestDto.getRegistrationNumber());
+                requestMap.put("vehicle_registration", requestDto.getRegistrationNumber());
+            }
+
+            if (requestDto.getVehicleCategory() != null) {
+                requestMap.put("vehicleCategory", requestDto.getVehicleCategory());
+                requestMap.put("vehicle_type", requestDto.getVehicleCategory());
+            }
+
+            // Set service details
+            requestMap.put("serviceType", requestDto.getServiceType());
+            requestMap.put("service_type", requestDto.getServiceType());
+            requestMap.put("service_description", requestDto.getServiceType());
+
+            // Delivery date handling
+            if (requestDto.getDeliveryDate() != null) {
+                requestMap.put("deliveryDate", requestDto.getDeliveryDate().toString());
+                requestMap.put("delivery_date", requestDto.getDeliveryDate().toString());
+            }
+
+            // Description and status
+            requestMap.put("additionalDescription", requestDto.getAdditionalDescription() != null ?
+                    requestDto.getAdditionalDescription() : "");
+            requestMap.put("additional_description", requestDto.getAdditionalDescription() != null ?
+                    requestDto.getAdditionalDescription() : "");
+            requestMap.put("status", requestDto.getStatus());
+
+            // Add timestamps
+            String now = LocalDateTime.now().format(DateTimeFormatter.ISO_DATE_TIME);
+            requestMap.put("created_at", now);
+            requestMap.put("updated_at", now);
+
+            // Add user ID
+            requestMap.put("user_id", 1);
+
+            // Vehicle year
+            requestMap.put("vehicle_year", LocalDate.now().getYear());
+
+            log.info("Sending service request with payload: {}", requestMap);
+
             HttpHeaders headers = createAuthHeaders(token);
             headers.setContentType(MediaType.APPLICATION_JSON);
 
-            HttpEntity<ServiceRequestDto> entity = new HttpEntity<>(requestDto, headers);
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestMap, headers);
 
             ResponseEntity<String> response = restTemplate.exchange(
                     apiBaseUrl + "/service-requests",
@@ -142,6 +213,8 @@ public class ServiceRequestService {
                 throw new RuntimeException("Unexpected response from server: " + response.getStatusCode());
             }
         } catch (HttpClientErrorException e) {
+            log.error("API error creating service request: Status {}, Body: {}",
+                    e.getStatusCode(), e.getResponseBodyAsString());
             try {
                 Map<String, Object> errorResponse = objectMapper.readValue(
                         e.getResponseBodyAsString(),
@@ -157,6 +230,7 @@ public class ServiceRequestService {
                 throw new RuntimeException("API error: " + e.getMessage());
             }
         } catch (Exception e) {
+            log.error("Failed to create service request: {}", e.getMessage(), e);
             throw new RuntimeException("Failed to create service request: " + e.getMessage());
         }
     }
@@ -191,6 +265,7 @@ public class ServiceRequestService {
                 throw new RuntimeException("Failed to assign service advisor");
             }
         } catch (Exception e) {
+            log.error("Failed to assign service advisor: {}", e.getMessage(), e);
             throw new RuntimeException("Failed to assign service advisor: " + e.getMessage());
         }
     }
@@ -225,6 +300,7 @@ public class ServiceRequestService {
                 throw new RuntimeException("Failed to update service request status");
             }
         } catch (Exception e) {
+            log.error("Failed to update service request status: {}", e.getMessage(), e);
             throw new RuntimeException("Failed to update service request status: " + e.getMessage());
         }
     }
