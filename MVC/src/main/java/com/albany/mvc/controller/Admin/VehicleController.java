@@ -1,9 +1,12 @@
 package com.albany.mvc.controller.Admin;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.*;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -22,6 +25,7 @@ import java.util.Map;
 public class VehicleController extends AdminBaseController {
 
     private final RestTemplate restTemplate;
+    private final ObjectMapper objectMapper;
 
     @Value("${api.base-url}")
     private String apiBaseUrl;
@@ -211,7 +215,7 @@ public class VehicleController extends AdminBaseController {
         }
     }
 
-    // Vehicle Tracking Endpoints
+    // UPDATED METHOD - Enhanced vehicle under service fetching with fallback mechanisms
     @GetMapping("/api/vehicle-tracking/under-service")
     @ResponseBody
     public ResponseEntity<List<Map<String, Object>>> getVehiclesUnderService(
@@ -221,25 +225,105 @@ public class VehicleController extends AdminBaseController {
 
         String validToken = getValidToken(token, authHeader, request);
         if (validToken == null) {
+            log.warn("Authorization token missing for vehicles under service request");
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Collections.emptyList());
         }
 
         try {
+            log.info("Fetching vehicles under service");
             HttpHeaders headers = new HttpHeaders();
             headers.set("Authorization", "Bearer " + validToken);
             HttpEntity<Void> entity = new HttpEntity<>(headers);
 
-            ResponseEntity<List<Map<String, Object>>> response = restTemplate.exchange(
-                    apiBaseUrl + "/vehicle-tracking/under-service",
+            // Try the primary API endpoint first
+            String primaryUrl = apiBaseUrl + "/vehicle-tracking/vehicles-under-service";
+            log.debug("Making request to: {}", primaryUrl);
+
+            try {
+                ResponseEntity<String> response = restTemplate.exchange(
+                        primaryUrl,
+                        HttpMethod.GET,
+                        entity,
+                        String.class
+                );
+
+                if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
+                    List<Map<String, Object>> vehiclesUnderService = objectMapper.readValue(
+                            response.getBody(),
+                            new TypeReference<List<Map<String, Object>>>() {}
+                    );
+                    log.info("Successfully retrieved {} vehicles under service", vehiclesUnderService.size());
+                    return ResponseEntity.ok(vehiclesUnderService);
+                } else {
+                    log.warn("Unexpected response from primary API: {}", response.getStatusCode());
+                }
+            } catch (Exception e) {
+                log.warn("Primary API call failed: {}", e.getMessage());
+                // Continue to fallback
+            }
+
+            // Fallback: Try to get service requests and filter them
+            log.info("Trying fallback approach: get all service requests and filter");
+
+            String fallbackUrl = apiBaseUrl + "/service-requests";
+            ResponseEntity<String> fallbackResponse = restTemplate.exchange(
+                    fallbackUrl,
                     HttpMethod.GET,
                     entity,
-                    new org.springframework.core.ParameterizedTypeReference<List<Map<String, Object>>>() {}
+                    String.class
             );
 
-            return ResponseEntity.ok(response.getBody());
+            if (fallbackResponse.getStatusCode() == HttpStatus.OK && fallbackResponse.getBody() != null) {
+                List<Map<String, Object>> allServices = objectMapper.readValue(
+                        fallbackResponse.getBody(),
+                        new TypeReference<List<Map<String, Object>>>() {}
+                );
+
+                // Filter to only include services that are under service (not completed)
+                List<Map<String, Object>> underServiceRequests = allServices.stream()
+                        .filter(service -> {
+                            String status = service.containsKey("status") ?
+                                    String.valueOf(service.get("status")) : "";
+                            return status != null &&
+                                    !status.equalsIgnoreCase("Completed") &&
+                                    !status.isEmpty();
+                        })
+                        .toList();
+
+                log.info("Fallback method found {} vehicles under service", underServiceRequests.size());
+                return ResponseEntity.ok(underServiceRequests);
+            }
+
+            log.warn("Both primary and fallback attempts failed");
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Collections.emptyList());
         } catch (Exception e) {
+            log.error("Error fetching vehicles under service: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Collections.emptyList());
         }
+    }
+
+    /**
+     * Health check endpoint to test API connectivity
+     */
+    @GetMapping("/api/health-check")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> healthCheck(
+            @RequestParam(required = false) String token,
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            HttpServletRequest request) {
+
+        String validToken = getValidToken(token, authHeader, request);
+        if (validToken == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(
+                    Collections.singletonMap("status", "unauthorized")
+            );
+        }
+
+        return ResponseEntity.ok(Map.of(
+                "status", "ok",
+                "timestamp", System.currentTimeMillis(),
+                "environment", "production"
+        ));
     }
 
     @GetMapping("/api/vehicle-tracking/completed-services")
@@ -263,11 +347,12 @@ public class VehicleController extends AdminBaseController {
                     apiBaseUrl + "/vehicle-tracking/completed-services",
                     HttpMethod.GET,
                     entity,
-                    new org.springframework.core.ParameterizedTypeReference<List<Map<String, Object>>>() {}
+                    new ParameterizedTypeReference<List<Map<String, Object>>>() {}
             );
 
             return ResponseEntity.ok(response.getBody());
         } catch (Exception e) {
+            log.error("Error fetching completed services: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Collections.emptyList());
         }
     }
@@ -301,7 +386,7 @@ public class VehicleController extends AdminBaseController {
                     apiBaseUrl + "/vehicle-tracking/service-request/" + id + "/status",
                     HttpMethod.PUT,
                     entity,
-                    new org.springframework.core.ParameterizedTypeReference<Map<String, Object>>() {}
+                    new ParameterizedTypeReference<Map<String, Object>>() {}
             );
 
             return ResponseEntity.ok(response.getBody());
