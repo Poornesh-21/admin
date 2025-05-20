@@ -3,6 +3,7 @@ package com.albany.mvc.service;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
@@ -11,10 +12,11 @@ import org.springframework.web.client.RestTemplate;
 import java.util.*;
 
 /**
- * Service for handling completed services functionality
+ * Consolidated service for completed services and vehicle tracking functionality
  */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class CompletedServicesService {
 
     private final RestTemplate restTemplate;
@@ -49,10 +51,278 @@ public class CompletedServicesService {
                 return completedServices;
             }
         } catch (Exception e) {
-            // Simplified error handling
+            log.error("Error fetching completed services: {}", e.getMessage(), e);
         }
 
         return Collections.emptyList();
+    }
+
+    /**
+     * Get all vehicles under service (migrated from VehicleTrackingService)
+     */
+    public List<Map<String, Object>> getVehiclesUnderService(String token) {
+        try {
+            HttpHeaders headers = createAuthHeaders(token);
+            HttpEntity<Void> entity = new HttpEntity<>(headers);
+
+            ResponseEntity<String> response = restTemplate.exchange(
+                    apiBaseUrl + "/vehicle-tracking/vehicles-under-service",
+                    HttpMethod.GET,
+                    entity,
+                    String.class
+            );
+
+            if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
+                List<Map<String, Object>> vehiclesUnderService = objectMapper.readValue(
+                        response.getBody(),
+                        new TypeReference<List<Map<String, Object>>>() {}
+                );
+                return vehiclesUnderService;
+            }
+        } catch (Exception e) {
+            log.error("Error fetching vehicles under service: {}", e.getMessage(), e);
+        }
+
+        return Collections.emptyList();
+    }
+
+    /**
+     * Get details for a specific service request
+     */
+    public Map<String, Object> getServiceDetails(Integer serviceId, String token) {
+        try {
+            HttpHeaders headers = createAuthHeaders(token);
+            HttpEntity<Void> entity = new HttpEntity<>(headers);
+
+            ResponseEntity<String> response = restTemplate.exchange(
+                    apiBaseUrl + "/vehicle-tracking/service-request/" + serviceId,
+                    HttpMethod.GET,
+                    entity,
+                    String.class
+            );
+
+            if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
+                Map<String, Object> serviceDetails = objectMapper.readValue(
+                        response.getBody(),
+                        new TypeReference<Map<String, Object>>() {}
+                );
+
+                // Apply the standard data enhancement
+                enhanceServiceData(serviceDetails);
+
+                // Then apply additional enhancements specific to details view
+                enrichServiceDetails(serviceDetails);
+
+                return serviceDetails;
+            }
+        } catch (Exception e) {
+            log.error("Error fetching service details: {}", e.getMessage(), e);
+        }
+
+        return Collections.emptyMap();
+    }
+
+    /**
+     * Update service request status (migrated from VehicleTrackingService)
+     */
+    public boolean updateServiceStatus(Integer requestId, String status, String token) {
+        try {
+            HttpHeaders headers = createAuthHeaders(token);
+            headers.setContentType(MediaType.APPLICATION_JSON);
+
+            Map<String, String> requestBody = Collections.singletonMap("status", status);
+            HttpEntity<Map<String, String>> entity = new HttpEntity<>(requestBody, headers);
+
+            ResponseEntity<Map> response = restTemplate.exchange(
+                    apiBaseUrl + "/vehicle-tracking/service-request/" + requestId + "/status",
+                    HttpMethod.PUT,
+                    entity,
+                    Map.class
+            );
+
+            return response.getStatusCode().is2xxSuccessful();
+        } catch (Exception e) {
+            log.error("Error updating service status: {}", e.getMessage(), e);
+        }
+
+        return false;
+    }
+
+    /**
+     * Generate an invoice for a completed service
+     */
+    public Map<String, Object> generateInvoice(Integer serviceId, Map<String, Object> invoiceDetails, String token) {
+        try {
+            HttpHeaders headers = createAuthHeaders(token);
+            headers.setContentType(MediaType.APPLICATION_JSON);
+
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(invoiceDetails, headers);
+
+            ResponseEntity<String> response = restTemplate.exchange(
+                    apiBaseUrl + "/invoices/service-request/" + serviceId + "/generate",
+                    HttpMethod.POST,
+                    entity,
+                    String.class
+            );
+
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                return objectMapper.readValue(
+                        response.getBody(),
+                        new TypeReference<Map<String, Object>>() {}
+                );
+            }
+        } catch (Exception e) {
+            log.error("Error generating invoice: {}", e.getMessage(), e);
+            return Collections.singletonMap("error", "Failed to generate invoice: " + e.getMessage());
+        }
+
+        return Collections.emptyMap();
+    }
+
+    /**
+     * Record payment for a service (migrated from VehicleTrackingService)
+     */
+    public Map<String, Object> recordPayment(Integer serviceId, Map<String, Object> paymentDetails, String token) {
+        try {
+            HttpHeaders headers = createAuthHeaders(token);
+            headers.setContentType(MediaType.APPLICATION_JSON);
+
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(paymentDetails, headers);
+
+            ResponseEntity<Map> response = restTemplate.exchange(
+                    apiBaseUrl + "/vehicle-tracking/service-request/" + serviceId + "/payment",
+                    HttpMethod.POST,
+                    entity,
+                    Map.class
+            );
+
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                return response.getBody();
+            }
+        } catch (Exception e) {
+            log.error("Error recording payment: {}", e.getMessage(), e);
+            return Collections.singletonMap("error", e.getMessage());
+        }
+
+        return Collections.emptyMap();
+    }
+
+    /**
+     * Handle vehicle delivery/dispatch (migrated from VehicleTrackingService)
+     */
+    public Map<String, Object> dispatchVehicle(Integer serviceId, Map<String, Object> dispatchDetails, String token) {
+        try {
+            HttpHeaders headers = createAuthHeaders(token);
+            headers.setContentType(MediaType.APPLICATION_JSON);
+
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(dispatchDetails, headers);
+
+            ResponseEntity<Map> response = restTemplate.exchange(
+                    apiBaseUrl + "/vehicle-tracking/service-request/" + serviceId + "/dispatch",
+                    HttpMethod.POST,
+                    entity,
+                    Map.class
+            );
+
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                return response.getBody();
+            }
+        } catch (Exception e) {
+            log.error("Error dispatching vehicle: {}", e.getMessage(), e);
+            return Collections.singletonMap("error", e.getMessage());
+        }
+
+        return Collections.emptyMap();
+    }
+
+    /**
+     * Filter completed services based on criteria
+     */
+    public List<Map<String, Object>> filterCompletedServices(Map<String, Object> filterCriteria, String token) {
+        try {
+            HttpHeaders headers = createAuthHeaders(token);
+            headers.setContentType(MediaType.APPLICATION_JSON);
+
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(filterCriteria, headers);
+
+            ResponseEntity<String> response = restTemplate.exchange(
+                    apiBaseUrl + "/vehicle-tracking/completed-services/filter",
+                    HttpMethod.POST,
+                    entity,
+                    String.class
+            );
+
+            if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
+                List<Map<String, Object>> filteredServices = objectMapper.readValue(
+                        response.getBody(),
+                        new TypeReference<List<Map<String, Object>>>() {}
+                );
+
+                // Process and enhance each filtered service
+                filteredServices.forEach(this::enhanceServiceData);
+                return filteredServices;
+            }
+        } catch (Exception e) {
+            log.error("Error filtering completed services: {}", e.getMessage(), e);
+        }
+
+        return Collections.emptyList();
+    }
+
+    /**
+     * Filter vehicles under service (migrated from VehicleTrackingService)
+     */
+    public List<Map<String, Object>> filterVehiclesUnderService(Map<String, Object> filterCriteria, String token) {
+        try {
+            HttpHeaders headers = createAuthHeaders(token);
+            headers.setContentType(MediaType.APPLICATION_JSON);
+
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(filterCriteria, headers);
+
+            ResponseEntity<String> response = restTemplate.exchange(
+                    apiBaseUrl + "/vehicle-tracking/vehicles-under-service/filter",
+                    HttpMethod.POST,
+                    entity,
+                    String.class
+            );
+
+            if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
+                return objectMapper.readValue(
+                        response.getBody(),
+                        new TypeReference<List<Map<String, Object>>>() {}
+                );
+            }
+        } catch (Exception e) {
+            log.error("Error filtering vehicles under service: {}", e.getMessage(), e);
+        }
+
+        return Collections.emptyList();
+    }
+
+    /**
+     * Search for vehicles and services (migrated from VehicleTrackingService)
+     */
+    public Map<String, List<Map<String, Object>>> searchVehiclesAndServices(String query, String token) {
+        try {
+            Map<String, Object> searchCriteria = Collections.singletonMap("search", query);
+
+            // Get vehicles under service matching the search
+            List<Map<String, Object>> vehiclesUnderService = filterVehiclesUnderService(searchCriteria, token);
+
+            // Get completed services matching the search
+            List<Map<String, Object>> completedServices = filterCompletedServices(searchCriteria, token);
+
+            // Combine results
+            Map<String, List<Map<String, Object>>> results = new HashMap<>();
+            results.put("vehiclesUnderService", vehiclesUnderService);
+            results.put("completedServices", completedServices);
+
+            return results;
+        } catch (Exception e) {
+            log.error("Error searching vehicles and services: {}", e.getMessage(), e);
+        }
+
+        return Collections.emptyMap();
     }
 
     /**
@@ -199,42 +469,6 @@ public class CompletedServicesService {
     }
 
     /**
-     * Get details for a specific service request
-     */
-    public Map<String, Object> getServiceDetails(Integer serviceId, String token) {
-        try {
-            HttpHeaders headers = createAuthHeaders(token);
-            HttpEntity<Void> entity = new HttpEntity<>(headers);
-
-            ResponseEntity<String> response = restTemplate.exchange(
-                    apiBaseUrl + "/vehicle-tracking/service-request/" + serviceId,
-                    HttpMethod.GET,
-                    entity,
-                    String.class
-            );
-
-            if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
-                Map<String, Object> serviceDetails = objectMapper.readValue(
-                        response.getBody(),
-                        new TypeReference<Map<String, Object>>() {}
-                );
-
-                // Apply the standard data enhancement
-                enhanceServiceData(serviceDetails);
-
-                // Then apply additional enhancements specific to details view
-                enrichServiceDetails(serviceDetails);
-
-                return serviceDetails;
-            }
-        } catch (Exception e) {
-            // Simplified error handling
-        }
-
-        return Collections.emptyMap();
-    }
-
-    /**
      * Enrich service details with materials and labor information
      */
     private void enrichServiceDetails(Map<String, Object> serviceDetails) {
@@ -257,130 +491,6 @@ public class CompletedServicesService {
             return map.get(key).toString();
         }
         return null;
-    }
-
-    /**
-     * Filter completed services based on criteria
-     */
-    public List<Map<String, Object>> filterCompletedServices(Map<String, Object> filterCriteria, String token) {
-        try {
-            HttpHeaders headers = createAuthHeaders(token);
-            headers.setContentType(MediaType.APPLICATION_JSON);
-
-            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(filterCriteria, headers);
-
-            ResponseEntity<String> response = restTemplate.exchange(
-                    apiBaseUrl + "/vehicle-tracking/completed-services/filter",
-                    HttpMethod.POST,
-                    entity,
-                    String.class
-            );
-
-            if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
-                List<Map<String, Object>> filteredServices = objectMapper.readValue(
-                        response.getBody(),
-                        new TypeReference<List<Map<String, Object>>>() {}
-                );
-
-                // Process and enhance each filtered service
-                filteredServices.forEach(this::enhanceServiceData);
-                return filteredServices;
-            }
-        } catch (Exception e) {
-            // Simplified error handling
-        }
-
-        return Collections.emptyList();
-    }
-
-    /**
-     * Generate an invoice for a completed service
-     */
-    public Map<String, Object> generateInvoice(Integer serviceId, Map<String, Object> invoiceDetails, String token) {
-        try {
-            HttpHeaders headers = createAuthHeaders(token);
-            headers.setContentType(MediaType.APPLICATION_JSON);
-
-            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(invoiceDetails, headers);
-
-            ResponseEntity<String> response = restTemplate.exchange(
-                    apiBaseUrl + "/invoices/service-request/" + serviceId + "/generate",
-                    HttpMethod.POST,
-                    entity,
-                    String.class
-            );
-
-            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
-                return objectMapper.readValue(
-                        response.getBody(),
-                        new TypeReference<Map<String, Object>>() {}
-                );
-            }
-        } catch (Exception e) {
-            return Collections.singletonMap("error", "Failed to generate invoice: " + e.getMessage());
-        }
-
-        return Collections.emptyMap();
-    }
-
-    /**
-     * Record payment for a service
-     */
-    public Map<String, Object> recordPayment(Integer serviceId, Map<String, Object> paymentDetails, String token) {
-        try {
-            HttpHeaders headers = createAuthHeaders(token);
-            headers.setContentType(MediaType.APPLICATION_JSON);
-
-            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(paymentDetails, headers);
-
-            ResponseEntity<String> response = restTemplate.exchange(
-                    apiBaseUrl + "/payments/service-request/" + serviceId,
-                    HttpMethod.POST,
-                    entity,
-                    String.class
-            );
-
-            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
-                return objectMapper.readValue(
-                        response.getBody(),
-                        new TypeReference<Map<String, Object>>() {}
-                );
-            }
-        } catch (Exception e) {
-            return Collections.singletonMap("error", "Failed to record payment: " + e.getMessage());
-        }
-
-        return Collections.emptyMap();
-    }
-
-    /**
-     * Handle vehicle delivery/dispatch
-     */
-    public Map<String, Object> dispatchVehicle(Integer serviceId, Map<String, Object> dispatchDetails, String token) {
-        try {
-            HttpHeaders headers = createAuthHeaders(token);
-            headers.setContentType(MediaType.APPLICATION_JSON);
-
-            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(dispatchDetails, headers);
-
-            ResponseEntity<String> response = restTemplate.exchange(
-                    apiBaseUrl + "/vehicle-tracking/service-request/" + serviceId + "/dispatch",
-                    HttpMethod.POST,
-                    entity,
-                    String.class
-            );
-
-            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
-                return objectMapper.readValue(
-                        response.getBody(),
-                        new TypeReference<Map<String, Object>>() {}
-                );
-            }
-        } catch (Exception e) {
-            return Collections.singletonMap("error", "Failed to dispatch vehicle: " + e.getMessage());
-        }
-
-        return Collections.emptyMap();
     }
 
     /**

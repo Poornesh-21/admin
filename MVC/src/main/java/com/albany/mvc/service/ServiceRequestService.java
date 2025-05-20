@@ -19,6 +19,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Consolidated service that handles service requests and service assignments
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -65,6 +68,98 @@ public class ServiceRequestService {
         }
 
         return Collections.emptyList();
+    }
+
+    /**
+     * Get new service requests that need assignment (migrated from ServiceAssignmentService)
+     */
+    public List<Map<String, Object>> getNewServiceRequests(String token) {
+        try {
+            HttpHeaders headers = createAuthHeaders(token);
+            HttpEntity<Void> entity = new HttpEntity<>(headers);
+
+            ResponseEntity<String> response = restTemplate.exchange(
+                    apiBaseUrl + "/service-assignments/new",
+                    HttpMethod.GET,
+                    entity,
+                    String.class
+            );
+
+            if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
+                return objectMapper.readValue(
+                        response.getBody(),
+                        new TypeReference<List<Map<String, Object>>>() {}
+                );
+            } else {
+                log.warn("Unexpected response status: {}", response.getStatusCode());
+                return Collections.emptyList();
+            }
+        } catch (Exception e) {
+            log.error("Error fetching new service requests: {}", e.getMessage(), e);
+            return Collections.emptyList();
+        }
+    }
+
+    /**
+     * Get assigned service requests (migrated from ServiceAssignmentService)
+     */
+    public List<Map<String, Object>> getAssignedRequests(String token) {
+        try {
+            HttpHeaders headers = createAuthHeaders(token);
+            HttpEntity<Void> entity = new HttpEntity<>(headers);
+
+            ResponseEntity<String> response = restTemplate.exchange(
+                    apiBaseUrl + "/service-assignments/assigned",
+                    HttpMethod.GET,
+                    entity,
+                    String.class
+            );
+
+            if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
+                return objectMapper.readValue(
+                        response.getBody(),
+                        new TypeReference<List<Map<String, Object>>>() {}
+                );
+            } else {
+                log.warn("Unexpected response status: {}", response.getStatusCode());
+                return Collections.emptyList();
+            }
+        } catch (Exception e) {
+            log.error("Error fetching assigned requests: {}", e.getMessage(), e);
+            return Collections.emptyList();
+        }
+    }
+
+    /**
+     * Assign a service to an advisor (migrated from ServiceAssignmentService)
+     */
+    public Map<String, Object> assignService(Integer serviceRequestId, Map<String, Object> assignmentData, String token) {
+        try {
+            HttpHeaders headers = createAuthHeaders(token);
+            headers.setContentType(MediaType.APPLICATION_JSON);
+
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(assignmentData, headers);
+
+            ResponseEntity<String> response = restTemplate.exchange(
+                    apiBaseUrl + "/service-assignments/assign",
+                    HttpMethod.POST,
+                    entity,
+                    String.class
+            );
+
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                return objectMapper.readValue(
+                        response.getBody(),
+                        new TypeReference<Map<String, Object>>() {}
+                );
+            } else {
+                log.warn("Unexpected response status: {}", response.getStatusCode());
+                return Collections.singletonMap("error", "Unexpected response status: " + response.getStatusCode());
+            }
+        } catch (Exception e) {
+            log.error("Error assigning service: {}", e.getMessage(), e);
+            return Collections.singletonMap("error", e.getMessage());
+        }
     }
 
     /**
@@ -120,7 +215,7 @@ public class ServiceRequestService {
     }
 
     /**
-     * Create a new service request - completely restructured to fix the issues
+     * Create a new service request
      */
     public ServiceRequestDto createServiceRequest(ServiceRequestDto requestDto, String token) {
         try {
